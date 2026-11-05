@@ -43,3 +43,7 @@ alter table private.venues add column if not exists address text;
 -- (payloads never carry message contents; one unread per kind+key; last 200 kept), my_notifications(mark_read);
 -- hooked into send_introduction, respond_introduction, send_message, close_conversation, admin_decide_report;
 -- conversation_messages clears the matching notifications.
+
+-- Same day, migration meeting_prompt_data_export: conversations.meeting_a/meeting_b/meeting_prompted_at/meeting_agreed_at,
+-- private.meeting_state(), meeting_answer(conversation, yes) (after two messages from each side; two yes = agreed; a no or
+-- no answer never agrees), conversation_messages returns meeting state; my_data_export() (own data, others as display names).

@@ -18,6 +18,11 @@ test('browser scripts parse and no camera capture exists', () => {
   for(const file of ['app.js','install.js','sw.js'])new vm.Script(fs.readFileSync('public/'+file,'utf8'));
   const source=fs.readFileSync('public/app.js','utf8');assert.doesNotMatch(source,/getUserMedia|capture="user"/);
 });
+test('legal pages exist in both languages and are linked from the app',()=>{
+  for(const file of ['public/confidentialite.html','public/cgu.html']){const html=fs.readFileSync(file,'utf8');assert.match(html,/id="fr" lang="fr"/);assert.match(html,/id="en" lang="en"/);}
+  assert.match(fs.readFileSync("public/cgu.html","utf8"),/112/);
+  const app=fs.readFileSync('src/account.js','utf8');assert.ok(app.includes('./confidentialite.html')&&app.includes('./cgu.html'));
+});
 test('product name comes from src/brand.js and no former working name remains', () => {
   const brand=fs.readFileSync('src/brand.js','utf8');assert.match(brand,/name: 'P\.Rod'/);
   for(const file of ['public/index.html','public/account.html','public/app.js','public/install.js','public/sw.js','public/manifest.webmanifest','src/account.js'])assert.doesNotMatch(fs.readFileSync(file,'utf8'),/Z[ée]lo|M[êe]la/i,file);

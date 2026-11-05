@@ -35,10 +35,10 @@ The pass covers accepted conversations in that venue session only; each new conv
 ## 8. Chat with ongoing control — DONE
 Both can message once accepted (the pass rule of step 7 is not built). Messages, introductions and reports are never readable directly by clients: every read goes through a server function, so entitlement checks can be added in one place. At any time: end (neutral notice), block (survives venues and sessions), report (always free, never shown to the reported person).
 
-## 9. Optional meeting — TODO, timing DECIDE
-Five-second prompt after an agreed point. Both yes → suggest a public meeting point (the counter). Either no, or no answer → no meeting, chat continues. No repeated pressure after a refusal.
+## 9. Optional meeting — DONE (timing: after two messages from each side; DECIDE if different)
+Five-second prompt once the other person proposed; either side can propose from the conversation. Both yes → « meet at a public spot, e.g. the counter ». Both yes → suggest a public meeting point (the counter). Either no, or no answer → no meeting, chat continues. No repeated pressure after a refusal.
 
-## 10. Leave or session expiry — DONE for presence; conversation rules DECIDE
+## 10. Leave or session expiry — DONE for presence; conversation rules DECIDE · Privacy policy and terms pages (FR/EN) DONE as drafts with operator fields to complete · « Télécharger mes données » DONE
 Leaving, switching venue or expiry ends presence and discovery; the account remains. Pass expiry rules, read-only history, retention and reopening with fresh consent: DECIDE. Blocking and reporting must survive expiry.
 
 ## 11. Talent journey — TODO, offer DECIDE

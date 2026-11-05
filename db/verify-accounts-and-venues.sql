@@ -343,3 +343,48 @@ end $$;
 reset role;
 select 'PASS: notifications without content, deduplicated, cleared on read, for introductions, replies, messages, closures and report decisions' as result;
 rollback;
+
+-- Meeting prompt and data export.
+begin;
+insert into auth.users(id,email,email_confirmed_at,is_anonymous,raw_app_meta_data) values
+('00000000-0000-4000-8000-000000000001','pro-a@example.invalid',now(),false,'{}'),
+('00000000-0000-4000-8000-000000000002','pro-b@example.invalid',now(),false,'{}');
+insert into private.venues(id,name,category,duration_minutes) values ('00000000-0000-4000-8000-000000000011','Test A','test',60);
+insert into private.venue_invites(id,venue_id,token_hash,expires_at) values ('00000000-0000-4000-8000-000000000021','00000000-0000-4000-8000-000000000011',encode(extensions.digest(repeat('a',40),'sha256'),'hex'),now()+interval '1 day');
+insert into storage.objects(bucket_id,name,owner) values
+('avatars','u/00000000-0000-4000-8000-000000000001/avatar.jpg','00000000-0000-4000-8000-000000000001'),
+('avatars','u/00000000-0000-4000-8000-000000000002/avatar.jpg','00000000-0000-4000-8000-000000000002');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
+select public.save_profile('Alex','2000-01-01','en',true,'Jazz','u/00000000-0000-4000-8000-000000000001/avatar.jpg');
+select public.join_venue(repeat('a',40));
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
+select public.save_profile('Maya','1995-06-15','fr',true,'Musique','u/00000000-0000-4000-8000-000000000002/avatar.jpg');
+select public.join_venue(repeat('a',40));
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
+select public.send_introduction('00000000-0000-4000-8000-000000000002','Hello');
+do $$ declare intro uuid; conv uuid; st jsonb; ex jsonb; begin
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
+  intro := (public.my_inbox()->'received'->0->>'id')::uuid;
+  conv := (public.respond_introduction(intro,true,'Hi!')->>'conversation_id')::uuid;
+  begin perform public.meeting_answer(conv,true); raise exception 'TEST: meeting allowed too early'; exception when others then if sqlerrm<>'meeting_too_early' then raise; end if; end;
+  perform public.send_message(conv,'two');
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
+  perform public.send_message(conv,'two');
+  if not ((public.conversation_messages(conv)->'meeting'->>'can_ask')::boolean) then raise exception 'TEST: can_ask false after two each'; end if;
+  st := public.meeting_answer(conv,true);
+  if (st->>'agreed')::boolean then raise exception 'TEST: one yes counted as agreement'; end if;
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
+  st := public.conversation_messages(conv)->'meeting';
+  if not (st->>'other_answered')::boolean or st->>'my_answer' is not null then raise exception 'TEST: prompt state wrong: %', st; end if;
+  st := public.meeting_answer(conv,false);
+  if (st->>'agreed')::boolean then raise exception 'TEST: no counted as agreement'; end if;
+  perform public.send_message(conv,'still chatting');
+  st := public.meeting_answer(conv,true);
+  if not (st->>'agreed')::boolean then raise exception 'TEST: two yes not agreed'; end if;
+  ex := public.my_data_export();
+  if ex->'profile'->>'display_name'<>'Maya' or jsonb_array_length(ex->'conversations')<>1 or ex::text not like '%Alex%' or ex::text like '%pro-a@example%' then raise exception 'TEST: export wrong: %', left(ex::text,200); end if;
+end $$;
+reset role;
+select 'PASS: meeting needs two yes after a real exchange, no never agrees, export contains own data and only display names of others' as result;
+rollback;

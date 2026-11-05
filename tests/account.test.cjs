@@ -46,6 +46,11 @@ test('notifications are fetched through the server and rendered without message 
   for(const needle of ["rpc('my_notifications',{p_mark_read:false})","rpc('my_notifications',{p_mark_read:true})",'function notifText','introduction_received','reply_received','report_handled'])assert.ok(source.includes(needle),needle);
   assert.doesNotMatch(source.slice(source.indexOf('function notifText'),source.indexOf('function notifFeed')),/\.body|\.message\b/,'notification texts never include message bodies');
 });
+test('meeting prompt needs two yes, auto-dismisses after five seconds and never repeats after a no; data export exists',()=>{
+  const source=fs.readFileSync('src/account.js','utf8');
+  for(const needle of ["rpc('meeting_answer'",'function meetingBlock','meetingDismissed[id]=true','let left=5',"rpc('my_data_export')",'Download my data'])assert.ok(source.includes(needle),needle);
+  assert.ok(source.includes("if(m.my_answer===true)return"),'a yes is shown as a proposal, never as an agreement');
+});
 test('private auth/API calls and token-bearing assets bypass the offline cache',()=>{
   const handlers={};
   vm.runInNewContext(fs.readFileSync('public/sw.js','utf8'),{URL,self:{registration:{scope:'https://test.example/'},location:{origin:'https://test.example'},addEventListener:(name,fn)=>handlers[name]=fn}});

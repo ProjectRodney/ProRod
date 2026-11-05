@@ -331,3 +331,7 @@ create index on public.notifications(user_id, read_at, created_at desc);
 alter table public.notifications enable row level security;
 revoke all on public.notifications from anon, authenticated;
 -- private.notify(user, kind, payload, dedupe_key), private.my_notifications(mark_read) + public wrapper granted to authenticated.
+
+-- Meeting prompt (step 9) and GDPR export (migration meeting_prompt_data_export).
+alter table public.conversations add column meeting_a boolean, add column meeting_b boolean, add column meeting_prompted_at timestamptz, add column meeting_agreed_at timestamptz;
+-- private.meeting_state(conversation, uid), private.meeting_answer(uuid, boolean) + public wrapper; private.my_data_export() + public wrapper; granted to authenticated.
