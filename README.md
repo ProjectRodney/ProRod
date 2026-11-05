@@ -41,7 +41,7 @@ The earlier safety preview contains fictional browser-only state. It is a design
 
 ## Status
 
-Update 5 November 2026 (evening): product renamed to PRod (`src/brand.js`, new icon), email redirect driven by `siteUrl` in `src/public-config.js`, the built app is published from the public `prod-app` repository (GitHub Pages) while this repository stays private, `db/create-invite.sql` issues venue invitations, `CLAUDE.md` documents the project rules.
+Update 5 November 2026 (evening): product renamed to PRod (`src/brand.js`, new icon), email redirect driven by `siteUrl` in `src/public-config.js`, the app is published to GitHub Pages by `.github/workflows/deploy.yml`, `db/create-invite.sql` issues venue invitations, `CLAUDE.md` documents the project rules.
 
 
 The separate `account.html` now connects signup/sign-in, private profiles and invitation-based venue sessions to ProRod's dedicated Supabase project. SMTP and redirect configuration must be verified before testing email signup. The original `index.html` remains a fictional consent demo; its chat, payment and moderation actions are not production services. Run `npm ci`, `npm run build`, then `npm test`. Real email delivery, iPhone installation and browser interaction testing remain required. See `docs/account-and-venue-build.md` for verified database checks and remaining work.

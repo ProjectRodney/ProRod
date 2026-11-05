@@ -4,14 +4,14 @@ Roland Dzoagbe (DZOFT) parle français ; répondre dans la langue de son message
 qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le code et tu le guides.
 
 ## Le projet
-- Projet client (le nom du client et le devis restent hors du dépôt). Produit : **PRod**, application web installable (PWA)
+- Projet client (le nom du client et le devis restent hors du dépôt, qui est public). Produit : **PRod**, application web installable (PWA)
   qui permet aux personnes présentes dans un même lieu de faire connaissance, avec consentement.
   Nom défini dans `src/brand.js` (anciens noms de travail : Zélo, Mêla).
 - Documents de référence (hors dépôt, chez Roland) : feuille de route « PRod » du 5 novembre 2026
   (9 pages, phases 1 à 6) et compte rendu de cadrage du 4 novembre 2026.
-- Hébergement de test : ce dépôt reste privé ; seuls les fichiers construits (`dist/`) sont
-  publiés dans le dépôt public `rdzoagbe/prod-app` (GitHub Pages) → https://rdzoagbe.github.io/prod-app/ .
-  Publier : `npm run build` puis pousser le contenu de `dist/` sur `main` de `prod-app`.
+- Hébergement : dépôt public, GitHub Pages via `.github/workflows/deploy.yml` (build + tests, puis
+  publication de `dist/`) → https://rdzoagbe.github.io/ProRod/ . Sources, schéma et scripts sont
+  donc visibles : rien de confidentiel ne doit entrer dans le dépôt.
 - Quatre principes : accès limité au lieu rejoint ; aucun droit à une réponse ; parcours simple
   sans selfie obligatoire ; mêmes protections pour tous (fermer, bloquer, signaler), avant tout paiement.
 - Décisions encore ouvertes (côté client) : durées de session par type de lieu, preuve de présence
@@ -41,7 +41,7 @@ qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le
   jamais de genre déduit d'une adresse, jamais de données privées dans le service worker.
 
 ## Règles
-- Dépôt privé, destiné à être transféré au client : pas de secret, pas de donnée réelle, pas de nom de client,
+- Dépôt public, destiné à être transféré au client : pas de secret, pas de donnée réelle, pas de nom de client,
   pas d'adresse privée dans le code ou l'historique.
 - Toute fonction livrée doit marcher avec de vrais comptes et des contrôles côté serveur ;
   la démo ne vaut pas livraison. Ajouter un test pour chaque règle de sécurité.
