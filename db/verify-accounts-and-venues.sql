@@ -28,7 +28,8 @@ end $$;
 select public.join_venue(repeat('b',40));
 do $$ begin
   if (select count(*) from public.venue_sessions where ended_at is null)<>1 then raise exception 'TEST: multiple venues'; end if;
-  begin perform public.join_venue(repeat('a',40)); raise exception 'TEST: ended invitation reused'; exception when others then if sqlerrm<>'invitation_already_used' then raise; end if; end;
+  perform public.join_venue(repeat('a',40));
+  if (select count(*) from public.venue_sessions where ended_at is null)<>1 or (select venue_name from public.venue_sessions where ended_at is null)<>'Test A' then raise exception 'TEST: rejoin with a valid invitation failed'; end if;
 end $$;
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 do $$ begin
@@ -39,6 +40,12 @@ select public.save_profile('Maya','2000-01-01','fr',true);
 select public.join_venue(repeat('a',40));
 select public.leave_venue();
 do $$ begin if exists(select 1 from public.venue_sessions where ended_at is null) then raise exception 'TEST: leave failed'; end if; end $$;
+select public.delete_account();
+reset role;
+do $$ begin
+  if exists(select 1 from auth.users where id='00000000-0000-4000-8000-000000000002') or exists(select 1 from public.profiles where user_id='00000000-0000-4000-8000-000000000002') or exists(select 1 from public.venue_sessions where user_id='00000000-0000-4000-8000-000000000002') then raise exception 'TEST: account deletion incomplete'; end if;
+end $$;
+set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
 do $$ begin
   begin perform public.save_profile('Nope','2000-01-01','en',true); raise exception 'TEST: unconfirmed accepted'; exception when insufficient_privilege then null; end;
@@ -48,7 +55,9 @@ update public.venue_sessions set started_at=now()-interval '2 hours', expires_at
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 do $$ begin
-  begin perform public.join_venue(repeat('b',40)); raise exception 'TEST: expired session renewed'; exception when others then if sqlerrm<>'invitation_already_used' then raise; end if; end;
+  perform public.join_venue(repeat('b',40));
+  if not exists(select 1 from public.venue_sessions where ended_at is null and expires_at>now() and venue_name='Test B') then raise exception 'TEST: rejoin after expiry failed'; end if;
+  if (select count(*) from public.venue_sessions where ended_at is null)<>1 then raise exception 'TEST: expired session left open'; end if;
 end $$;
 reset role;
 update private.venue_invites set revoked_at=now() where id='00000000-0000-4000-8000-000000000021';
@@ -69,5 +78,5 @@ do $$ begin
   begin perform public.preview_venue(repeat('a',40)); raise exception 'TEST: anonymous RPC permitted'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
-select 'PASS: profile ownership, verified accounts, age, server session controls, venue switching, invitation reuse, anonymous denial' as result;
+select 'PASS: profile ownership, verified accounts, age, server session controls, venue switching, rejoin without extension, account deletion, anonymous denial' as result;
 rollback;

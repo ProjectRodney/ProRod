@@ -13,11 +13,11 @@ Email + password, confirmation email (custom SMTP), return to PRod. Checks: emai
 ## 3. Complete onboarding — DONE (fields to extend: DECIDE)
 Display name, private date of birth (18+, locked after saving), language, acceptance of community rules. No mandatory selfie. Optional/required profile photo and discovery fields: DECIDE.
 
-## 4. Home screen — PART
-Without a session: scan a QR / enter an invitation; sign out. Missing: profile and account settings screen, help and safety information. No browsing outside the joined venue (enforced server-side). With an active session: back to that venue (DONE).
+## 4. Home screen — DONE
+Without a session: scan a QR / enter an invitation; « Mon profil et réglages » (display name, language, read-only birth date, account deletion); « Aide et sécurité » (how it works, community rules, what to do in a problem, data). No browsing outside the joined venue (enforced server-side). With an active session: back to that venue.
 
 ## 5. Scan and join a venue — DONE
-Invitation preview (name, duration, conditions) before joining. Server-timed session, countdown, one venue per account (joining another ends the previous one), rescanning never extends a session. An invitation is single-use per account: whether a visitor may rejoin with the same QR after leaving is DECIDE (rotate QR codes vs. re-joinable while valid). Durations per venue type and departure detection: DECIDE. A QR alone does not prove presence.
+Invitation preview (name, duration, conditions) before joining. Server-timed session, countdown, one venue per account (joining another ends the previous one), rescanning never extends a session. Rule chosen on 5 November 2026: a valid invitation can be used again by the same account after leaving or expiry (a venue's printed QR serves returning visitors); rescanning during a live session returns it unchanged. Venues carry an address, shown before joining. Durations per venue type and departure detection: DECIDE. A QR alone does not prove presence.
 
 ## 6. Discover someone and send one introduction — TODO
 Venue-scoped discovery (members and talents of the active venue only, no blocks either way). Warning before sending: "This person is not obliged to respond. Please respect their choice." After one introduction, further messages are locked until the recipient accepts and replies. Recipient can ignore, decline, block or report. No response = no conversation.
@@ -48,4 +48,4 @@ Talent profile + agreed subscription; visible only inside the active venue, mode
 Venues, QR invitations and durations; reports and restrictions; talent content; passes, subscriptions, failed payments and refunds; errors and notifications; history of sensitive actions; two-factor authentication for administrators.
 
 ## Next complete milestone
-Install → register → confirm email → complete profile → join a test venue → leave or expire, verified on a real phone. Server side verified on 5 November 2026 with a test account; the phone test by the client is next. Then: consent-based conversations and minimal moderation (steps 6, 8 and the reporting part of 12).
+Install → register → confirm email → complete profile → join a test venue → leave or expire, verified on a real phone. Server side verified on 5 November 2026 with a test account; pilot venue « Barbier · Noisy-le-Grand » (60 minutes, to confirm) created with a 90-day invitation; the phone test by the client is next. Then: consent-based conversations and minimal moderation (steps 6, 8 and the reporting part of 12).

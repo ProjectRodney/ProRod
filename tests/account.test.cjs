@@ -14,6 +14,11 @@ test('all local account assets exist and no secret key is in public configuratio
   assert.match(config,/sb_publishable_/);
   assert.doesNotMatch(config,/sb_secret_|service_role/);
 });
+test('settings and help views exist in both languages and account deletion goes through the server',()=>{
+  const source=fs.readFileSync('src/account.js','utf8');
+  for(const needle of ['function settingsView','function helpView','data-view="help"','data-view="settings"',"rpc('delete_account')",'Aide et sécurité','Help & safety','Supprimer mon compte','Delete my account','112'])assert.ok(source.includes(needle),needle);
+  assert.ok(source.includes("p_birth_date:profile.birth_date"),'settings must not change the birth date');
+});
 test('private auth/API calls and token-bearing assets bypass the offline cache',()=>{
   const handlers={};
   vm.runInNewContext(fs.readFileSync('public/sw.js','utf8'),{URL,self:{registration:{scope:'https://test.example/'},location:{origin:'https://test.example'},addEventListener:(name,fn)=>handlers[name]=fn}});

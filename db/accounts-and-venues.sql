@@ -19,8 +19,9 @@ create policy own_profile on public.profiles for select to authenticated using (
 
 create table private.venues (
   id uuid primary key default gen_random_uuid(), name text not null check(char_length(name) between 2 and 100),
-  category text not null check(category in ('restaurant','pub','chicha','nightclub','test')),
-  duration_minutes integer not null check(duration_minutes between 15 and 720), active boolean not null default true
+  category text not null check(category in ('restaurant','pub','chicha','nightclub','barber','test')),
+  duration_minutes integer not null check(duration_minutes between 15 and 720), active boolean not null default true,
+  address text
 );
 create table private.venue_invites (
   id uuid primary key default gen_random_uuid(), venue_id uuid not null references private.venues(id),
@@ -41,7 +42,7 @@ create table public.venue_sessions (
   venue_id uuid not null references private.venues(id), invite_id uuid not null references private.venue_invites(id),
   venue_name text not null, started_at timestamptz not null default now(),
   expires_at timestamptz not null, ended_at timestamptz,
-  unique(user_id, invite_id), check(expires_at > started_at)
+  check(expires_at > started_at)
 );
 create unique index one_open_venue on public.venue_sessions(user_id) where ended_at is null;
 create index on public.venue_sessions(venue_id);
@@ -83,7 +84,7 @@ declare result jsonb;
 begin
   perform private.require_member();
   if p_token is null or length(p_token) not between 32 and 256 then raise exception 'invalid_invitation'; end if;
-  select jsonb_build_object('name',v.name,'category',v.category,'duration_minutes',v.duration_minutes)
+  select jsonb_build_object('name',v.name,'category',v.category,'duration_minutes',v.duration_minutes,'address',v.address)
   into result from private.venue_invites i join private.venues v on v.id=i.venue_id
   where i.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and i.revoked_at is null and i.expires_at>now() and v.active;
   if result is null then raise exception 'invalid_invitation'; end if;
@@ -99,11 +100,10 @@ begin
   select * into invitation from private.venue_invites where token_hash=encode(extensions.digest(p_token,'sha256'),'hex') for share;
   select * into venue from private.venues where id=invitation.venue_id for share;
   if invitation.revoked_at is not null or invitation.expires_at<=now() or not venue.active then raise exception 'invalid_invitation'; end if;
-  select * into result from public.venue_sessions where user_id=uid and invite_id=invitation.id;
-  if found then
-    if result.ended_at is null and result.expires_at>now() then return result; end if;
-    raise exception 'invitation_already_used';
-  end if;
+  -- Rescanning during a live session returns it unchanged: never an extension. A valid
+  -- invitation can be used again after leaving or expiry (a printed QR serves returning visitors).
+  select * into result from public.venue_sessions where user_id=uid and invite_id=invitation.id and ended_at is null and expires_at>now();
+  if found then return result; end if;
   update public.venue_sessions set ended_at=now() where user_id=uid and ended_at is null;
   insert into public.venue_sessions(user_id,venue_id,invite_id,venue_name,expires_at)
   values(uid,venue.id,invitation.id,venue.name,now()+make_interval(mins=>venue.duration_minutes)) returning * into result;
@@ -116,12 +116,20 @@ begin
   perform 1 from auth.users where id=uid for update;
   update public.venue_sessions set ended_at=now() where user_id=uid and ended_at is null;
 end $$;
+-- Account deletion by the member (profile and sessions cascade from auth.users).
+create function private.delete_account() returns void language plpgsql security definer set search_path = '' as $$
+declare uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'verified_account_required' using errcode='42501'; end if;
+  delete from auth.users where id=uid;
+end $$;
 create function public.save_profile(p_name text,p_birth_date date,p_locale text,p_accept_rules boolean)
 returns public.profiles language sql security invoker set search_path = '' as $$ select private.save_profile(p_name,p_birth_date,p_locale,p_accept_rules) $$;
 create function public.preview_venue(p_token text) returns jsonb language sql security invoker set search_path = '' as $$ select private.preview_venue(p_token) $$;
 create function public.join_venue(p_token text) returns public.venue_sessions language sql security invoker set search_path = '' as $$ select private.join_venue(p_token) $$;
 create function public.leave_venue() returns void language sql security invoker set search_path = '' as $$ select private.leave_venue() $$;
+create function public.delete_account() returns void language sql security invoker set search_path = '' as $$ select private.delete_account() $$;
 revoke all on all functions in schema private from public, anon, authenticated;
-grant execute on function private.save_profile(text,date,text,boolean),private.preview_venue(text),private.join_venue(text),private.leave_venue() to authenticated;
-revoke all on function public.save_profile(text,date,text,boolean),public.preview_venue(text),public.join_venue(text),public.leave_venue() from public, anon;
-grant execute on function public.save_profile(text,date,text,boolean),public.preview_venue(text),public.join_venue(text),public.leave_venue() to authenticated;
+grant execute on function private.save_profile(text,date,text,boolean),private.preview_venue(text),private.join_venue(text),private.leave_venue(),private.delete_account() to authenticated;
+revoke all on function public.save_profile(text,date,text,boolean),public.preview_venue(text),public.join_venue(text),public.leave_venue(),public.delete_account() from public, anon;
+grant execute on function public.save_profile(text,date,text,boolean),public.preview_venue(text),public.join_venue(text),public.leave_venue(),public.delete_account() to authenticated;
