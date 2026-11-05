@@ -220,3 +220,87 @@ grant execute on function private.co_present(uuid,uuid) to authenticated;
 create policy avatars_venue_select on storage.objects for select to authenticated
   using (bucket_id = 'avatars' and (storage.foldername(name))[1] = 'u'
          and private.co_present((select auth.uid()), ((storage.foldername(name))[2])::uuid));
+
+-- Consent-based conversations. Tables are not readable directly by members: every read and write goes
+-- through private.* definer functions, so visibility rules (and later paid entitlements) live in one place.
+create table public.introductions (
+  id uuid primary key default gen_random_uuid(),
+  sender_id uuid not null references auth.users(id) on delete cascade,
+  recipient_id uuid not null references auth.users(id) on delete cascade,
+  venue_id uuid not null references private.venues(id),
+  session_id uuid not null references public.venue_sessions(id) on delete cascade,
+  message text not null check (char_length(btrim(message)) between 1 and 500),
+  status text not null default 'pending' check (status in ('pending','accepted','declined')),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,
+  check (sender_id <> recipient_id),
+  unique (sender_id, recipient_id, session_id)
+);
+create index on public.introductions(recipient_id, status);
+create index on public.introductions(sender_id, status);
+alter table public.introductions enable row level security;
+revoke all on public.introductions from anon, authenticated;
+create table public.conversations (
+  id uuid primary key default gen_random_uuid(),
+  introduction_id uuid not null unique references public.introductions(id) on delete cascade,
+  venue_id uuid not null references private.venues(id),
+  a_id uuid not null references auth.users(id) on delete cascade,
+  b_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  closed_at timestamptz,
+  closed_by uuid references auth.users(id) on delete set null,
+  check (a_id <> b_id)
+);
+create index on public.conversations(a_id);
+create index on public.conversations(b_id);
+alter table public.conversations enable row level security;
+revoke all on public.conversations from anon, authenticated;
+create table public.messages (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  sender_id uuid not null references auth.users(id) on delete cascade,
+  body text not null check (char_length(btrim(body)) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+create index on public.messages(conversation_id, created_at);
+alter table public.messages enable row level security;
+revoke all on public.messages from anon, authenticated;
+create table public.conversation_reads (
+  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  read_at timestamptz not null default now(),
+  primary key (conversation_id, user_id)
+);
+alter table public.conversation_reads enable row level security;
+revoke all on public.conversation_reads from anon, authenticated;
+-- Reports are never visible to the reported person. Evidence stays with restricted access (moderation).
+create table public.reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references auth.users(id) on delete cascade,
+  reported_id uuid not null references auth.users(id) on delete cascade,
+  category text not null check (category in ('harassment','inappropriate','impersonation','prohibited','other')),
+  details text check (details is null or char_length(details) <= 1000),
+  conversation_id uuid references public.conversations(id) on delete set null,
+  venue_id uuid references private.venues(id),
+  status text not null default 'open' check (status in ('open','reviewed','actioned','dismissed')),
+  decision text,
+  decided_at timestamptz,
+  decided_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  check (reporter_id <> reported_id)
+);
+create index on public.reports(status, created_at);
+alter table public.reports enable row level security;
+revoke all on public.reports from anon, authenticated;
+-- Functions (bodies as applied on 5 November 2026, migration introductions_conversations_safety):
+--   private.member_card(uuid)                      public card: name, age, bio, photo path (never birth date or email)
+--   private.send_introduction(uuid,text)           one per person per visit, both co-present, no block, max 5 per visit
+--   private.respond_introduction(uuid,boolean,text) consent = accept + reply → conversation with the introduction as first message
+--   private.my_inbox()                             received (pending), sent (always shown as pending to the sender), conversations with unread counts
+--   private.conversation_messages(uuid)            participants only, blocks respected, records the read receipt
+--   private.send_message(uuid,text)                open conversation, not blocked, other not suspended
+--   private.close_conversation(uuid)               neutral closure visible to the other participant
+--   private.block_member(uuid)                     idempotent; closes shared conversations and pending introductions both ways
+--   private.report_member(uuid,text,text,uuid)     categories harassment|inappropriate|impersonation|prohibited|other; max 20 per day
+-- Each has a public.* security-invoker wrapper granted to authenticated; private.* execute is granted to authenticated as well
+-- (they are reachable only through the wrappers because schema private has no usage for anon and exposes nothing through PostgREST).

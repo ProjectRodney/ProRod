@@ -36,6 +36,11 @@ test('venue discovery is server-scoped and only reachable from a live session',(
   for(const needle of ["rpc('venue_members')",'function peopleView','function personView','data-action="people"','createSignedUrl(m.avatar_path,900)'])assert.ok(source.includes(needle),needle);
   assert.doesNotMatch(source,/from\('profiles'\)\.select\('\*'\)\.neq|birth_date[^,]*other/,'no client-side listing of other profiles');
 });
+test('conversations are consent-gated and every screen exposes end, block and report',()=>{
+  const source=fs.readFileSync('src/account.js','utf8');
+  for(const needle of ["rpc('send_introduction'","rpc('respond_introduction'","rpc('my_inbox')","rpc('conversation_messages'","rpc('send_message'","rpc('close_conversation'","rpc('block_member'","rpc('report_member'",'This person is not obliged to respond','Cette personne n’est pas obligée de répondre','data-action="block"','data-action="report"','data-action="close"'])assert.ok(source.includes(needle),needle);
+  assert.doesNotMatch(source,/from\('(messages|conversations|introductions|reports|blocks)'\)/,'no direct table access from the client');
+});
 test('private auth/API calls and token-bearing assets bypass the offline cache',()=>{
   const handlers={};
   vm.runInNewContext(fs.readFileSync('public/sw.js','utf8'),{URL,self:{registration:{scope:'https://test.example/'},location:{origin:'https://test.example'},addEventListener:(name,fn)=>handlers[name]=fn}});

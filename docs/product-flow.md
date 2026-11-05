@@ -19,8 +19,8 @@ Without a session: scan a QR / enter an invitation; « Mon profil et réglages �
 ## 5. Scan and join a venue — DONE
 In-app « Scanner le QR code du lieu » button (rear camera, used only to read the code, nothing stored; phone camera app and manual code remain as fallbacks). Invitation preview (name, duration, conditions) before joining. Server-timed session, countdown, one venue per account (joining another ends the previous one), rescanning never extends a session. Rule chosen on 5 November 2026: a valid invitation can be used again by the same account after leaving or expiry (a venue's printed QR serves returning visitors); rescanning during a live session returns it unchanged. Venues carry an address, shown before joining. Durations per venue type and departure detection: DECIDE. A QR alone does not prove presence.
 
-## 6. Discover someone and send one introduction — PART (discovery DONE, introduction TODO)
-Discovery DONE: « Voir qui est là » lists members with a live session in the same venue only (display name, age, bio, photo), excluding blocked pairs and suspended accounts; photos are readable only while co-present and unblocked (storage policy). Talents: TODO. Warning before sending: "This person is not obliged to respond. Please respect their choice." After one introduction, further messages are locked until the recipient accepts and replies. Recipient can ignore, decline, block or report. No response = no conversation.
+## 6. Discover someone and send one introduction — DONE (talents TODO)
+Introduction DONE: from a member's profile, one message (≤ 500 characters) shown with the warning « This person is not obliged to respond »; further messages are locked until the recipient accepts and replies; the recipient can ignore, decline (the sender only ever sees « waiting »), block or report; one introduction per person per visit, maximum five per visit. Discovery DONE: « Voir qui est là » lists members with a live session in the same venue only (display name, age, bio, photo), excluding blocked pairs and suspended accounts; photos are readable only while co-present and unblocked (storage policy). Talents: TODO. Warning before sending: "This person is not obliged to respond. Please respect their choice." After one introduction, further messages are locked until the recipient accepts and replies. Recipient can ignore, decline, block or report. No response = no conversation.
 
 ## 7. Acceptance and payment — TODO, model DECIDE (legal validation required before any build)
 | Situation | Intended result |
@@ -32,8 +32,8 @@ Discovery DONE: « Voir qui est là » lists members with a live session in the 
 | Woman uses the app | No chat payment required |
 The pass covers accepted conversations in that venue session only; each new conversation still requires consent. Gender-based pricing, eligibility (self-declared field, non-binary cases, no inference from email) and payment conditions must be validated before launch. Hidden replies never appear in notification previews or unauthorized API responses.
 
-## 8. Chat with ongoing control — TODO
-Both can message once accepted and any required pass is active. At any time: end (neutral notice), block (survives venues and sessions), report (always free, never shown to the reported person).
+## 8. Chat with ongoing control — DONE
+Both can message once accepted (the pass rule of step 7 is not built). Messages, introductions and reports are never readable directly by clients: every read goes through a server function, so entitlement checks can be added in one place. At any time: end (neutral notice), block (survives venues and sessions), report (always free, never shown to the reported person).
 
 ## 9. Optional meeting — TODO, timing DECIDE
 Five-second prompt after an agreed point. Both yes → suggest a public meeting point (the counter). Either no, or no answer → no meeting, chat continues. No repeated pressure after a refusal.

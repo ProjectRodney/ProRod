@@ -26,3 +26,8 @@ alter table private.venues add column if not exists address text;
 -- Same day, migration venue_discovery_blocks: public.blocks, private.blocked_between(), private.live_session(),
 -- venue_members() (members present in the caller's live venue: name, age, bio, photo path), storage policy
 -- avatars_venue_select (photos readable only while co-present and unblocked).
+
+-- Same day, migration introductions_conversations_safety: public.introductions, conversations, messages,
+-- conversation_reads, reports (no member grants; all access through definer functions): send_introduction,
+-- respond_introduction (consent = accept + reply), my_inbox, conversation_messages, send_message,
+-- close_conversation (neutral notice), block_member (closes everything both ways), report_member.
