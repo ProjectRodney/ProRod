@@ -317,3 +317,17 @@ revoke all on private.admin_actions from public, anon, authenticated;
 -- Functions: private.require_admin(), private.log_admin(), private.admin_overview(), admin_venues(), admin_save_venue(uuid,text,text,integer,text,boolean),
 -- admin_create_invite(uuid,integer), admin_revoke_invite(uuid), admin_reports(text), admin_decide_report(uuid,text,text,boolean), admin_members(text),
 -- admin_restrict(uuid,boolean,text), admin_audit(integer), public.is_admin(); public.* wrappers granted to authenticated. Bodies: see the migration.
+
+-- In-app notifications (migration in_app_notifications). Payloads never carry message contents.
+create table public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  kind text not null check (kind in ('introduction_received','reply_received','message_received','conversation_closed','report_handled','account_restricted','account_reinstated')),
+  payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default clock_timestamp(),
+  read_at timestamptz
+);
+create index on public.notifications(user_id, read_at, created_at desc);
+alter table public.notifications enable row level security;
+revoke all on public.notifications from anon, authenticated;
+-- private.notify(user, kind, payload, dedupe_key), private.my_notifications(mark_read) + public wrapper granted to authenticated.

@@ -41,6 +41,11 @@ test('conversations are consent-gated and every screen exposes end, block and re
   for(const needle of ["rpc('send_introduction'","rpc('respond_introduction'","rpc('my_inbox')","rpc('conversation_messages'","rpc('send_message'","rpc('close_conversation'","rpc('block_member'","rpc('report_member'",'This person is not obliged to respond','Cette personne n’est pas obligée de répondre','data-action="block"','data-action="report"','data-action="close"'])assert.ok(source.includes(needle),needle);
   assert.doesNotMatch(source,/from\('(messages|conversations|introductions|reports|blocks)'\)/,'no direct table access from the client');
 });
+test('notifications are fetched through the server and rendered without message contents',()=>{
+  const source=fs.readFileSync('src/account.js','utf8');
+  for(const needle of ["rpc('my_notifications',{p_mark_read:false})","rpc('my_notifications',{p_mark_read:true})",'function notifText','introduction_received','reply_received','report_handled'])assert.ok(source.includes(needle),needle);
+  assert.doesNotMatch(source.slice(source.indexOf('function notifText'),source.indexOf('function notifFeed')),/\.body|\.message\b/,'notification texts never include message bodies');
+});
 test('private auth/API calls and token-bearing assets bypass the offline cache',()=>{
   const handlers={};
   vm.runInNewContext(fs.readFileSync('public/sw.js','utf8'),{URL,self:{registration:{scope:'https://test.example/'},location:{origin:'https://test.example'},addEventListener:(name,fn)=>handlers[name]=fn}});

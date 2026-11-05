@@ -289,3 +289,57 @@ end $$;
 reset role;
 select 'PASS: admin claim from app_metadata only, venues, invitations, report decisions with suspension, member search, audit, reinstatement' as result;
 rollback;
+
+-- Notifications: never message contents, deduplicated per conversation, cleared on read.
+begin;
+insert into auth.users(id,email,email_confirmed_at,is_anonymous,raw_app_meta_data) values
+('00000000-0000-4000-8000-000000000001','pro-a@example.invalid',now(),false,'{}'),
+('00000000-0000-4000-8000-000000000002','pro-b@example.invalid',now(),false,'{}'),
+('00000000-0000-4000-8000-000000000009','admin@example.invalid',now(),false,'{"prod_admin":true}');
+insert into private.venues(id,name,category,duration_minutes) values ('00000000-0000-4000-8000-000000000011','Test A','test',60);
+insert into private.venue_invites(id,venue_id,token_hash,expires_at) values ('00000000-0000-4000-8000-000000000021','00000000-0000-4000-8000-000000000011',encode(extensions.digest(repeat('a',40),'sha256'),'hex'),now()+interval '1 day');
+insert into storage.objects(bucket_id,name,owner) values
+('avatars','u/00000000-0000-4000-8000-000000000001/avatar.jpg','00000000-0000-4000-8000-000000000001'),
+('avatars','u/00000000-0000-4000-8000-000000000002/avatar.jpg','00000000-0000-4000-8000-000000000002');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
+select public.save_profile('Alex','2000-01-01','en',true,'Jazz','u/00000000-0000-4000-8000-000000000001/avatar.jpg');
+select public.join_venue(repeat('a',40));
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
+select public.save_profile('Maya','1995-06-15','fr',true,'Musique','u/00000000-0000-4000-8000-000000000002/avatar.jpg');
+select public.join_venue(repeat('a',40));
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
+select public.send_introduction('00000000-0000-4000-8000-000000000002','Hello Maya, secret words here');
+do $$ declare n jsonb; intro uuid; conv uuid; begin
+  begin perform count(*) from public.notifications; raise exception 'TEST: notifications readable'; exception when insufficient_privilege then null; end;
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
+  n := public.my_notifications(false);
+  if (n->>'unread')::int<>1 or (n->'items'->0->>'kind')<>'introduction_received' or (n->'items'->0->'payload'->>'from')<>'Alex' then raise exception 'TEST: introduction notification wrong: %', n; end if;
+  if n::text like '%secret words%' then raise exception 'TEST: message content leaked in notification'; end if;
+  intro := (public.my_inbox()->'received'->0->>'id')::uuid;
+  conv := (public.respond_introduction(intro,true,'Yes, hidden reply text')->>'conversation_id')::uuid;
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
+  n := public.my_notifications(false);
+  if (n->>'unread')::int<>1 or (n->'items'->0->>'kind')<>'reply_received' then raise exception 'TEST: reply notification wrong: %', n; end if;
+  if n::text like '%hidden reply%' then raise exception 'TEST: reply content leaked'; end if;
+  perform public.conversation_messages(conv);
+  if (public.my_notifications(false)->>'unread')::int<>0 then raise exception 'TEST: read did not clear'; end if;
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
+  perform public.send_message(conv,'one'); perform public.send_message(conv,'two'); perform public.send_message(conv,'three');
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
+  if (public.my_notifications(false)->>'unread')::int<>1 then raise exception 'TEST: message notifications not deduplicated'; end if;
+  perform public.my_notifications(true);
+  if (public.my_notifications(false)->>'unread')::int<>0 then raise exception 'TEST: mark read failed'; end if;
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
+  perform public.close_conversation(conv);
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
+  if (public.my_notifications(false)->'items'->0->>'kind')<>'conversation_closed' then raise exception 'TEST: closure notification missing'; end if;
+  perform public.report_member('00000000-0000-4000-8000-000000000002','other','x');
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal1","app_metadata":{"prod_admin":true}}',true);
+  perform public.admin_decide_report((public.admin_reports('open')->0->>'id')::uuid,'dismissed','no issue',false);
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
+  if (public.my_notifications(false)->'items'->0->>'kind')<>'report_handled' then raise exception 'TEST: report notification missing'; end if;
+end $$;
+reset role;
+select 'PASS: notifications without content, deduplicated, cleared on read, for introductions, replies, messages, closures and report decisions' as result;
+rollback;

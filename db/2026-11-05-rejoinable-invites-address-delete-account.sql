@@ -38,3 +38,8 @@ alter table private.venues add column if not exists address text;
 -- admin_revoke_invite (ends sessions), admin_reports (reporter visible to moderation only, conversation
 -- attached when reported), admin_decide_report (optional suspension), admin_members (display name only),
 -- admin_restrict, admin_audit, public.is_admin(). Public wrappers granted to authenticated.
+
+-- Same day, migration in_app_notifications: public.notifications (no client grants), private.notify()
+-- (payloads never carry message contents; one unread per kind+key; last 200 kept), my_notifications(mark_read);
+-- hooked into send_introduction, respond_introduction, send_message, close_conversation, admin_decide_report;
+-- conversation_messages clears the matching notifications.
