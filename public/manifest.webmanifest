@@ -1,9 +1,9 @@
 {
   "id": "./",
-  "name": "Z\u00e9lo \u2014 ProRod test",
-  "short_name": "Z\u00e9lo",
-  "description": "Venue-based connections \u00b7 fictional testing app",
-  "start_url": "./",
+  "name": "Zélo — ProRod test",
+  "short_name": "Zélo",
+  "description": "Venue-based connections · fictional testing app",
+  "start_url": "./account.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#fff9df",

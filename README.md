@@ -41,4 +41,4 @@ The earlier safety preview contains fictional browser-only state. It is a design
 
 ## Status
 
-First PWA foundation: responsive bilingual consent demo, installation guide, manifest and offline shell. Private source repository: https://github.com/rdzoagbe/ProRod. Run `npm test` for the focused foundation checks. Chat, payments, check-in and moderation are fictional in-memory demonstrations; authentication and production services are not connected. Real iPhone installation and browser interaction testing remain required.
+The separate `account.html` now connects signup/sign-in, private profiles and invitation-based venue sessions to ProRod's dedicated Supabase project. SMTP and redirect configuration must be verified before testing email signup. The original `index.html` remains a fictional consent demo; its chat, payment and moderation actions are not production services. Run `npm ci`, `npm run build`, then `npm test`. Real email delivery, iPhone installation and browser interaction testing remain required. See `docs/account-and-venue-build.md` for verified database checks and remaining work.

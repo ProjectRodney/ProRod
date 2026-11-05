@@ -1,6 +1,14 @@
 # Account and venue implementation
 
-Status: implementation contract and validation tests prepared. Dedicated Supabase project `blqcmpqctetmjqsfdvsq` (ProRod) provisioned in Paris (`eu-west-3`) under DeSaint08's Org and verified ACTIVE_HEALTHY. Auth UI, application schema and delivery configuration are not connected yet. Joblytics pause was requested to free the active free-project slot; RD-Clients is unchanged.
+Status: dedicated Supabase project `blqcmpqctetmjqsfdvsq` (ProRod), Paris (`eu-west-3`). Account UI and application schema are connected. Email/password signup, confirmation callbacks, password recovery, private profile onboarding, invitation preview, join and leave are implemented at `account.html`. Email SMTP/redirect configuration and real-device testing remain unverified. Joblytics was paused to free the active free-project slot; RD-Clients is unchanged.
+
+`db/accounts-and-venues.sql` is the applied schema snapshot. `db/verify-accounts-and-venues.sql` runs transaction-only tests with fictional accounts and rolls everything back. Verified: age enforcement, confirmed email, owner-only reads, blocked direct session writes, invitation secrecy, invalid invitation rejection, one venue per account, rescan idempotency, closed invitation reuse denial, leaving and anonymous denial. Security advisor reports only informational notices for three intentionally policy-free private tables; those tables deny client access and are accessed only by tightly scoped server functions.
+
+The pilot has one explicitly labelled test venue, with a 60-minute test session. This is not a decision about production venue durations. Each invitation can be used once per account; a fresh visit requires a fresh invitation. No venue administration UI, member discovery, messages or payments are implemented yet. Do not treat the existing role-switching demo as an authenticated admin interface.
+
+Build: `npm ci`, `npm run build`, `npm test`. The build bundles the pinned Supabase client locally; no runtime CDN dependency. Static hosting serves `dist/`. Only a publishable API key is shipped. Authentication responses and private data are never service-worker cached.
+
+Before real signup testing, configure SMTP in the ProRod project and set Site URL plus allowed redirect to `https://prorod-zelo-test.sublimedot.chatgpt.site/account.html`. Keep email confirmation enabled. Verify actual inbox delivery with an agreed test user. The Sites deployment remains owner-private, which is a separate access gate from the ProRod account.
 
 ## First real journey
 
