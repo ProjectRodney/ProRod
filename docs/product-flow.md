@@ -19,8 +19,8 @@ Without a session: scan a QR / enter an invitation; « Mon profil et réglages �
 ## 5. Scan and join a venue — DONE
 In-app « Scanner le QR code du lieu » button (rear camera, used only to read the code, nothing stored; phone camera app and manual code remain as fallbacks). Invitation preview (name, duration, conditions) before joining. Server-timed session, countdown, one venue per account (joining another ends the previous one), rescanning never extends a session. Rule chosen on 5 November 2026: a valid invitation can be used again by the same account after leaving or expiry (a venue's printed QR serves returning visitors); rescanning during a live session returns it unchanged. Venues carry an address, shown before joining. Durations per venue type and departure detection: DECIDE. A QR alone does not prove presence.
 
-## 6. Discover someone and send one introduction — TODO
-Venue-scoped discovery (members and talents of the active venue only, no blocks either way). Warning before sending: "This person is not obliged to respond. Please respect their choice." After one introduction, further messages are locked until the recipient accepts and replies. Recipient can ignore, decline, block or report. No response = no conversation.
+## 6. Discover someone and send one introduction — PART (discovery DONE, introduction TODO)
+Discovery DONE: « Voir qui est là » lists members with a live session in the same venue only (display name, age, bio, photo), excluding blocked pairs and suspended accounts; photos are readable only while co-present and unblocked (storage policy). Talents: TODO. Warning before sending: "This person is not obliged to respond. Please respect their choice." After one introduction, further messages are locked until the recipient accepts and replies. Recipient can ignore, decline, block or report. No response = no conversation.
 
 ## 7. Acceptance and payment — TODO, model DECIDE (legal validation required before any build)
 | Situation | Intended result |

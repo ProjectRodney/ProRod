@@ -91,3 +91,59 @@ end $$;
 reset role;
 select 'PASS: profile ownership and completeness (photo, bio), private photos, verified accounts, age, server session controls, venue switching, rejoin without extension, account deletion, anonymous denial' as result;
 rollback;
+
+-- Discovery: members present in the caller's live venue only; photos readable only while co-present and unblocked.
+begin;
+insert into auth.users(id,email,email_confirmed_at,is_anonymous) values
+('00000000-0000-4000-8000-000000000001','pro-a@example.invalid',now(),false),
+('00000000-0000-4000-8000-000000000002','pro-b@example.invalid',now(),false),
+('00000000-0000-4000-8000-000000000004','pro-c@example.invalid',now(),false);
+insert into private.venues(id,name,category,duration_minutes) values
+('00000000-0000-4000-8000-000000000011','Test A','test',60),('00000000-0000-4000-8000-000000000012','Test B','test',120);
+insert into private.venue_invites(id,venue_id,token_hash,expires_at) values
+('00000000-0000-4000-8000-000000000021','00000000-0000-4000-8000-000000000011',encode(extensions.digest(repeat('a',40),'sha256'),'hex'),now()+interval '1 day'),
+('00000000-0000-4000-8000-000000000022','00000000-0000-4000-8000-000000000012',encode(extensions.digest(repeat('b',40),'sha256'),'hex'),now()+interval '1 day');
+insert into storage.objects(bucket_id,name,owner) values
+('avatars','u/00000000-0000-4000-8000-000000000001/avatar.jpg','00000000-0000-4000-8000-000000000001'),
+('avatars','u/00000000-0000-4000-8000-000000000002/avatar.jpg','00000000-0000-4000-8000-000000000002'),
+('avatars','u/00000000-0000-4000-8000-000000000004/avatar.jpg','00000000-0000-4000-8000-000000000004');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select public.save_profile('Alex','2000-01-01','en',true,'Jazz','u/00000000-0000-4000-8000-000000000001/avatar.jpg');
+do $$ begin begin perform public.venue_members(); raise exception 'TEST: discovery without session'; exception when others then if sqlerrm<>'no_live_session' then raise; end if; end; end $$;
+select public.join_venue(repeat('a',40));
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select public.save_profile('Maya','1995-06-15','fr',true,'Musique','u/00000000-0000-4000-8000-000000000002/avatar.jpg');
+select public.join_venue(repeat('a',40));
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000004","role":"authenticated"}',true);
+select public.save_profile('Chris','1990-01-01','en',true,'Elsewhere','u/00000000-0000-4000-8000-000000000004/avatar.jpg');
+select public.join_venue(repeat('b',40));
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$ declare n int; begin
+  select count(*) into n from public.venue_members(); if n<>1 then raise exception 'TEST: expected exactly Maya, got %', n; end if;
+  if (select display_name from public.venue_members())<>'Maya' then raise exception 'TEST: wrong member'; end if;
+  if (select age from public.venue_members())<>date_part('year',age(date '1995-06-15'))::int then raise exception 'TEST: age mismatch'; end if;
+  if (select count(*) from storage.objects where name='u/00000000-0000-4000-8000-000000000002/avatar.jpg')<>1 then raise exception 'TEST: co-present photo not readable'; end if;
+  if (select count(*) from storage.objects where name='u/00000000-0000-4000-8000-000000000004/avatar.jpg')<>0 then raise exception 'TEST: other-venue photo readable'; end if;
+end $$;
+reset role;
+insert into public.blocks(blocker_id,blocked_id) values('00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000001');
+set local role authenticated;
+do $$ begin
+  if (select count(*) from public.venue_members())<>0 then raise exception 'TEST: blocked member still listed'; end if;
+  if (select count(*) from storage.objects where name='u/00000000-0000-4000-8000-000000000002/avatar.jpg')<>0 then raise exception 'TEST: blocked photo readable'; end if;
+  if (select count(*) from public.blocks)<>0 then raise exception 'TEST: block by someone else visible'; end if;
+end $$;
+reset role;
+delete from public.blocks;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select public.leave_venue();
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$ begin
+  if (select count(*) from public.venue_members())<>0 then raise exception 'TEST: left member still listed'; end if;
+  if (select count(*) from storage.objects where name='u/00000000-0000-4000-8000-000000000002/avatar.jpg')<>0 then raise exception 'TEST: photo readable after leaving'; end if;
+end $$;
+reset role;
+select 'PASS: discovery scoped to the live venue, age only, photos readable only while co-present and unblocked' as result;
+rollback;

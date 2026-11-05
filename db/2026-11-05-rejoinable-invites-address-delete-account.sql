@@ -22,3 +22,7 @@ alter table private.venues add column if not exists address text;
 -- Same day, migration profile_bio_avatar_required: profiles.bio / avatar_path / avatar_updated_at, private
 -- 'avatars' storage bucket with per-member policies, private.profile_complete(), save_profile with bio and
 -- photo (photo must be the member's own object), join_venue requires a complete profile.
+
+-- Same day, migration venue_discovery_blocks: public.blocks, private.blocked_between(), private.live_session(),
+-- venue_members() (members present in the caller's live venue: name, age, bio, photo path), storage policy
+-- avatars_venue_select (photos readable only while co-present and unblocked).

@@ -161,3 +161,62 @@ revoke all on all functions in schema private from public, anon, authenticated;
 grant execute on function private.save_profile(text,date,text,boolean,text,text),private.preview_venue(text),private.join_venue(text),private.leave_venue(),private.delete_account() to authenticated;
 revoke all on function public.save_profile(text,date,text,boolean,text,text),public.preview_venue(text),public.join_venue(text),public.leave_venue(),public.delete_account() from public, anon;
 grant execute on function public.save_profile(text,date,text,boolean,text,text),public.preview_venue(text),public.join_venue(text),public.leave_venue(),public.delete_account() to authenticated;
+
+-- Blocks are authoritative across venues and sessions. Written only through server functions.
+create table public.blocks (
+  blocker_id uuid not null references auth.users(id) on delete cascade,
+  blocked_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_id),
+  check (blocker_id <> blocked_id)
+);
+create index on public.blocks(blocked_id);
+alter table public.blocks enable row level security;
+revoke all on public.blocks from anon, authenticated;
+grant select on public.blocks to authenticated;
+create policy own_blocks on public.blocks for select to authenticated using ((select auth.uid()) = blocker_id);
+create function private.blocked_between(a uuid, b uuid) returns boolean language sql stable security definer set search_path = '' as $$
+  select exists(select 1 from public.blocks where (blocker_id=a and blocked_id=b) or (blocker_id=b and blocked_id=a))
+$$;
+create function private.live_session(uid uuid) returns public.venue_sessions language sql stable security definer set search_path = '' as $$
+  select s from public.venue_sessions s where s.user_id=uid and s.ended_at is null and s.expires_at>now() limit 1
+$$;
+revoke all on function private.live_session(uuid) from public, anon, authenticated;
+-- Members currently present in the caller's venue: display name, age, bio, photo path. Never the birth date or email.
+create function private.venue_members() returns table(user_id uuid, display_name text, age integer, bio text, avatar_path text, since timestamptz)
+language plpgsql stable security definer set search_path = '' as $$
+declare uid uuid := private.require_member(); mine public.venue_sessions;
+begin
+  mine := private.live_session(uid);
+  if mine.id is null then raise exception 'no_live_session'; end if;
+  return query
+    select p.user_id, p.display_name, date_part('year', age(p.birth_date))::integer, p.bio, p.avatar_path, s.started_at
+    from public.venue_sessions s join public.profiles p on p.user_id=s.user_id
+    where s.venue_id=mine.venue_id and s.ended_at is null and s.expires_at>now() and s.user_id<>uid
+      and private.profile_complete(p)
+      and not private.blocked_between(uid, s.user_id)
+      and not exists(select 1 from private.account_restrictions r where r.user_id=s.user_id and r.suspended)
+    order by s.started_at desc;
+end $$;
+create function public.venue_members() returns table(user_id uuid, display_name text, age integer, bio text, avatar_path text, since timestamptz)
+language sql security invoker set search_path = '' as $$ select * from private.venue_members() $$;
+revoke all on function private.venue_members() from public, anon, authenticated;
+grant execute on function private.venue_members() to authenticated;
+revoke all on function public.venue_members() from public, anon;
+grant execute on function public.venue_members() to authenticated;
+revoke all on function private.blocked_between(uuid,uuid) from public, anon, authenticated;
+grant execute on function private.blocked_between(uuid,uuid) to authenticated;
+-- A member's photo is readable by another member only while both share a live session in the same venue and neither blocks the other.
+-- Co-presence is evaluated with definer rights: members only see their own sessions under RLS.
+create function private.co_present(viewer uuid, owner uuid) returns boolean language sql stable security definer set search_path = '' as $$
+  select viewer is not null and owner is not null and viewer <> owner and exists (
+    select 1 from public.venue_sessions a join public.venue_sessions b on a.venue_id=b.venue_id
+    where a.user_id=viewer and a.ended_at is null and a.expires_at>now()
+      and b.user_id=owner and b.ended_at is null and b.expires_at>now()
+  ) and not private.blocked_between(viewer, owner)
+$$;
+revoke all on function private.co_present(uuid,uuid) from public, anon, authenticated;
+grant execute on function private.co_present(uuid,uuid) to authenticated;
+create policy avatars_venue_select on storage.objects for select to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = 'u'
+         and private.co_present((select auth.uid()), ((storage.foldername(name))[2])::uuid));
