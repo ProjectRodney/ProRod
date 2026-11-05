@@ -23,7 +23,13 @@ test('QR scanning uses the rear camera only to read a venue invitation, explains
   const source=fs.readFileSync('src/account.js','utf8');
   for(const needle of ['data-action="scan"',"facingMode:{ideal:'environment'}",'getTracks().forEach(t=>t.stop())','Aucune photo n’est prise ni conservée','No photo is taken or stored',"searchParams.get('venue')",'Saisir le code d’invitation à la place'])assert.ok(source.includes(needle),needle);
   assert.doesNotMatch(source,/capture="user"|facingMode:\s*['"]user/);
-  assert.doesNotMatch(source,/toDataURL|toBlob|upload/i,'no frame is exported');
+  const scanner=source.slice(source.indexOf('async function startScan'),source.indexOf('function render('));
+  assert.doesNotMatch(scanner,/toDataURL|toBlob|\.upload\(|from\('avatars'\)/,'no camera frame is exported');
+});
+test('profile onboarding requires name, photo, date of birth and bio, and photos go to the private avatars bucket',()=>{
+  const source=fs.readFileSync('src/account.js','utf8');
+  for(const needle of ['function complete(p)','p.bio&&p.avatar_path','id="photo" name="photo" type="file" accept="image/*"','<textarea id="bio" name="bio" required','p_bio:values.bio','p_avatar_path:path',"from('avatars').upload","createSignedUrl(profile.avatar_path",'function age(date)'])assert.ok(source.includes(needle),needle);
+  assert.doesNotMatch(source,/capture="user"/);
 });
 test('private auth/API calls and token-bearing assets bypass the offline cache',()=>{
   const handlers={};

@@ -10,8 +10,8 @@ Website `https://rdzoagbe.github.io/ProRod/account.html`. iPhone: Safari → Sha
 ## 2. Create and verify an account — DONE
 Email + password, confirmation email (custom SMTP), return to PRod. Checks: email not confirmed → instructions + resend; profile incomplete → onboarding; profile complete → home. A valid stored session goes straight to home.
 
-## 3. Complete onboarding — DONE (fields to extend: DECIDE)
-Display name, private date of birth (18+, locked after saving), language, acceptance of community rules. No mandatory selfie. Optional/required profile photo and discovery fields: DECIDE.
+## 3. Complete onboarding — DONE
+Required before any venue: display name, profile photo (chosen from the phone, resized on the device, stored in a private bucket readable only by its owner until discovery is built), private date of birth (18+, locked; other members will see the age only), language, a short bio (≤ 300 characters), acceptance of community rules. The server refuses to join a venue until the profile is complete. No selfie at check-in, ever.
 
 ## 4. Home screen — DONE
 Without a session: scan a QR / enter an invitation; « Mon profil et réglages » (display name, language, read-only birth date, account deletion); « Aide et sécurité » (how it works, community rules, what to do in a problem, data). No browsing outside the joined venue (enforced server-side). With an active session: back to that venue.

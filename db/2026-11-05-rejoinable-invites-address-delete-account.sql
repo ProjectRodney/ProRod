@@ -18,3 +18,7 @@ alter table private.venues add constraint venues_category_check
   check (category in ('restaurant','pub','chicha','nightclub','barber','test'));
 alter table private.venues add column if not exists address text;
 -- preview_venue, join_venue, delete_account: see accounts-and-venues.sql for the current bodies.
+
+-- Same day, migration profile_bio_avatar_required: profiles.bio / avatar_path / avatar_updated_at, private
+-- 'avatars' storage bucket with per-member policies, private.profile_complete(), save_profile with bio and
+-- photo (photo must be the member's own object), join_venue requires a complete profile.

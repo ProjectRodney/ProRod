@@ -10,12 +10,23 @@ insert into private.venues(id,name,category,duration_minutes) values
 insert into private.venue_invites(id,venue_id,token_hash,expires_at) values
 ('00000000-0000-4000-8000-000000000021','00000000-0000-4000-8000-000000000011',encode(extensions.digest(repeat('a',40),'sha256'),'hex'),now()+interval '1 day'),
 ('00000000-0000-4000-8000-000000000022','00000000-0000-4000-8000-000000000012',encode(extensions.digest(repeat('b',40),'sha256'),'hex'),now()+interval '1 day');
+insert into storage.objects(bucket_id,name,owner) values
+('avatars','u/00000000-0000-4000-8000-000000000001/avatar.jpg','00000000-0000-4000-8000-000000000001'),
+('avatars','u/00000000-0000-4000-8000-000000000002/avatar.jpg','00000000-0000-4000-8000-000000000002');
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 do $$ begin
-  begin perform public.save_profile('Minor',(current_date-interval '17 years')::date,'en',true); raise exception 'TEST: minor accepted'; exception when others then if sqlerrm <> 'adults_only' then raise; end if; end;
+  begin perform public.save_profile('Minor',(current_date-interval '17 years')::date,'en',true,'hi','u/00000000-0000-4000-8000-000000000001/avatar.jpg'); raise exception 'TEST: minor accepted'; exception when others then if sqlerrm <> 'adults_only' then raise; end if; end;
+  begin perform public.save_profile('Alex','2000-01-01','en',true,repeat('x',301),'u/00000000-0000-4000-8000-000000000001/avatar.jpg'); raise exception 'TEST: long bio accepted'; exception when others then if sqlerrm <> 'bio_length' then raise; end if; end;
+  begin perform public.save_profile('Alex','2000-01-01','en',true,'hi','u/00000000-0000-4000-8000-000000000002/avatar.jpg'); raise exception 'TEST: another member photo accepted'; exception when others then if sqlerrm <> 'photo_missing' then raise; end if; end;
+  begin perform public.save_profile('Alex','2000-01-01','en',true,'hi','u/00000000-0000-4000-8000-000000000001/nope.jpg'); raise exception 'TEST: missing photo accepted'; exception when others then if sqlerrm <> 'photo_missing' then raise; end if; end;
 end $$;
 select public.save_profile('Alex','2000-01-01','en',true);
+do $$ begin
+  begin perform public.join_venue(repeat('a',40)); raise exception 'TEST: incomplete profile (no photo, no bio) joined'; exception when others then if sqlerrm<>'profile_required' then raise; end if; end;
+  begin perform count(*) from storage.objects where name like 'u/00000000-0000-4000-8000-000000000002/%'; if (select count(*) from storage.objects where name like 'u/00000000-0000-4000-8000-000000000002/%')<>0 then raise exception 'TEST: another member photo listed'; end if; end;
+end $$;
+select public.save_profile('Alex','2000-01-01','en',true,'Jazz and coffee','u/00000000-0000-4000-8000-000000000001/avatar.jpg');
 select public.join_venue(repeat('a',40));
 do $$ declare first_expiry timestamptz; second_expiry timestamptz; begin
   select expires_at into first_expiry from public.venue_sessions where ended_at is null;
@@ -36,7 +47,7 @@ do $$ begin
   if (select count(*) from public.profiles)<>0 or (select count(*) from public.venue_sessions)<>0 then raise exception 'TEST: other account data exposed'; end if;
   begin perform public.join_venue(repeat('a',40)); raise exception 'TEST: incomplete profile joined'; exception when others then if sqlerrm<>'profile_required' then raise; end if; end;
 end $$;
-select public.save_profile('Maya','2000-01-01','fr',true);
+select public.save_profile('Maya','2000-01-01','fr',true,'Ici pour la musique','u/00000000-0000-4000-8000-000000000002/avatar.jpg');
 select public.join_venue(repeat('a',40));
 select public.leave_venue();
 do $$ begin if exists(select 1 from public.venue_sessions where ended_at is null) then raise exception 'TEST: leave failed'; end if; end $$;
@@ -48,7 +59,7 @@ end $$;
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
 do $$ begin
-  begin perform public.save_profile('Nope','2000-01-01','en',true); raise exception 'TEST: unconfirmed accepted'; exception when insufficient_privilege then null; end;
+  begin perform public.save_profile('Nope','2000-01-01','en',true,'hi',null); raise exception 'TEST: unconfirmed accepted'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 update public.venue_sessions set started_at=now()-interval '2 hours', expires_at=now()-interval '1 second' where user_id='00000000-0000-4000-8000-000000000001' and ended_at is null;
@@ -71,12 +82,12 @@ reset role;
 insert into private.account_restrictions(user_id,suspended) values('00000000-0000-4000-8000-000000000001',true);
 set local role authenticated;
 do $$ begin
-  begin perform public.save_profile('Alex','2000-01-01','en',true); raise exception 'TEST: suspended account allowed'; exception when insufficient_privilege then null; end;
+  begin perform public.save_profile('Alex','2000-01-01','en',true,'hi',null); raise exception 'TEST: suspended account allowed'; exception when insufficient_privilege then null; end;
 end $$;
 set local role anon;
 do $$ begin
   begin perform public.preview_venue(repeat('a',40)); raise exception 'TEST: anonymous RPC permitted'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
-select 'PASS: profile ownership, verified accounts, age, server session controls, venue switching, rejoin without extension, account deletion, anonymous denial' as result;
+select 'PASS: profile ownership and completeness (photo, bio), private photos, verified accounts, age, server session controls, venue switching, rejoin without extension, account deletion, anonymous denial' as result;
 rollback;
