@@ -1,6 +1,6 @@
 # ProRod
 
-Project Rodney. Working product name: Zélo.
+Project Rodney. Product name: **PRod** (roadmap of 5 November 2026; earlier working names Zélo and Mêla). The name lives in `src/brand.js`.
 
 ## Platform
 
@@ -40,5 +40,8 @@ Remove the mandatory selfie-taking requirement entirely. No selfie capture durin
 The earlier safety preview contains fictional browser-only state. It is a design reference, not a production backend or security boundary. Do not cache private messages, reports or authentication responses in the service worker.
 
 ## Status
+
+Update 5 November 2026 (evening): product renamed to PRod (`src/brand.js`, new icon), email redirect driven by `siteUrl` in `src/public-config.js`, GitHub Pages deploy workflow added (gated by the `PAGES_ENABLED` repository variable), `db/create-invite.sql` issues venue invitations, `CLAUDE.md` documents the project rules.
+
 
 The separate `account.html` now connects signup/sign-in, private profiles and invitation-based venue sessions to ProRod's dedicated Supabase project. SMTP and redirect configuration must be verified before testing email signup. The original `index.html` remains a fictional consent demo; its chat, payment and moderation actions are not production services. Run `npm ci`, `npm run build`, then `npm test`. Real email delivery, iPhone installation and browser interaction testing remain required. See `docs/account-and-venue-build.md` for verified database checks and remaining work.

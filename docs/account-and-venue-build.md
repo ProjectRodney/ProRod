@@ -8,7 +8,7 @@ The pilot has one explicitly labelled test venue, with a 60-minute test session.
 
 Build: `npm ci`, `npm run build`, `npm test`. The build bundles the pinned Supabase client locally; no runtime CDN dependency. Static hosting serves `dist/`. Only a publishable API key is shipped. Authentication responses and private data are never service-worker cached.
 
-Before real signup testing, configure SMTP in the ProRod project and set Site URL plus allowed redirect to `https://prorod-zelo-test.sublimedot.chatgpt.site/account.html`. Keep email confirmation enabled. Verify actual inbox delivery with an agreed test user. The Sites deployment remains owner-private, which is a separate access gate from the ProRod account.
+Before real signup testing: deploy to a public HTTPS address (`.github/workflows/deploy.yml` → GitHub Pages; the earlier ChatGPT Sites deployment was owner-private and unusable for Rodney), set `siteUrl` in `src/public-config.js` to that address, then in the ProRod Supabase project configure the Brevo SMTP (the built-in email service only delivers to organization members), Site URL and the allowed redirect `<siteUrl>/account.html`. Keep email confirmation enabled and verify actual inbox delivery with an agreed test user.
 
 ## First real journey
 

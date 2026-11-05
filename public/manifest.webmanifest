@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Zélo — ProRod test",
-  "short_name": "Zélo",
+  "name": "PRod — test",
+  "short_name": "PRod",
   "description": "Venue-based connections · fictional testing app",
   "start_url": "./account.html",
   "scope": "./",
@@ -10,8 +10,8 @@
   "theme_color": "#fff9df",
   "icons": [
     {
-      "src": "./assets/zelo-logo.png",
-      "sizes": "1254x1254",
+      "src": "./assets/prod-logo.png",
+      "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "any"
     }
