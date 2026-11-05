@@ -1,6 +1,6 @@
 # Account and venue implementation
 
-Status: implementation contract and validation tests prepared; backend not provisioned.
+Status: implementation contract and validation tests prepared. Dedicated Supabase project `blqcmpqctetmjqsfdvsq` (ProRod) provisioned in Paris (`eu-west-3`) under DeSaint08's Org and verified ACTIVE_HEALTHY. Auth UI, application schema and delivery configuration are not connected yet. Joblytics pause was requested to free the active free-project slot; RD-Clients is unchanged.
 
 ## First real journey
 
