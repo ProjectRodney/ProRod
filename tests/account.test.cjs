@@ -19,6 +19,12 @@ test('settings and help views exist in both languages and account deletion goes 
   for(const needle of ['function settingsView','function helpView','data-view="help"','data-view="settings"',"rpc('delete_account')",'Aide et sécurité','Help & safety','Supprimer mon compte','Delete my account','112'])assert.ok(source.includes(needle),needle);
   assert.ok(source.includes("p_birth_date:profile.birth_date"),'settings must not change the birth date');
 });
+test('QR scanning uses the rear camera only to read a venue invitation, explains it, and never asks for a selfie',()=>{
+  const source=fs.readFileSync('src/account.js','utf8');
+  for(const needle of ['data-action="scan"',"facingMode:{ideal:'environment'}",'getTracks().forEach(t=>t.stop())','Aucune photo n’est prise ni conservée','No photo is taken or stored',"searchParams.get('venue')",'Saisir le code d’invitation à la place'])assert.ok(source.includes(needle),needle);
+  assert.doesNotMatch(source,/capture="user"|facingMode:\s*['"]user/);
+  assert.doesNotMatch(source,/toDataURL|toBlob|upload/i,'no frame is exported');
+});
 test('private auth/API calls and token-bearing assets bypass the offline cache',()=>{
   const handlers={};
   vm.runInNewContext(fs.readFileSync('public/sw.js','utf8'),{URL,self:{registration:{scope:'https://test.example/'},location:{origin:'https://test.example'},addEventListener:(name,fn)=>handlers[name]=fn}});
