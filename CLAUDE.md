@@ -9,6 +9,7 @@ qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le
   Nom défini dans `src/brand.js` (anciens noms de travail : Zélo, Mêla).
 - Documents de référence (hors dépôt, chez Roland) : feuille de route « PRod » du 5 novembre 2026
   (9 pages, phases 1 à 6) et compte rendu de cadrage du 4 novembre 2026.
+- Parcours produit de référence, étape par étape avec l'état d'avancement : `docs/product-flow.md`.
 - Hébergement : dépôt public, GitHub Pages via `.github/workflows/deploy.yml` (build + tests, puis
   publication de `dist/`) → https://rdzoagbe.github.io/ProRod/ . Sources, schéma et scripts sont
   donc visibles : rien de confidentiel ne doit entrer dans le dépôt.

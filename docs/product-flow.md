@@ -1,0 +1,51 @@
+# PRod — product flow (reference)
+
+Status legend: **DONE** (connected to real accounts and server-side rules), **PART** (partly built), **TODO** (not started), **DECIDE** (client decision pending). Status as of 5 November 2026.
+
+Intended flow: install PRod → create an account → complete a profile → scan a venue's QR code → discover people in that venue → send one introduction → receive consent → unlock eligible conversations → chat → optionally meet → leave or let the session expire.
+
+## 1. Install and open PRod — DONE
+Website `https://rdzoagbe.github.io/ProRod/account.html`. iPhone: Safari → Share → Add to Home Screen. Android: browser install option. Usable in the browser too. Welcome screen with Create account, Sign in, FR/EN. Installation alone creates nothing.
+
+## 2. Create and verify an account — DONE
+Email + password, confirmation email (custom SMTP), return to PRod. Checks: email not confirmed → instructions + resend; profile incomplete → onboarding; profile complete → home. A valid stored session goes straight to home.
+
+## 3. Complete onboarding — DONE (fields to extend: DECIDE)
+Display name, private date of birth (18+, locked after saving), language, acceptance of community rules. No mandatory selfie. Optional/required profile photo and discovery fields: DECIDE.
+
+## 4. Home screen — PART
+Without a session: scan a QR / enter an invitation; sign out. Missing: profile and account settings screen, help and safety information. No browsing outside the joined venue (enforced server-side). With an active session: back to that venue (DONE).
+
+## 5. Scan and join a venue — DONE
+Invitation preview (name, duration, conditions) before joining. Server-timed session, countdown, one venue per account (joining another ends the previous one), rescanning never extends a session. An invitation is single-use per account: whether a visitor may rejoin with the same QR after leaving is DECIDE (rotate QR codes vs. re-joinable while valid). Durations per venue type and departure detection: DECIDE. A QR alone does not prove presence.
+
+## 6. Discover someone and send one introduction — TODO
+Venue-scoped discovery (members and talents of the active venue only, no blocks either way). Warning before sending: "This person is not obliged to respond. Please respect their choice." After one introduction, further messages are locked until the recipient accepts and replies. Recipient can ignore, decline, block or report. No response = no conversation.
+
+## 7. Acceptance and payment — TODO, model DECIDE (legal validation required before any build)
+| Situation | Intended result |
+|---|---|
+| Recipient has not accepted and replied | Sender cannot continue messaging |
+| Recipient accepts and replies; man has no active pass | Notify him, keep the content hidden |
+| Man purchases a valid venue pass | Unlock accepted conversations of that venue session |
+| Man already has a valid pass | Open the accepted conversation |
+| Woman uses the app | No chat payment required |
+The pass covers accepted conversations in that venue session only; each new conversation still requires consent. Gender-based pricing, eligibility (self-declared field, non-binary cases, no inference from email) and payment conditions must be validated before launch. Hidden replies never appear in notification previews or unauthorized API responses.
+
+## 8. Chat with ongoing control — TODO
+Both can message once accepted and any required pass is active. At any time: end (neutral notice), block (survives venues and sessions), report (always free, never shown to the reported person).
+
+## 9. Optional meeting — TODO, timing DECIDE
+Five-second prompt after an agreed point. Both yes → suggest a public meeting point (the counter). Either no, or no answer → no meeting, chat continues. No repeated pressure after a refusal.
+
+## 10. Leave or session expiry — DONE for presence; conversation rules DECIDE
+Leaving, switching venue or expiry ends presence and discovery; the account remains. Pass expiry rules, read-only history, retention and reopening with fresh consent: DECIDE. Blocking and reporting must survive expiry.
+
+## 11. Talent journey — TODO, offer DECIDE
+Talent profile + agreed subscription; visible only inside the active venue, moderated; no bypass of consent, no visibility in other venues.
+
+## 12. Behind the scenes (admin portal) — TODO (invitations via `db/create-invite.sql` meanwhile)
+Venues, QR invitations and durations; reports and restrictions; talent content; passes, subscriptions, failed payments and refunds; errors and notifications; history of sensitive actions; two-factor authentication for administrators.
+
+## Next complete milestone
+Install → register → confirm email → complete profile → join a test venue → leave or expire, verified on a real phone. Server side verified on 5 November 2026 with a test account; the phone test by the client is next. Then: consent-based conversations and minimal moderation (steps 6, 8 and the reporting part of 12).
