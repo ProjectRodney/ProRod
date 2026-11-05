@@ -19,6 +19,6 @@ test('browser scripts parse and no camera capture exists', () => {
   const source=fs.readFileSync('public/app.js','utf8');assert.doesNotMatch(source,/getUserMedia|capture="user"/);
 });
 test('product name comes from src/brand.js and no former working name remains', () => {
-  const brand=fs.readFileSync('src/brand.js','utf8');assert.match(brand,/name: 'PRod'/);
+  const brand=fs.readFileSync('src/brand.js','utf8');assert.match(brand,/name: 'P\.Rod'/);
   for(const file of ['public/index.html','public/account.html','public/app.js','public/install.js','public/sw.js','public/manifest.webmanifest','src/account.js'])assert.doesNotMatch(fs.readFileSync(file,'utf8'),/Z[ée]lo|M[êe]la/i,file);
 });

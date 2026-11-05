@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "PRod — test",
-  "short_name": "PRod",
+  "name": "P.Rod",
+  "short_name": "P.Rod",
   "description": "Venue-based connections · fictional testing app",
   "start_url": "./account.html",
   "scope": "./",
