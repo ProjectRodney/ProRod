@@ -1,0 +1,19 @@
+{
+  "id": "./",
+  "name": "Z\u00e9lo \u2014 ProRod test",
+  "short_name": "Z\u00e9lo",
+  "description": "Venue-based connections \u00b7 fictional testing app",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fff9df",
+  "theme_color": "#fff9df",
+  "icons": [
+    {
+      "src": "./assets/zelo-logo.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
