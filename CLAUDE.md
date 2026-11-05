@@ -24,7 +24,7 @@ qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le
 - Site statique sans framework : `public/` (sources servies), `src/account.js` (application de
   compte, bundlée par esbuild dans `public/account.bundle.js`), `public/index.html` + `app.js`
   (démo fictive de consentement, clairement étiquetée, pas un backend).
-- `npm ci`, `npm run build`, `npm test` (node:test, 10 contrôles). Build : copie `public/` → `dist/`.
+- `npm ci`, `npm run build`, `npm test` (node:test). Build : copie `public/` → `dist/`.
 - `src/public-config.js` : URL et clé publiable Supabase, `siteUrl` = adresse publique de l'app
   (sert aux liens des e-mails de confirmation et de récupération). Jamais de clé secrète ici.
 
@@ -35,7 +35,9 @@ qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le
   (RLS) ; schéma `private` (lieux, invitations hachées, restrictions) inaccessible aux clients ;
   toute écriture passe par des fonctions `private.*` SECURITY DEFINER exposées par des
   wrappers `public.*`. Ne jamais autoriser depuis des métadonnées modifiables par l'utilisateur.
-- Invitations (QR) : `db/create-invite.sql` dans l'éditeur SQL ; le jeton n'est montré qu'une fois.
+- Administration : `admin.html` (bundle `src/admin.js`), rôle = claim Auth `app_metadata.prod_admin = true`
+  posé par l'opérateur dans Supabase (jamais `user_metadata`) ; MFA exigé s'il est activé ; journal
+  `private.admin_actions`. Invitations (QR) depuis le portail, ou `db/create-invite.sql` en secours.
 - E-mails Auth : le service intégré de Supabase n'envoie qu'aux membres de l'organisation ;
   configurer le SMTP Brevo du projet + Site URL + redirections avant tout test avec le client.
 - Données : e-mail dans Auth uniquement, date de naissance privée et verrouillée, 18 ans minimum,

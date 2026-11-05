@@ -48,3 +48,14 @@ test('private auth/API calls and token-bearing assets bypass the offline cache',
     let called=false;handlers.fetch({request:{url,method:'GET',mode:'cors'},respondWith(){called=true;}});assert.equal(called,false);
   }
 });
+
+test('administration page: separate bundle, admin role from app_metadata only, no offline caching, no private fields',()=>{
+  new vm.Script(fs.readFileSync('public/admin.bundle.js','utf8'));
+  const page=fs.readFileSync('public/admin.html','utf8');
+  assert.match(page,/noindex/);
+  for(const match of page.matchAll(/(?:src|href)="\.\/([^"#?]+)"/g))assert.ok(fs.existsSync('public/'+match[1]),match[1]);
+  assert.doesNotMatch(fs.readFileSync('public/sw.js','utf8'),/admin/,'admin assets are never cached offline');
+  const source=fs.readFileSync('src/admin.js','utf8');
+  for(const needle of ["rpc('is_admin')","rpc('admin_create_invite'","rpc('admin_decide_report'","rpc('admin_restrict'","rpc('admin_audit'"])assert.ok(source.includes(needle),needle);
+  assert.doesNotMatch(source,/user_metadata|birth_date|email_confirmed/,'no client-side role or private data');
+});

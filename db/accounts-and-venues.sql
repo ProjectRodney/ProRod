@@ -304,3 +304,16 @@ revoke all on public.reports from anon, authenticated;
 --   private.report_member(uuid,text,text,uuid)     categories harassment|inappropriate|impersonation|prohibited|other; max 20 per day
 -- Each has a public.* security-invoker wrapper granted to authenticated; private.* execute is granted to authenticated as well
 -- (they are reachable only through the wrappers because schema private has no usage for anon and exposes nothing through PostgREST).
+
+-- Administration (migration admin_portal_moderation, 5 November 2026). Admin = Auth claim app_metadata.prod_admin = true
+-- (never user_metadata); aal2 required when the admin has a verified MFA factor. Every sensitive action is journaled.
+create table private.admin_actions (
+  id uuid primary key default gen_random_uuid(),
+  admin_id uuid not null references auth.users(id) on delete set null,
+  action text not null, target text, details jsonb, created_at timestamptz not null default now()
+);
+alter table private.admin_actions enable row level security;
+revoke all on private.admin_actions from public, anon, authenticated;
+-- Functions: private.require_admin(), private.log_admin(), private.admin_overview(), admin_venues(), admin_save_venue(uuid,text,text,integer,text,boolean),
+-- admin_create_invite(uuid,integer), admin_revoke_invite(uuid), admin_reports(text), admin_decide_report(uuid,text,text,boolean), admin_members(text),
+-- admin_restrict(uuid,boolean,text), admin_audit(integer), public.is_admin(); public.* wrappers granted to authenticated. Bodies: see the migration.

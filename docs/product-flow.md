@@ -44,7 +44,8 @@ Leaving, switching venue or expiry ends presence and discovery; the account rema
 ## 11. Talent journey — TODO, offer DECIDE
 Talent profile + agreed subscription; visible only inside the active venue, moderated; no bypass of consent, no visibility in other venues.
 
-## 12. Behind the scenes (admin portal) — TODO (invitations via `db/create-invite.sql` meanwhile)
+## 12. Behind the scenes (admin portal) — DONE for the pilot (`admin.html`; payments/talents sections TODO)
+Admin role = Auth claim `app_metadata.prod_admin` (set by the operator in Supabase, never by the app); two-step verification enforced when enrolled. Overview tiles; venues (create/edit, category, duration, address, active — deactivating ends live sessions); invitations (QR shown once, revoke ends sessions); reports queue with the conversation attached, motivated decision, optional suspension; members by display name only, suspend/reinstate; audit log of every sensitive action.
 Venues, QR invitations and durations; reports and restrictions; talent content; passes, subscriptions, failed payments and refunds; errors and notifications; history of sensitive actions; two-factor authentication for administrators.
 
 ## Next complete milestone

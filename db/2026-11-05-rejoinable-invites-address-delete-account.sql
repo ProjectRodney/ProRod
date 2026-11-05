@@ -31,3 +31,10 @@ alter table private.venues add column if not exists address text;
 -- conversation_reads, reports (no member grants; all access through definer functions): send_introduction,
 -- respond_introduction (consent = accept + reply), my_inbox, conversation_messages, send_message,
 -- close_conversation (neutral notice), block_member (closes everything both ways), report_member.
+
+-- Same day, migration admin_portal_moderation: private.admin_actions (journal), private.require_admin()
+-- (claim app_metadata.prod_admin = true, never user_metadata; aal2 required when the admin has a verified MFA
+-- factor), admin_overview, admin_venues, admin_save_venue, admin_create_invite (token shown once),
+-- admin_revoke_invite (ends sessions), admin_reports (reporter visible to moderation only, conversation
+-- attached when reported), admin_decide_report (optional suspension), admin_members (display name only),
+-- admin_restrict, admin_audit, public.is_admin(). Public wrappers granted to authenticated.

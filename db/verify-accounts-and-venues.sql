@@ -238,3 +238,54 @@ end $$;
 reset role;
 select 'PASS: one introduction, consent with reply, venue-scoped, private threads, neutral closure, blocks everywhere, reports hidden' as result;
 rollback;
+
+-- Administration: role from app_metadata only, venues, invitations, report decisions, suspension, audit.
+begin;
+insert into auth.users(id,email,email_confirmed_at,is_anonymous,raw_app_meta_data) values
+('00000000-0000-4000-8000-000000000001','pro-a@example.invalid',now(),false,'{}'),
+('00000000-0000-4000-8000-000000000002','pro-b@example.invalid',now(),false,'{}'),
+('00000000-0000-4000-8000-000000000009','admin@example.invalid',now(),false,'{"prod_admin":true}');
+insert into storage.objects(bucket_id,name,owner) values
+('avatars','u/00000000-0000-4000-8000-000000000001/avatar.jpg','00000000-0000-4000-8000-000000000001'),
+('avatars','u/00000000-0000-4000-8000-000000000002/avatar.jpg','00000000-0000-4000-8000-000000000002');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","user_metadata":{"prod_admin":true},"app_metadata":{}}',true);
+do $$ begin
+  begin perform public.admin_overview(); raise exception 'TEST: member reached admin'; exception when insufficient_privilege then null; end;
+  if public.is_admin() then raise exception 'TEST: is_admin from user_metadata'; end if;
+end $$;
+select public.save_profile('Alex','2000-01-01','en',true,'Jazz','u/00000000-0000-4000-8000-000000000001/avatar.jpg');
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
+select public.save_profile('Maya','1995-06-15','fr',true,'Musique','u/00000000-0000-4000-8000-000000000002/avatar.jpg');
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal1","app_metadata":{"prod_admin":true}}',true);
+do $$ declare v jsonb; inv jsonb; rep jsonb; n int; begin
+  if not public.is_admin() then raise exception 'TEST: is_admin false for admin'; end if;
+  v := public.admin_save_venue(null,'Café test','pub',90,'1 rue Test',true);
+  inv := public.admin_create_invite((v->>'id')::uuid,7);
+  if length(inv->>'token')<40 then raise exception 'TEST: token missing'; end if;
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
+  perform public.join_venue(inv->>'token');
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
+  perform public.join_venue(inv->>'token');
+  perform public.send_introduction('00000000-0000-4000-8000-000000000001','hi');
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
+  rep := public.report_member('00000000-0000-4000-8000-000000000002','harassment','rude');
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal1","app_metadata":{"prod_admin":true}}',true);
+  if (public.admin_overview()->>'reports_open')::int<>1 or (public.admin_overview()->>'sessions_live')::int<>2 then raise exception 'TEST: overview wrong'; end if;
+  if (public.admin_reports('open')->0->'reported'->>'display_name')<>'Maya' or (public.admin_reports('open')->0->'reporter'->>'display_name')<>'Alex' then raise exception 'TEST: report cards wrong'; end if;
+  perform public.admin_decide_report((rep->>'id')::uuid,'actioned','Suspended after review',true);
+  if (public.admin_overview()->>'reports_open')::int<>0 or (public.admin_overview()->>'suspended')::int<>1 then raise exception 'TEST: decision not applied'; end if;
+  if (select count(*) from jsonb_array_elements(public.admin_members('May')) m where (m->>'suspended')::boolean)<>1 then raise exception 'TEST: member search/suspension wrong'; end if;
+  perform public.admin_revoke_invite((inv->>'id')::uuid);
+  select count(*) into n from jsonb_array_elements(public.admin_audit(50)); if n<>4 then raise exception 'TEST: audit incomplete (%)', n; end if;
+  if (public.admin_overview()->>'sessions_live')::int<>0 then raise exception 'TEST: revoke did not end sessions'; end if;
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
+  begin perform public.my_inbox(); raise exception 'TEST: suspended member still active'; exception when insufficient_privilege then null; end;
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal1","app_metadata":{"prod_admin":true}}',true);
+  perform public.admin_restrict('00000000-0000-4000-8000-000000000002',false,'appeal accepted');
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
+  perform public.my_inbox();
+end $$;
+reset role;
+select 'PASS: admin claim from app_metadata only, venues, invitations, report decisions with suspension, member search, audit, reinstatement' as result;
+rollback;

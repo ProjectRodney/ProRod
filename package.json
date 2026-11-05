@@ -2,7 +2,7 @@
   "name": "prorod",
   "version": "0.1.0",
   "private": true,
-  "description": "Z\u00e9lo installable PWA foundation and fictional consent demo",
+  "description": "Zélo installable PWA foundation and fictional consent demo",
   "scripts": {
     "test": "node --test tests/*.test.cjs",
     "build": "node scripts/build.cjs"
@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "2.119.0",
-    "jsqr": "1.4.0"
+    "jsqr": "1.4.0",
+    "qrcode": "1.5.4"
   },
   "devDependencies": {
     "esbuild": "0.28.2"
