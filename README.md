@@ -1,10 +1,10 @@
 # ProRod
 
-Project Rodney. Product name: **PRod** (roadmap of 5 November 2026; earlier working names Zélo and Mêla). The name lives in `src/brand.js`.
+Client project built by DZOFT. Product name: **PRod** (roadmap of 5 November 2026; earlier working names Zélo and Mêla). The name lives in `src/brand.js`.
 
 ## Platform
 
-Progressive Web App, responsive on iPhone and Android. iPhone installation uses Safari's Share → Add to Home Screen flow, with an in-app guide. A publicly reachable HTTPS test deployment is required for remote iPhone testing. Localhost links are not shareable to Rodney's phone. No native Expo build or App Store submission is required for the first PWA test.
+Progressive Web App, responsive on iPhone and Android. iPhone installation uses Safari's Share → Add to Home Screen flow, with an in-app guide. A publicly reachable HTTPS test deployment is required for remote iPhone testing. Localhost links cannot be opened on the client's phone. No native Expo build or App Store submission is required for the first PWA test.
 
 ## Scope decision — 5 November 2026
 
@@ -41,7 +41,7 @@ The earlier safety preview contains fictional browser-only state. It is a design
 
 ## Status
 
-Update 5 November 2026 (evening): product renamed to PRod (`src/brand.js`, new icon), email redirect driven by `siteUrl` in `src/public-config.js`, GitHub Pages deploy workflow added (gated by the `PAGES_ENABLED` repository variable), `db/create-invite.sql` issues venue invitations, `CLAUDE.md` documents the project rules.
+Update 5 November 2026 (evening): product renamed to PRod (`src/brand.js`, new icon), email redirect driven by `siteUrl` in `src/public-config.js`, the built app is published from the public `prod-app` repository (GitHub Pages) while this repository stays private, `db/create-invite.sql` issues venue invitations, `CLAUDE.md` documents the project rules.
 
 
 The separate `account.html` now connects signup/sign-in, private profiles and invitation-based venue sessions to ProRod's dedicated Supabase project. SMTP and redirect configuration must be verified before testing email signup. The original `index.html` remains a fictional consent demo; its chat, payment and moderation actions are not production services. Run `npm ci`, `npm run build`, then `npm test`. Real email delivery, iPhone installation and browser interaction testing remain required. See `docs/account-and-venue-build.md` for verified database checks and remaining work.

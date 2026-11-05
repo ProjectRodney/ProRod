@@ -1,6 +1,6 @@
 # Account and venue implementation
 
-Status: dedicated Supabase project `blqcmpqctetmjqsfdvsq` (ProRod), Paris (`eu-west-3`). Account UI and application schema are connected. Email/password signup, confirmation callbacks, password recovery, private profile onboarding, invitation preview, join and leave are implemented at `account.html`. Email SMTP/redirect configuration and real-device testing remain unverified. Joblytics was paused to free the active free-project slot; RD-Clients is unchanged.
+Status: dedicated Supabase project `blqcmpqctetmjqsfdvsq` (ProRod), Paris (`eu-west-3`). Account UI and application schema are connected. Email/password signup, confirmation callbacks, password recovery, private profile onboarding, invitation preview, join and leave are implemented at `account.html`. Email SMTP/redirect configuration and real-device testing remain unverified.
 
 `db/accounts-and-venues.sql` is the applied schema snapshot. `db/verify-accounts-and-venues.sql` runs transaction-only tests with fictional accounts and rolls everything back. Verified: age enforcement, confirmed email, owner-only reads, blocked direct session writes, invitation secrecy, invalid invitation rejection, one venue per account, rescan idempotency, closed invitation reuse denial, leaving and anonymous denial. Security advisor reports only informational notices for three intentionally policy-free private tables; those tables deny client access and are accessed only by tightly scoped server functions.
 
@@ -8,7 +8,7 @@ The pilot has one explicitly labelled test venue, with a 60-minute test session.
 
 Build: `npm ci`, `npm run build`, `npm test`. The build bundles the pinned Supabase client locally; no runtime CDN dependency. Static hosting serves `dist/`. Only a publishable API key is shipped. Authentication responses and private data are never service-worker cached.
 
-Before real signup testing: deploy to a public HTTPS address (`.github/workflows/deploy.yml` → GitHub Pages; the earlier ChatGPT Sites deployment was owner-private and unusable for Rodney), set `siteUrl` in `src/public-config.js` to that address, then in the ProRod Supabase project configure the Brevo SMTP (the built-in email service only delivers to organization members), Site URL and the allowed redirect `<siteUrl>/account.html`. Keep email confirmation enabled and verify actual inbox delivery with an agreed test user.
+Before real signup testing: deploy to a public HTTPS address (the built `dist/` is pushed to the public repository `rdzoagbe/prod-app`, served by GitHub Pages at https://rdzoagbe.github.io/prod-app/; this source repository stays private; the earlier ChatGPT Sites deployment was owner-private and unusable for the client), set `siteUrl` in `src/public-config.js` to that address, then in the ProRod Supabase project configure the Brevo SMTP (the built-in email service only delivers to organization members), Site URL and the allowed redirect `<siteUrl>/account.html`. Keep email confirmation enabled and verify actual inbox delivery with an agreed test user.
 
 ## First real journey
 
@@ -21,7 +21,7 @@ Before real signup testing: deploy to a public HTTPS address (`.github/workflows
 
 ## Data boundaries
 
-- Separate ProRod Supabase project. Never use RD-Clients or Joblytics.
+- Separate ProRod Supabase project. Never use another Supabase project.
 - Private profile: user ID, date of birth, onboarding version and acceptance timestamp. Email stays in Auth. Never expose birth dates or email in venue discovery.
 - Display profile: display name and optional bio. Visibility requires both users' live sessions in the same venue and no block in either direction.
 - Venue configuration: category, approved session duration, active status. No client write permission.
