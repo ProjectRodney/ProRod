@@ -4,7 +4,8 @@ Status legend: **DONE** (connected to real accounts and server-side rules), **PA
 
 Intended flow: install PRod → create an account → complete a profile → scan a venue's QR code → discover people in that venue → send one introduction → receive consent → unlock eligible conversations → chat → optionally meet → leave or let the session expire.
 
-## 1. Install and open PRod — DONE
+## 1. Install and open P.Rod — DONE
+The URL `https://rdzoagbe.github.io/ProRod/` is the installer: welcome page with « Installer P.Rod sur mon téléphone » (native install prompt on Android/desktop, guided « Partager → Sur l'écran d'accueil » on iPhone) and « Continuer dans le navigateur »; once installed the URL opens the app directly; the app shows a dismissible install banner until installed.
 Website `https://rdzoagbe.github.io/ProRod/` (opens `account.html`; the fictional concept demo lives at `demo.html`). iPhone: Safari → Share → Add to Home Screen. Android: browser install option. Usable in the browser too. Welcome screen with Create account, Sign in, FR/EN. Installation alone creates nothing.
 
 ## 2. Create and verify an account — DONE

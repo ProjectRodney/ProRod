@@ -2,7 +2,7 @@
   "id": "./",
   "name": "P.Rod",
   "short_name": "P.Rod",
-  "description": "Venue-based connections · fictional testing app",
+  "description": "Un premier pas, dans le même lieu.",
   "start_url": "./account.html",
   "scope": "./",
   "display": "standalone",
@@ -15,5 +15,9 @@
       "type": "image/png",
       "purpose": "any"
     }
+  ],
+  "lang": "fr",
+  "categories": [
+    "social"
   ]
 }

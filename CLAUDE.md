@@ -21,9 +21,11 @@ qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le
   des comptes de production.
 
 ## Le code
-- Site statique sans framework : `public/` (sources servies), `src/account.js` (application de
-  compte, bundlée par esbuild dans `public/account.bundle.js`), `public/index.html` + `app.js`
-  (démo fictive de consentement, clairement étiquetée, pas un backend).
+- Site statique sans framework : `public/` (sources servies). `index.html` = page d'accueil / installeur
+  (`pwa-install.js` : invite d'installation native ou guide iPhone), `account.html` = application
+  (`src/account.js` bundlé en `account.bundle.js`), `admin.html` = administration (`src/admin.js`),
+  `demo.html` + `app.js` = démo fictive de consentement, clairement étiquetée, pas un backend.
+  Le produit s'affiche « P.Rod » (`src/brand.js`).
 - `npm ci`, `npm run build`, `npm test` (node:test). Build : copie `public/` → `dist/`.
 - `src/public-config.js` : URL et clé publiable Supabase, `siteUrl` = adresse publique de l'app
   (sert aux liens des e-mails de confirmation et de récupération). Jamais de clé secrète ici.
