@@ -61,3 +61,8 @@ test('chat only while both are checked in, refusals hold across visits, administ
   assert.ok(fs.readFileSync('public/admin.html','utf8').includes('data-language="en"'));
   assert.equal((fn.match(/CREATE OR REPLACE FUNCTION/g)||[]).length>100,true,'full function export present');
 });
+test('phone sign-in codes go through the Send SMS hook to Brevo, signature-verified, no secret in Git',()=>{
+  const fn=fs.readFileSync('supabase/functions/send-sms/index.ts','utf8');
+  for(const needle of ['standardwebhooks','Deno.env.get("SEND_SMS_HOOK_SECRET")','Deno.env.get("BREVO_API_KEY")','.verify(payload','api.brevo.com/v3/transactionalSMS/send','type: "transactional"'])assert.ok(fn.includes(needle),needle);
+  assert.doesNotMatch(fn,/xkeysib-[0-9a-f]{20,}|whsec_[A-Za-z0-9+/=]{20,}/,'no key in the function source');
+});
