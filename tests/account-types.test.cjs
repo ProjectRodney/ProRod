@@ -42,3 +42,12 @@ test('optional sign-in providers stay behind configuration flags and are off by 
   assert.deepEqual(config.providers,{google:false,phone:false});
   for(const needle of ["config.providers?.google","config.providers?.phone","signInWithOAuth({provider:'google'","signInWithOtp({phone:","verifyOtp({phone:phoneValue,token:values.code,type:'sms'})"])assert.ok(source.includes(needle),needle);
 });
+test('a landing page with a language choice comes before account creation, and chat translation is opt-in through the server only',()=>{
+  for(const needle of ["mode='landing'","function landingView","function langChips",'data-mode="signup"','data-mode="signin"','Comment ça marche','How it works',"functions.invoke('translate'",'data-toggle="autotranslate"','data-action="translate-draft"','function autoTranslateThread'])assert.ok(source.includes(needle),needle);
+  assert.doesNotMatch(source,/deepl\.com|DeepL-Auth-Key/,'no translation key or provider call in the client');
+  const fn=fs.readFileSync('supabase/functions/translate/index.ts','utf8');
+  for(const needle of ['Deno.env.get("DEEPL_API_KEY")','text.length > 2000','api-free.deepl.com','not_configured','req.headers.get("Authorization")'])assert.ok(fn.includes(needle),needle);
+  assert.doesNotMatch(fn,/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:fx/,'no key in the function source');
+  const privacy=fs.readFileSync('public/confidentialite.html','utf8');
+  assert.ok(privacy.includes('DeepL SE')&&privacy.includes('Translation (optional)')&&privacy.includes('Traduction (facultative)'),'privacy policy mentions translation in both languages');
+});

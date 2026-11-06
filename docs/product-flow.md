@@ -4,7 +4,8 @@ Status legend: **DONE** (connected to real accounts and server-side rules), **PA
 
 Intended flow: install PRod → create an account → complete a profile → scan a venue's QR code → discover people in that venue → send one introduction → receive consent → unlock eligible conversations → chat → optionally meet → leave or let the session expire.
 
-## 1. Install and open P.Rod — DONE
+## 1. Install and open P.Rod — DONE (landing page)
+Before any account: a landing page in the app (language choice Français / English, what P.Rod is, how it works in three steps, the three kinds of accounts, safety principles, « Créer mon compte » / « J’ai déjà un compte »). The language chosen there follows the member through setup; the profile keeps its own language field.
 The URL `https://rdzoagbe.github.io/ProRod/` is the installer: welcome page with « Installer P.Rod sur mon téléphone » (native install prompt on Android/desktop, guided « Partager → Sur l'écran d'accueil » on iPhone) and « Continuer dans le navigateur »; once installed the URL opens the app directly; the app shows a dismissible install banner until installed.
 Website `https://rdzoagbe.github.io/ProRod/` (opens `account.html`; the fictional concept demo lives at `demo.html`). iPhone: Safari → Share → Add to Home Screen. Android: browser install option. Usable in the browser too. Welcome screen with Create account, Sign in, FR/EN. Installation alone creates nothing.
 
@@ -35,7 +36,8 @@ Test rule, neutral for everyone (`pass_rule` = everyone, setting on the server):
 | Woman uses the app | No chat payment required |
 The pass covers accepted conversations in that venue session only; each new conversation still requires consent. Gender-based pricing, eligibility (self-declared field, non-binary cases, no inference from email) and payment conditions must be validated before launch. Hidden replies never appear in notification previews or unauthorized API responses.
 
-## 8. Chat with ongoing control — DONE
+## 8. Chat with ongoing control — DONE (translation FR ⇄ EN)
+Each received message has « Traduire »; a toggle translates received messages automatically; « Traduire mon message » translates a draft before sending (the member reviews it). Translation runs through the Edge Function `translate` (DeepL, key `DEEPL_API_KEY` in Supabase secrets, never in the client) only on the member's request; the privacy policy states it. Without the key the app says translation is not available yet.
 Both can message once accepted (the pass rule of step 7 is not built). Messages, introductions and reports are never readable directly by clients: every read goes through a server function, so entitlement checks can be added in one place. At any time: end (neutral notice), block (survives venues and sessions), report (always free, never shown to the reported person).
 
 ## 9. Optional meeting — DONE (timing: after two messages from each side; DECIDE if different)
