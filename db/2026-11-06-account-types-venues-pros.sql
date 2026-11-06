@@ -527,3 +527,12 @@ revoke all on function private.send_feedback_emails() from public, anon, authent
 select cron.schedule('prod-feedback-emails','*/5 * * * *',$$select private.send_feedback_emails()$$);
 -- Operator values (never in Git): update private.app_settings set value=to_jsonb('<address>'::text) where key in ('feedback_email','feedback_sender');
 -- Vault key: Supabase dashboard → Project Settings → Vault → Add new secret → name brevo_api_key, value = the Brevo API key (v3).
+
+-- ===== 7. Decisions of 6 November 2026 (evening): refusals hold across visits, chat only while co-present, MFA always for admins =====
+-- Full current bodies of every function: db/functions.sql (exported from the project). Summary of the three changes:
+--   private.send_introduction: a new introduction to someone who declined or never answered is refused (introduction_exists),
+--     whatever the visit; that person can still write first.
+--   private.co_present_in(conversation, uid): both participants have a live session at the conversation's venue.
+--     send_message and meeting_answer raise visit_over otherwise; conversation_messages returns live=true/false and
+--     can_ask only while live. History stays readable; a pass bought earlier keeps covering the conversation.
+--   private.require_admin(): aal2 (two-step verification) is always required, enrolled or not; the portal enrols on first sign-in.

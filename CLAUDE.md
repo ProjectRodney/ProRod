@@ -31,20 +31,20 @@ qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le
   (sert aux liens des e-mails de confirmation et de récupération). Jamais de clé secrète ici.
 
 ## Supabase (projet `blqcmpqctetmjqsfdvsq` « ProRod », Paris) — jamais un autre projet Supabase
-- Schéma : `db/accounts-and-venues.sql` (instantané appliqué) ; tests transactionnels
-  `db/verify-accounts-and-venues.sql` (tout est annulé en fin de script).
+- Schéma : `db/accounts-and-venues.sql` (tables, RLS, stockage) + `db/functions.sql` (toutes les fonctions, exportées du projet, à régénérer après chaque migration : `docs/verification-log.md`) ; tests transactionnels `db/verify-accounts-and-venues.sql` (tout est annulé en fin de script), résultats consignés dans `docs/verification-log.md`.
 - Modèle : tables publiques `profiles` et `venue_sessions` en lecture seule pour l'utilisateur
   (RLS) ; schéma `private` (lieux, invitations hachées, restrictions) inaccessible aux clients ;
   toute écriture passe par des fonctions `private.*` SECURITY DEFINER exposées par des
   wrappers `public.*`. Ne jamais autoriser depuis des métadonnées modifiables par l'utilisateur.
 - Administration : `admin.html` (bundle `src/admin.js`), rôle = claim Auth `app_metadata.prod_admin = true`
-  posé par l'opérateur dans Supabase (jamais `user_metadata`) ; MFA exigé s'il est activé ; journal
+  posé par l'opérateur dans Supabase (jamais `user_metadata`) ; validation en deux étapes obligatoire (le portail l’enrôle à la première connexion) ; journal
   `private.admin_actions`. Invitations (QR) depuis le portail, ou `db/create-invite.sql` en secours.
 - E-mails Auth : le service intégré de Supabase n'envoie qu'aux membres de l'organisation ;
   configurer le SMTP Brevo du projet + Site URL + redirections avant tout test avec le client.
 - Comptes : trois types (`profiles.account_type` personal | pro | venue). Les comptes établissement ne participent jamais aux rencontres (`private.require_person()`), gèrent leur lieu (candidature approuvée par l’admin, QR générés sur le téléphone, annonces, durée ≤ 3 h en test). Réglages serveur dans `private.app_settings` : `simulation`, `max_session_minutes`, `pass_rule` (everyone | none, jamais selon le genre), `feedback_email` / `feedback_sender` (jamais dans Git). Clé Brevo pour les e-mails de retours : Vault, nom `brevo_api_key`.
 - Traduction du chat : fonction Edge `supabase/functions/translate` (DeepL, secret `DEEPL_API_KEY` dans Supabase → Edge Functions → Secrets), appelée seulement à la demande du membre ; jamais de clé côté client.
 - Paiements : uniquement simulés (`passes.simulated`, 0 €) tant que le modèle tarifaire n’est pas validé juridiquement ; aucune règle liée au genre dans le code.
+- Règles de rencontre décidées le 6 novembre 2026 : un refus (ou une absence de réponse) vaut pour toujours, dans tous les lieux, sauf si la personne écrit la première ; on n’écrit dans une conversation que lorsque les deux sont présents dans le lieu (l’historique reste lisible).
 - Données : e-mail dans Auth uniquement, date de naissance privée et verrouillée, 18 ans minimum,
   jamais de genre déduit d'une adresse, jamais de données privées dans le service worker.
 

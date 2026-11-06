@@ -314,6 +314,7 @@ create table private.admin_actions (
 );
 alter table private.admin_actions enable row level security;
 revoke all on private.admin_actions from public, anon, authenticated;
+-- Every function body (this and all the others) is exported in db/functions.sql.
 -- Functions: private.require_admin(), private.log_admin(), private.admin_overview(), admin_venues(), admin_save_venue(uuid,text,text,integer,text,boolean),
 -- admin_create_invite(uuid,integer), admin_revoke_invite(uuid), admin_reports(text), admin_decide_report(uuid,text,text,boolean), admin_members(text),
 -- admin_restrict(uuid,boolean,text), admin_audit(integer), public.is_admin(); public.* wrappers granted to authenticated. Bodies: see the migration.

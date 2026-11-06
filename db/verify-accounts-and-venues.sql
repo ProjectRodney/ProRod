@@ -211,6 +211,14 @@ do $$ declare conv uuid; thread jsonb; begin
   if (thread->>'locked')::boolean or thread->'messages'->1->>'body'<>'Yes! Coltrane fan here.' then raise exception 'TEST: pass did not unlock'; end if;
   if (public.my_inbox()->'conversations'->0->>'unread')::int<>0 then raise exception 'TEST: read receipt not recorded'; end if;
   perform public.send_message(conv,'Great, see you by the counter?');
+  -- chat only while both are checked in at the venue: history stays readable, writing resumes when the other person is back
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}',true); perform public.leave_venue(); perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+  thread := public.conversation_messages(conv);
+  if (thread->>'live')::boolean or jsonb_array_length(thread->'messages')<>3 or (thread->'meeting'->>'can_ask')::boolean then raise exception 'TEST: visit state wrong: %', thread; end if;
+  begin perform public.send_message(conv,'still here?'); raise exception 'TEST: wrote after the other person left'; exception when others then if sqlerrm<>'visit_over' then raise; end if; end;
+  begin perform public.meeting_answer(conv,true); raise exception 'TEST: meeting proposed after leaving'; exception when others then if sqlerrm<>'visit_over' then raise; end if; end;
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}',true); perform public.join_venue(repeat('a',40)); perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+  perform public.send_message(conv,'welcome back');
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000004","role":"authenticated"}',true);
   begin perform public.conversation_messages(conv); raise exception 'TEST: outsider read conversation'; exception when others then if sqlerrm<>'conversation_unavailable' then raise; end if; end;
   begin perform public.send_message(conv,'intruder'); raise exception 'TEST: outsider wrote'; exception when others then if sqlerrm<>'conversation_unavailable' then raise; end if; end;
@@ -245,9 +253,12 @@ select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-00000000
 do $$ begin
   if (public.my_inbox()->'sent'->0->>'status')<>'pending' then raise exception 'TEST: decline leaked to sender'; end if;
   begin perform public.send_introduction('00000000-0000-4000-8000-000000000001','again?'); raise exception 'TEST: re-solicitation allowed'; exception when others then if sqlerrm<>'introduction_exists' then raise; end if; end;
+  -- a refusal holds across visits: leaving and coming back does not reopen the door
+  perform public.leave_venue(); perform public.join_venue(repeat('a',40));
+  begin perform public.send_introduction('00000000-0000-4000-8000-000000000001','new visit, new luck?'); raise exception 'TEST: re-solicitation after rejoining allowed'; exception when others then if sqlerrm<>'introduction_exists' then raise; end if; end;
 end $$;
 reset role;
-select 'PASS: one introduction, consent with reply, venue-scoped, private threads, simulated pass unlocks replies, neutral closure, blocks everywhere, reports hidden' as result;
+select 'PASS: one introduction, consent with reply, venue-scoped, private threads, simulated pass unlocks replies, chat only while both are present, refusals hold across visits, neutral closure, blocks everywhere, reports hidden' as result;
 rollback;
 
 -- Administration: role from app_metadata only, venues, invitations, report decisions, suspension, audit.
@@ -268,9 +279,12 @@ end $$;
 select public.save_profile('Alex','2000-01-01','en',true,'Jazz','u/00000000-0000-4000-8000-000000000001/avatar.jpg');
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
 select public.save_profile('Maya','1995-06-15','fr',true,'Musique','u/00000000-0000-4000-8000-000000000002/avatar.jpg');
-select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal1","app_metadata":{"prod_admin":true}}',true);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal2","app_metadata":{"prod_admin":true}}',true);
 do $$ declare v jsonb; inv jsonb; rep jsonb; n int; begin
   if not public.is_admin() then raise exception 'TEST: is_admin false for admin'; end if;
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal1","app_metadata":{"prod_admin":true}}',true);
+  begin perform public.admin_overview(); raise exception 'TEST: admin without two-step verification allowed'; exception when insufficient_privilege then null; end;
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal2","app_metadata":{"prod_admin":true}}',true);
   v := public.admin_save_venue(null,'Café test','pub',90,'1 rue Test',true);
   inv := public.admin_create_invite((v->>'id')::uuid,7);
   if length(inv->>'token')<40 then raise exception 'TEST: token missing'; end if;
@@ -281,7 +295,7 @@ do $$ declare v jsonb; inv jsonb; rep jsonb; n int; begin
   perform public.send_introduction('00000000-0000-4000-8000-000000000001','hi');
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
   rep := public.report_member('00000000-0000-4000-8000-000000000002','harassment','rude');
-  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal1","app_metadata":{"prod_admin":true}}',true);
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal2","app_metadata":{"prod_admin":true}}',true);
   if (public.admin_overview()->>'reports_open')::int<>1 or (public.admin_overview()->>'sessions_live')::int<>2 then raise exception 'TEST: overview wrong'; end if;
   if (public.admin_reports('open')->0->'reported'->>'display_name')<>'Maya' or (public.admin_reports('open')->0->'reporter'->>'display_name')<>'Alex' then raise exception 'TEST: report cards wrong'; end if;
   perform public.admin_decide_report((rep->>'id')::uuid,'actioned','Suspended after review',true);
@@ -292,13 +306,13 @@ do $$ declare v jsonb; inv jsonb; rep jsonb; n int; begin
   if (public.admin_overview()->>'sessions_live')::int<>0 then raise exception 'TEST: revoke did not end sessions'; end if;
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
   begin perform public.my_inbox(); raise exception 'TEST: suspended member still active'; exception when insufficient_privilege then null; end;
-  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal1","app_metadata":{"prod_admin":true}}',true);
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal2","app_metadata":{"prod_admin":true}}',true);
   perform public.admin_restrict('00000000-0000-4000-8000-000000000002',false,'appeal accepted');
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
   perform public.my_inbox();
 end $$;
 reset role;
-select 'PASS: admin claim from app_metadata only, venues, invitations, report decisions with suspension, member search, audit, reinstatement' as result;
+select 'PASS: admin claim from app_metadata only and two-step verification always required, venues, invitations, report decisions with suspension, member search, audit, reinstatement' as result;
 rollback;
 
 -- Notifications: never message contents, deduplicated per conversation, cleared on read.
@@ -348,7 +362,7 @@ do $$ declare n jsonb; intro uuid; conv uuid; begin
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
   if (public.my_notifications(false)->'items'->0->>'kind')<>'conversation_closed' then raise exception 'TEST: closure notification missing'; end if;
   perform public.report_member('00000000-0000-4000-8000-000000000002','other','x');
-  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal1","app_metadata":{"prod_admin":true}}',true);
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal2","app_metadata":{"prod_admin":true}}',true);
   perform public.admin_decide_report((public.admin_reports('open')->0->>'id')::uuid,'dismissed','no issue',false);
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
   if (public.my_notifications(false)->'items'->0->>'kind')<>'report_handled' then raise exception 'TEST: report notification missing'; end if;
@@ -435,7 +449,7 @@ do $$ declare r jsonb; begin
   begin perform public.venue_talents(); raise exception 'TEST: venue account listed talents'; exception when insufficient_privilege then null; end;
 end $$;
 -- Admin approves the venue.
-select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal1","app_metadata":{"prod_admin":true}}',true);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal2","app_metadata":{"prod_admin":true}}',true);
 do $$ declare apps jsonb; r jsonb; begin
   apps := public.admin_venue_applications('pending');
   if jsonb_array_length(apps)<>1 then raise exception 'TEST: pending applications %', apps; end if;
@@ -483,7 +497,7 @@ do $$ declare room jsonb; begin
   begin perform public.send_enquiry('00000000-0000-4000-8000-000000000001','Bonjour',null); raise exception 'TEST: enquiry to unapproved pro'; exception when others then if sqlerrm<>'not_co_present' then raise; end if; end;
 end $$;
 -- Admin approves the pro sheet; subscription is still required to appear (simulated later from the app).
-select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal1","app_metadata":{"prod_admin":true}}',true);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal2","app_metadata":{"prod_admin":true}}',true);
 do $$ begin
   if jsonb_array_length(public.admin_pro_profiles('pending'))<>1 then raise exception 'TEST: pending pro sheets'; end if;
   perform public.admin_decide_pro('00000000-0000-4000-8000-000000000001',true,'OK');

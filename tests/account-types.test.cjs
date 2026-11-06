@@ -51,3 +51,13 @@ test('a landing page with a language choice comes before account creation, and c
   const privacy=fs.readFileSync('public/confidentialite.html','utf8');
   assert.ok(privacy.includes('DeepL SE')&&privacy.includes('Translation (optional)')&&privacy.includes('Traduction (facultative)'),'privacy policy mentions translation in both languages');
 });
+test('chat only while both are checked in, refusals hold across visits, administrators always use two-step verification, admin portal in English too',()=>{
+  const fn=fs.readFileSync('db/functions.sql','utf8');
+  assert.ok(fn.includes("if not private.co_present_in(conv,uid) then raise exception 'visit_over'"),'send_message requires co-presence');
+  assert.ok(fn.split('FUNCTION private.meeting_answer')[1].includes("raise exception 'visit_over'"),'meeting needs co-presence');
+  assert.ok(fn.includes("(i.session_id=mine.id or i.status<>'accepted')) then raise exception 'introduction_exists'"),'refusals hold across visits');
+  assert.ok(fn.split('FUNCTION private.require_admin')[1].includes("coalesce(claims->>'aal','') <> 'aal2' then raise exception 'mfa_required'"),'aal2 always');
+  for(const needle of ["visit_over:[","t.live===false","mfa.challengeAndVerify","mfa.enroll({factorType:'totp'","getAuthenticatorAssuranceLevel","function mfaView","data-language","function localize","const EN=["])assert.ok((source+admin).includes(needle),needle);
+  assert.ok(fs.readFileSync('public/admin.html','utf8').includes('data-language="en"'));
+  assert.equal((fn.match(/CREATE OR REPLACE FUNCTION/g)||[]).length>100,true,'full function export present');
+});
