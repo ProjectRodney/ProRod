@@ -42,6 +42,8 @@ qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le
   `private.admin_actions`. Invitations (QR) depuis le portail, ou `db/create-invite.sql` en secours.
 - E-mails Auth : le service intégré de Supabase n'envoie qu'aux membres de l'organisation ;
   configurer le SMTP Brevo du projet + Site URL + redirections avant tout test avec le client.
+- Comptes : trois types (`profiles.account_type` personal | pro | venue). Les comptes établissement ne participent jamais aux rencontres (`private.require_person()`), gèrent leur lieu (candidature approuvée par l’admin, QR générés sur le téléphone, annonces, durée ≤ 3 h en test). Réglages serveur dans `private.app_settings` : `simulation`, `max_session_minutes`, `pass_rule` (everyone | none, jamais selon le genre), `feedback_email` / `feedback_sender` (jamais dans Git). Clé Brevo pour les e-mails de retours : Vault, nom `brevo_api_key`.
+- Paiements : uniquement simulés (`passes.simulated`, 0 €) tant que le modèle tarifaire n’est pas validé juridiquement ; aucune règle liée au genre dans le code.
 - Données : e-mail dans Auth uniquement, date de naissance privée et verrouillée, 18 ans minimum,
   jamais de genre déduit d'une adresse, jamais de données privées dans le service worker.
 

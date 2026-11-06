@@ -335,3 +335,19 @@ revoke all on public.notifications from anon, authenticated;
 -- Meeting prompt (step 9) and GDPR export (migration meeting_prompt_data_export).
 alter table public.conversations add column meeting_a boolean, add column meeting_b boolean, add column meeting_prompted_at timestamptz, add column meeting_agreed_at timestamptz;
 -- private.meeting_state(conversation, uid), private.meeting_answer(uuid, boolean) + public wrapper; private.my_data_export() + public wrapper; granted to authenticated.
+
+-- Account types, venue accounts, professional sheets, simulated passes, feedback (migration of 6 November 2026,
+-- file db/2026-11-06-account-types-venues-pros.sql, applied in full; bodies there).
+-- profiles.account_type personal|pro|venue (birth_date nullable for venues); private.account_choices (type chosen before the profile exists);
+-- private.app_settings (simulation, max_session_minutes=180, pass_rule="everyone"|"none", feedback_email, feedback_sender, feedback_subject) + private.setting(key);
+-- public.venue_applications, private.venue_managers, private.venues.hours/contact (duration 15–180), public.venue_announcements,
+-- public.pro_profiles (pending|approved|rejected, subscription_until), public.enquiries, public.passes (venue_pass|talent_subscription, simulated),
+-- public.feedback. RLS on, no client grants: everything goes through private.* SECURITY DEFINER + public.* wrappers.
+-- Guards: private.require_person() (member that is not a venue account) on join_venue, venue_members, venue_room, venue_talents, send_enquiry, buy_pass_simulated;
+-- private.needs_pass(conversation, uid): with pass_rule "everyone", the other party's messages are returned as locked (body null) and
+-- send_message raises pass_required until a venue_pass covers the conversation (venue + created before the pass expiry).
+-- Member RPCs: set_account_type, my_account_type, apply_venue, my_venue, venue_create_invite, venue_revoke_invite, venue_update, venue_announce,
+-- venue_delete_announcement (expires it), venue_room, save_pro_profile, my_pro_profile, venue_talents, send_enquiry, buy_pass_simulated, my_passes,
+-- subscribe_talent_simulated, app_settings_public, submit_feedback. Admin: admin_venue_applications, admin_decide_venue (creates the venue + manager link),
+-- admin_pro_profiles, admin_decide_pro, admin_passes, admin_refund_pass, admin_feedback. Cron prod-feedback-emails (*/5) → private.send_feedback_emails()
+-- (pg_net → Brevo, key from vault secret brevo_api_key; silent while key/addresses are missing).

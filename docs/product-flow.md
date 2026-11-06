@@ -1,6 +1,6 @@
 # PRod — product flow (reference)
 
-Status legend: **DONE** (connected to real accounts and server-side rules), **PART** (partly built), **TODO** (not started), **DECIDE** (client decision pending). Status as of 5 November 2026.
+Status legend: **DONE** (connected to real accounts and server-side rules), **PART** (partly built), **TODO** (not started), **DECIDE** (client decision pending). Status as of 6 November 2026.
 
 Intended flow: install PRod → create an account → complete a profile → scan a venue's QR code → discover people in that venue → send one introduction → receive consent → unlock eligible conversations → chat → optionally meet → leave or let the session expire.
 
@@ -8,10 +8,11 @@ Intended flow: install PRod → create an account → complete a profile → sca
 The URL `https://rdzoagbe.github.io/ProRod/` is the installer: welcome page with « Installer P.Rod sur mon téléphone » (native install prompt on Android/desktop, guided « Partager → Sur l'écran d'accueil » on iPhone) and « Continuer dans le navigateur »; once installed the URL opens the app directly; the app shows a dismissible install banner until installed.
 Website `https://rdzoagbe.github.io/ProRod/` (opens `account.html`; the fictional concept demo lives at `demo.html`). iPhone: Safari → Share → Add to Home Screen. Android: browser install option. Usable in the browser too. Welcome screen with Create account, Sign in, FR/EN. Installation alone creates nothing.
 
-## 2. Create and verify an account — DONE
-Email + password, confirmation email (custom SMTP), return to PRod. Checks: email not confirmed → instructions + resend; profile incomplete → onboarding; profile complete → home. A valid stored session goes straight to home.
+## 2. Create and verify an account — DONE (Google and phone sign-in ready behind flags)
+Email + password, confirmation email (custom SMTP), return to PRod. Optional sign-in methods are coded and switched off in `src/public-config.js` (`providers.google`, `providers.phone`): Google needs an OAuth client enabled in Supabase (free), phone needs an SMS provider configured in Supabase (Twilio, MessageBird, Vonage or Textlocal; test numbers available); Sign in with Apple is deferred (Apple Developer Program required). Supabase keeps one account per email address or phone number, so a method already used cannot open a second account. Checks: email not confirmed → instructions + resend; profile incomplete → onboarding; profile complete → home. A valid stored session goes straight to home.
 
-## 3. Complete onboarding — DONE
+## 3. Complete onboarding — DONE (three account types)
+First screen after sign-up: « Je suis ici en tant que… » person / professional / venue (`set_account_type`, stored before the profile exists; a venue account can never become a person account and vice-versa). Persons and professionals then complete the full profile below; venues only name their account and apply for their place (name, type, address, hours, contact, session length) which the team approves in the admin portal (« Candidatures »).
 Required before any venue: display name, profile photo (chosen from the phone, resized on the device, stored in a private bucket readable only by its owner until discovery is built), private date of birth (18+, locked; other members will see the age only), language, a short bio (≤ 300 characters), acceptance of community rules. The server refuses to join a venue until the profile is complete. No selfie at check-in, ever.
 
 ## 4. Home screen — DONE
@@ -23,7 +24,8 @@ In-app « Scanner le QR code du lieu » button (rear camera, used only to read t
 ## 6. Discover someone and send one introduction — DONE (talents TODO)
 Introduction DONE: from a member's profile, one message (≤ 500 characters) shown with the warning « This person is not obliged to respond »; further messages are locked until the recipient accepts and replies; the recipient can ignore, decline (the sender only ever sees « waiting »), block or report; one introduction per person per visit, maximum five per visit. Discovery DONE: « Voir qui est là » lists members with a live session in the same venue only (display name, age, bio, photo), excluding blocked pairs and suspended accounts; photos are readable only while co-present and unblocked (storage policy). Talents: TODO. Warning before sending: "This person is not obliged to respond. Please respect their choice." After one introduction, further messages are locked until the recipient accepts and replies. Recipient can ignore, decline, block or report. No response = no conversation.
 
-## 7. Acceptance and payment — TODO, model DECIDE (legal validation required before any build)
+## 7. Acceptance and payment — SIMULATED during the test (model DECIDE, legal validation required before any real payment)
+Test rule, neutral for everyone (`pass_rule` = everyone, setting on the server): once a person accepts and replies, their messages stay hidden (« Réponse masquée ») and writing is refused until the member holds a venue pass for that session. The pass is obtained with one tap in the app, labelled SIMULATION, costs nothing and is recorded in `passes` (simulated = true, 0 €); the admin portal lists passes and can mark a simulated refund. Setting `pass_rule` to none removes the gate. No gender-based rule exists anywhere in the code; the table below remains the client's intended model, to validate legally first.
 | Situation | Intended result |
 |---|---|
 | Recipient has not accepted and replied | Sender cannot continue messaging |
@@ -42,15 +44,24 @@ Five-second prompt once the other person proposed; either side can propose from 
 ## 10. Leave or session expiry — DONE for presence; conversation rules DECIDE · Privacy policy and terms pages (FR/EN) DONE as drafts with operator fields to complete · « Télécharger mes données » DONE
 Leaving, switching venue or expiry ends presence and discovery; the account remains. Pass expiry rules, read-only history, retention and reopening with fresh consent: DECIDE. Blocking and reporting must survive expiry.
 
-## 11. Talent journey — TODO, offer DECIDE
+## 11. Talent journey — DONE for the test (offer and price DECIDE)
+Professional accounts fill a sheet (business name, professional name, category, pitch, website, Instagram/TikTok/LinkedIn, city). The team approves it (« Fiches pro »). With an approved sheet and an active subscription (simulated, 30 days, one tap) the sheet appears in « Talents ici » for people checked in the same venue only; others can send an enquiry (not a chat; optional contact left), notified in-app. Blocks and reports apply to talents as well.
+
 Talent profile + agreed subscription; visible only inside the active venue, moderated; no bypass of consent, no visibility in other venues.
 
 ## 11b. Notifications — DONE (in-app); email/push TODO
 In-app activity feed and badge: introduction received, reply received (content never included), new message (one unread per conversation), conversation ended, report reviewed, account restricted/reinstated. Email digests and web push need a sending function with a Brevo key on the ProRod project: TODO.
 
-## 12. Behind the scenes (admin portal) — DONE for the pilot (`admin.html`; payments/talents sections TODO)
+## 12. Behind the scenes (admin portal) — DONE for the pilot (`admin.html`)
+New tabs on 6 November 2026: Candidatures (venue applications → approve creates the venue and hands its QR codes to the venue account), Fiches pro, Passes (simulation, refund), Retours (feedback).
 Admin role = Auth claim `app_metadata.prod_admin` (set by the operator in Supabase, never by the app); two-step verification enforced when enrolled. Overview tiles; venues (create/edit, category, duration, address, active — deactivating ends live sessions); invitations (QR shown once, revoke ends sessions); reports queue with the conversation attached, motivated decision, optional suspension; members by display name only, suspend/reinstate; audit log of every sensitive action.
 Venues, QR invitations and durations; reports and restrictions; talent content; passes, subscriptions, failed payments and refunds; errors and notifications; history of sensitive actions; two-factor authentication for administrators.
+
+## 12b. Venue accounts — DONE
+Dashboard for an approved venue: people checked in now, check-ins over 24 h, open reports; QR codes generated on the phone (shown once, downloadable PNG, revocable, 7/30/90 days); announcements shown to people present for 12 hours (e.g. happy hour); opening hours, contact and session length (15 min to 3 h; the test caps every session at 3 hours). Venue accounts never see profiles, messages or who is present by name.
+
+## 12c. Feedback — DONE
+After one hour of real use on the device (foreground time), a short pop-up: a face (1–4), what to change first, optional bug; « Répondre maintenant » or « Plus tard » (snoozed 30 minutes, at most three prompts). Also available from the settings. Answers are stored on the server (admin « Retours ») and e-mailed to the operator every 5 minutes by the database once the Brevo key is in the Supabase Vault (`brevo_api_key`) and the addresses are set in `private.app_settings`.
 
 ## Next complete milestone
 Install → register → confirm email → complete profile → join a test venue → leave or expire, verified on a real phone. Server side verified on 5 November 2026 with a test account; pilot venue « Barbier · Noisy-le-Grand » (60 minutes, to confirm) created with a 90-day invitation; the phone test by the client is next. Then: consent-based conversations and minimal moderation (steps 6, 8 and the reporting part of 12).
