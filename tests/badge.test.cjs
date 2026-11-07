@@ -11,3 +11,11 @@ test('ANZIAK icons exist at the declared sizes and the iPhone icon is 180 px',()
   const b=fs.readFileSync('public/assets/apple-touch-icon.png');assert.equal(b.readUInt32BE(16),180);
   for(const f of ['account.html','index.html'])assert.match(fs.readFileSync('public/'+f,'utf8'),/rel="apple-touch-icon" href="\.\/assets\/apple-touch-icon\.png"/);
 });
+test('password fields: eye toggle everywhere, strong suggestion only on new passwords, crypto generator, clear e-mail sending error',()=>{
+  const s=fs.readFileSync('src/account.js','utf8');
+  assert.match(s,/data-pw-toggle=/);assert.match(s,/\/new-password\/\.test\(extra\)\?`<button type="button" class="link pw-suggest"/);
+  const gen=s.slice(s.indexOf('function strongPassword'),s.indexOf('function setPwVisible'));
+  assert.match(gen,/crypto\.getRandomValues/);assert.doesNotMatch(gen,/Math\.random/);
+  assert.match(s,/autocomplete="\$\{mode==='signup'\?'new-password':'current-password'\}"/);
+  assert.match(s,/confirmation email could not be sent/);
+});
