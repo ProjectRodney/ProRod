@@ -11,10 +11,10 @@
   function dismissedRecently() { try { return Date.now() - Number(localStorage.getItem('prorod-install-dismissed') || 0) < 24 * 3600 * 1000; } catch (_) { return false; } }
   function iosSteps() {
     var d = document.createElement('dialog'); d.className = 'install-dialog';
-    d.innerHTML = '<h2>' + T('Add P.Rod to your Home Screen', 'Ajoutez P.Rod à votre écran d’accueil') + '</h2>' +
+    d.innerHTML = '<h2>' + T('Add ANZIAK to your Home Screen', 'Ajoutez ANZIAK à votre écran d’accueil') + '</h2>' +
       '<ol><li>' + T('Tap the <b>Share</b> button at the bottom of Safari (the square with an arrow).', 'Touchez le bouton <b>Partager</b> en bas de Safari (le carré avec une flèche).') + '</li>' +
       '<li>' + T('Choose <b>Add to Home Screen</b>.', 'Choisissez <b>Sur l’écran d’accueil</b>.') + '</li>' +
-      '<li>' + T('Tap <b>Add</b>. P.Rod opens like an app, full screen.', 'Touchez <b>Ajouter</b>. P.Rod s’ouvre comme une application, en plein écran.') + '</li></ol>' +
+      '<li>' + T('Tap <b>Add</b>. ANZIAK opens like an app, full screen.', 'Touchez <b>Ajouter</b>. ANZIAK s’ouvre comme une application, en plein écran.') + '</li></ol>' +
       '<p class="quiet">' + T('If you are not in Safari, open this link in Safari first.', 'Si vous n’êtes pas dans Safari, ouvrez d’abord ce lien dans Safari.') + '</p>' +
       '<button class="button" type="button">' + T('Got it', 'Compris') + '</button>';
     d.querySelector('button').onclick = function () { d.close(); };
@@ -25,7 +25,7 @@
     if (deferred) { deferred.prompt(); try { await deferred.userChoice; } catch (_) {} deferred = null; render(); return; }
     if (ios) { iosSteps(); return; }
     var d = document.createElement('dialog'); d.className = 'install-dialog';
-    d.innerHTML = '<h2>' + T('Install P.Rod', 'Installer P.Rod') + '</h2><p>' + T('Open your browser menu (⋮) and choose <b>Install app</b> or <b>Add to Home screen</b>.', 'Ouvrez le menu du navigateur (⋮) et choisissez <b>Installer l’application</b> ou <b>Ajouter à l’écran d’accueil</b>.') + '</p><button class="button" type="button">' + T('Got it', 'Compris') + '</button>';
+    d.innerHTML = '<h2>' + T('Install ANZIAK', 'Installer ANZIAK') + '</h2><p>' + T('Open your browser menu (⋮) and choose <b>Install app</b> or <b>Add to Home screen</b>.', 'Ouvrez le menu du navigateur (⋮) et choisissez <b>Installer l’application</b> ou <b>Ajouter à l’écran d’accueil</b>.') + '</p><button class="button" type="button">' + T('Got it', 'Compris') + '</button>';
     d.querySelector('button').onclick = function () { d.close(); }; d.addEventListener('close', function () { d.remove(); });
     document.body.appendChild(d); d.showModal();
   }
@@ -37,7 +37,7 @@
       node.hidden = false;
       if (node.dataset.ready) return; node.dataset.ready = '1';
       if (mode === 'banner') {
-        node.innerHTML = '<span>' + T('Install P.Rod on your phone for a full-screen, app-like experience.', 'Installez P.Rod sur votre téléphone : plein écran, comme une application.') + '</span><button type="button" class="button small" data-install-go>' + T('Install', 'Installer') + '</button><button type="button" class="link" data-install-dismiss aria-label="' + T('Not now', 'Pas maintenant') + '">✕</button>';
+        node.innerHTML = '<span>' + T('Install ANZIAK on your phone for a full-screen, app-like experience.', 'Installez ANZIAK sur votre téléphone : plein écran, comme une application.') + '</span><button type="button" class="button small" data-install-go>' + T('Install', 'Installer') + '</button><button type="button" class="link" data-install-dismiss aria-label="' + T('Not now', 'Pas maintenant') + '">✕</button>';
         node.querySelector('[data-install-dismiss]').onclick = function () { try { localStorage.setItem('prorod-install-dismissed', String(Date.now())); } catch (_) {} node.hidden = true; };
       }
       var go = node.querySelector('[data-install-go]') || node;

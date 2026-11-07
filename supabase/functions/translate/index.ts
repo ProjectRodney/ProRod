@@ -1,4 +1,4 @@
-// P.Rod — chat translation (French ⇄ English) through DeepL, only when a signed-in member asks for it.
+// ANZIAK — chat translation (French ⇄ English) through DeepL, only when a signed-in member asks for it.
 // Secret DEEPL_API_KEY is set in Supabase → Edge Functions → Secrets (never in Git). Keys ending in ":fx"
 // belong to the free developer tier and must use api-free.deepl.com (DeepL API documentation).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";

@@ -1,12 +1,12 @@
-# PRod (dépôt ProRod) : application d'un client, réalisée par DZOFT
+# ANZIAK (dépôt ProRod) : application d'un client, réalisée par DZOFT
 
 Roland Dzoagbe (DZOFT) parle français ; répondre dans la langue de son message. Il valide tout ce
 qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le code et tu le guides.
 
 ## Le projet
-- Projet client (le nom du client et le devis restent hors du dépôt, qui est public). Produit : **PRod**, application web installable (PWA)
+- Projet client (le nom du client et le devis restent hors du dépôt, qui est public). Produit : **ANZIAK** (nom choisi par le client le 7 novembre 2026 ; marque à déposer par lui, voir plus bas), application web installable (PWA)
   qui permet aux personnes présentes dans un même lieu de faire connaissance, avec consentement.
-  Nom défini dans `src/brand.js` (anciens noms de travail : Zélo, Mêla).
+  Nom défini dans `src/brand.js` (anciens noms de travail : Zélo, Mêla, PRod / P.Rod).
 - Documents de référence (hors dépôt, chez Roland) : feuille de route « PRod » du 5 novembre 2026
   (9 pages, phases 1 à 6) et compte rendu de cadrage du 4 novembre 2026.
 - Parcours produit de référence, étape par étape avec l'état d'avancement : `docs/product-flow.md`.
@@ -15,6 +15,7 @@ qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le
   donc visibles : rien de confidentiel ne doit entrer dans le dépôt.
 - Quatre principes : accès limité au lieu rejoint ; aucun droit à une réponse ; parcours simple
   sans selfie obligatoire ; mêmes protections pour tous (fermer, bloquer, signaler), avant tout paiement.
+- Nom ANZIAK : vérifié le 7 novembre 2026 dans le registre INPI (marques FR, UE et internationales valables en France), aucune marque ; recherche d’antériorité complète par un conseil en propriété industrielle et dépôt au nom du client (classes 9, 38, 42, 45) à faire par lui, ainsi que le nom de domaine.
 - Décisions encore ouvertes (côté client) : durées de session par type de lieu, preuve de présence
   au-delà du QR, prix du pass, modèle de paiement (hommes payants / femmes gratuites : à valider
   juridiquement avant activation, et cas non binaires), responsables de la modération, propriété
@@ -25,7 +26,7 @@ qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le
   (`pwa-install.js` : invite d'installation native ou guide iPhone), `account.html` = application
   (`src/account.js` bundlé en `account.bundle.js`), `admin.html` = administration (`src/admin.js`),
   `demo.html` + `app.js` = démo fictive de consentement, clairement étiquetée, pas un backend.
-  Le produit s'affiche « P.Rod » (`src/brand.js`).
+  Le produit s'affiche « ANZIAK » (`src/brand.js`). Icône originale : `design/anziak-icon.svg` → PNG dans `public/assets/` (192, 512, 1024, apple-touch 180) ; pastille rouge du nombre de non-lus sur l’icône via l’API Badging (iPhone 16.4+ installé avec notifications autorisées, Chrome/Edge ordinateur ; pas Android), jamais de contenu.
 - `npm ci`, `npm run build`, `npm test` (node:test). Build : copie `public/` → `dist/`.
 - `src/public-config.js` : URL et clé publiable Supabase, `siteUrl` = adresse publique de l'app
   (sert aux liens des e-mails de confirmation et de récupération). Jamais de clé secrète ici.

@@ -1,6 +1,6 @@
 # ProRod
 
-Client project built by DZOFT. Product name: **PRod** (roadmap of 5 November 2026; earlier working names Zélo and Mêla). The name lives in `src/brand.js`.
+Client project built by DZOFT. Product name: **ANZIAK** (client's choice, 7 November 2026; earlier working names Zélo, Mêla and PRod). The name lives in `src/brand.js`.
 
 ## Platform
 
@@ -48,3 +48,5 @@ Update 5 November 2026 (evening): product renamed to PRod (`src/brand.js`, new i
 
 
 The separate `account.html` now connects signup/sign-in, private profiles and invitation-based venue sessions to ProRod's dedicated Supabase project. SMTP and redirect configuration must be verified before testing email signup. `index.html` opens the real app (`account.html`); `demo.html` is the fictional consent demo; its chat, payment and moderation actions are not production services. Run `npm ci`, `npm run build`, then `npm test`. Real email delivery, iPhone installation and browser interaction testing remain required. See `docs/account-and-venue-build.md` for verified database checks and remaining work.
+
+Update 7 November 2026: product renamed to ANZIAK (`src/brand.js`), original icon drawn in `design/anziak-icon.svg` (PNG sizes in `public/assets/`), unread count shown as a red badge on the installed app icon where the phone supports it (Badging API), database text renamed by `db/2026-11-07-rename-anziak.sql`.

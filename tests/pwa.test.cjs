@@ -24,8 +24,8 @@ test('legal pages exist in both languages and are linked from the app',()=>{
   const app=fs.readFileSync('src/account.js','utf8');assert.ok(app.includes('./confidentialite.html')&&app.includes('./cgu.html'));
 });
 test('product name comes from src/brand.js and no former working name remains', () => {
-  const brand=fs.readFileSync('src/brand.js','utf8');assert.match(brand,/name: 'P\.Rod'/);
-  for(const file of ['public/index.html','public/account.html','public/app.js','public/install.js','public/sw.js','public/manifest.webmanifest','src/account.js'])assert.doesNotMatch(fs.readFileSync(file,'utf8'),/Z[ée]lo|M[êe]la/i,file);
+  const brand=fs.readFileSync('src/brand.js','utf8');assert.match(brand,/name: 'ANZIAK'/);
+  for(const file of ['public/index.html','public/account.html','public/app.js','public/install.js','public/sw.js','public/manifest.webmanifest','src/account.js','public/admin.html','public/cgu.html','public/confidentialite.html','public/demo.html','public/pwa-install.js','src/admin.js','supabase/functions/send-sms/index.ts'])assert.doesNotMatch(fs.readFileSync(file,'utf8'),/Z[ée]lo|M[êe]la|P\.Rod|prod-logo/i,file);
 });
 
 test('the URL is an installer: welcome page with install button, app banner, manifest and iOS metadata',()=>{
@@ -33,5 +33,5 @@ test('the URL is an installer: welcome page with install button, app banner, man
   assert.match(index,/data-install="button"/);assert.match(index,/rel="manifest"/);assert.match(index,/apple-mobile-web-app-capable/);
   assert.match(account,/data-install="banner"/);assert.match(account,/pwa-install\.js/);
   new vm.Script(helper);assert.match(helper,/beforeinstallprompt/);assert.match(helper,/Sur l’écran d’accueil/);assert.doesNotMatch(helper,/getUserMedia/);
-  const manifest=JSON.parse(fs.readFileSync('public/manifest.webmanifest','utf8'));assert.equal(manifest.display,'standalone');assert.equal(manifest.short_name,'P.Rod');
+  const manifest=JSON.parse(fs.readFileSync('public/manifest.webmanifest','utf8'));assert.equal(manifest.display,'standalone');assert.equal(manifest.short_name,'ANZIAK');
 });

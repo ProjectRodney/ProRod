@@ -1,4 +1,4 @@
-# PRod — product flow (reference)
+# ANZIAK (formerly PRod) — product flow (reference)
 
 Status legend: **DONE** (implemented and verified with two accounts in the database checks, see `docs/verification-log.md`), **PART** (partly built), **TODO** (not started), **DECIDE** (client decision pending), **ACCEPTED** (tried and approved by Rodney; none yet). Status as of 7 November 2026. Repository transferred to Rodney's GitHub account (ProjectRodney/ProRod) on 7 November 2026; the app address became https://projectrodney.github.io/ProRod/ and every QR code was regenerated.
 
@@ -52,7 +52,8 @@ Professional accounts fill a sheet (business name, professional name, category, 
 
 Talent profile + agreed subscription; visible only inside the active venue, moderated; no bypass of consent, no visibility in other venues.
 
-## 11b. Notifications — DONE (in-app); email/push TODO
+## 11b. Notifications — DONE (in-app, and the unread count as a red badge on the installed app icon where supported); email/push TODO
+Icon badge (7 November 2026): the same count as the in-app dot (introductions waiting + unread messages + unread notifications), refreshed when the app comes back to the screen and every minute while it is open. Supported on iPhone/iPad 16.4+ for the home-screen app once the member taps « Afficher le nombre sur l’icône » (notification permission), and Chrome/Edge on computers; Android's Chrome does not support it. Without push notifications the number updates only when the app is opened; push is the TODO below.
 In-app activity feed and badge: introduction received, reply received (content never included), new message (one unread per conversation), conversation ended, report reviewed, account restricted/reinstated. Email digests and web push need a sending function with a Brevo key on the ProRod project: TODO.
 
 ## 12. Behind the scenes (admin portal) — DONE for the pilot (`admin.html`)

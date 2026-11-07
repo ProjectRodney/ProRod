@@ -1,5 +1,5 @@
-const CACHE = 'prorod-shell-v6';
-const ASSETS = ['./index.html', './demo.html', './pwa-install.js', './install.css', './app.css', './app.js', './install.js', './manifest.webmanifest', './assets/prod-logo.png', './assets/maya.jpg', './assets/adam.jpg', './account.html', './account.css', './account.bundle.js'];
+const CACHE = 'prorod-shell-v7';
+const ASSETS = ['./index.html', './demo.html', './pwa-install.js', './install.css', './app.css', './app.js', './install.js', './manifest.webmanifest', './assets/anziak-icon-192.png', './assets/anziak-icon-512.png', './assets/apple-touch-icon.png', './assets/maya.jpg', './assets/adam.jpg', './account.html', './account.css', './account.bundle.js'];
 const allowed = new Set(ASSETS.map(path => new URL(path, self.registration.scope).href));
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('prorod-shell-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
