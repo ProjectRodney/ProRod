@@ -67,7 +67,7 @@ Dashboard for an approved venue: people checked in now, check-ins over 24 h, ope
 After one hour of real use on the device (foreground time), a short pop-up: a face (1–4), what to change first, optional bug; « Répondre maintenant » or « Plus tard » (snoozed 30 minutes, at most three prompts). Also available from the settings. Answers are stored on the server (admin « Retours ») and e-mailed to the operator every 5 minutes by the database once the Brevo key is in the Supabase Vault (`brevo_api_key`) and the addresses are set in `private.app_settings`.
 
 ## Next complete milestone
-1. Pass expiry fix (7 November 2026): implemented and tested on a local database; to apply in Supabase with `db/2026-11-07-pass-expiry.sql`, then run section 3b of `db/verify-accounts-and-venues.sql`.
+1. Pass expiry fix (7 November 2026): DONE, applied on ProRod and verified (section 3b with every other section PASS).
 2. One documented pilot with two member phones, one venue account and an admin: install, sign-up, confirmation e-mail, QR entry, introduction, acceptance and reply, pass, chat, refusal, block, report, leaving, re-entry, a second visit needing a new pass. Results go into `docs/verification-log.md`; features the client approves become ACCEPTED.
 3. External services checked on real devices: confirmation and reset e-mails (Brevo SMTP), SMS codes (Brevo), translation (DeepL), feedback e-mails.
 Server checks (sections 1–7) passed on 5–6 November 2026; the Node tests mostly check source text, so the pilot is the evidence that people can really use it.
