@@ -23,3 +23,4 @@ and replace the definitions in the file (grants at the end of the file stay as t
 | 7 November 2026 (evening) | Edge Function `send-sms` redeployed from the repository (ANZIAK text and SMS sender) | Deployed; SMS delivery still to test on a phone |
 | 7 November 2026 (evening) | Supabase Auth SMTP: sender ANZIAK, Brevo relay port 587, login = the client's Brevo SMTP login (only active key, created 7 November) | Configured; delivery to confirm with a real sign-up |
 | 7 November 2026 (15:07 Paris) | Real sign-up: confirmation e-mail delivered from ANZIAK through the client's Brevo SMTP (arrived in Yahoo spam: free-mail sender, expected until a domain is authenticated) | Delivered; link click and spam rate to follow |
+| 7 November 2026 (afternoon) | Confirmation link opened after moving the e-mail out of Yahoo spam: account confirmed, signed in to ANZIAK (pilot step 2.2) | PASS; e-mails land in spam until a domain is authenticated |
