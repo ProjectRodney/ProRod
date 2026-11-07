@@ -28,5 +28,8 @@ Deno.serve(async (req) => {
   const content = `ANZIAK : votre code est ${otp}. Il expire dans 10 minutes. / Your code is ${otp}. It expires in 10 minutes.`;
   const r = await fetch("https://api.brevo.com/v3/transactionalSMS/send", { method: "POST", headers: { "api-key": key, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ sender: "ANZIAK", recipient: phone, content, type: "transactional", tag: "auth" }) });
   if (!r.ok) { console.error("brevo sms", r.status, await r.text().catch(() => "")); return hookError(500, "sms_failed"); }
+  // Brevo's answer: message reference and credits (no number, no code), to check delivery problems in the logs.
+  const info = await r.json().catch(() => ({})) as { messageId?: number; smsCount?: number; usedCredits?: number; remainingCredits?: number };
+  console.log("brevo sms accepted", { messageId: info.messageId, smsCount: info.smsCount, usedCredits: info.usedCredits, remainingCredits: info.remainingCredits });
   return json({});
 });
