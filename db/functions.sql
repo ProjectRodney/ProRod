@@ -707,7 +707,7 @@ CREATE OR REPLACE FUNCTION private.require_member()
 AS $function$
 declare uid uuid := auth.uid();
 begin
-  if uid is null or not exists(select 1 from auth.users where id=uid and email_confirmed_at is not null and coalesce(is_anonymous,false)=false) then
+  if uid is null or not exists(select 1 from auth.users where id=uid and (email_confirmed_at is not null or phone_confirmed_at is not null) and coalesce(is_anonymous,false)=false) then
     raise exception 'verified_account_required' using errcode='42501';
   end if;
   if exists(select 1 from private.account_restrictions where user_id=uid and suspended) then
@@ -1518,3 +1518,69 @@ grant execute on function public.venue_revoke_invite(p_id uuid) to authenticated
 grant execute on function public.venue_room() to authenticated, service_role;
 grant execute on function public.venue_talents() to authenticated, service_role;
 grant execute on function public.venue_update(p_hours text, p_contact text, p_duration integer) to authenticated, service_role;
+
+-- Push notifications (migration db/2026-11-07-push-notifications.sql, applied on ProRod on the date logged in docs/verification-log.md).
+create or replace function private.unread_total(p_uid uuid) returns integer language sql stable security definer set search_path = '' as $$
+  select (
+    (select count(*) from public.introductions i where i.recipient_id=p_uid and i.status='pending' and not private.blocked_between(p_uid,i.sender_id))
+  + (select count(*) from public.messages m join public.conversations c on c.id=m.conversation_id
+       where (c.a_id=p_uid or c.b_id=p_uid) and m.sender_id<>p_uid
+         and not private.blocked_between(p_uid,case when c.a_id=p_uid then c.b_id else c.a_id end)
+         and m.created_at>coalesce((select r.read_at from public.conversation_reads r where r.conversation_id=c.id and r.user_id=p_uid),'epoch'::timestamptz))
+  + (select count(*) from public.notifications n where n.user_id=p_uid and n.read_at is null))::integer
+$$;
+
+create or replace function private.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text) returns void
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid := private.require_member();
+begin
+  if p_endpoint is null or p_endpoint not like 'https://%' or char_length(p_endpoint) not between 20 and 1000
+     or char_length(coalesce(p_p256dh,'')) not between 20 and 200 or char_length(coalesce(p_auth,'')) not between 8 and 100 then
+    raise exception 'invalid_subscription';
+  end if;
+  -- One browser = one endpoint: signing in with another account on the same phone moves it to that account.
+  insert into public.push_subscriptions(user_id,endpoint,p256dh,auth) values(uid,p_endpoint,p_p256dh,p_auth)
+  on conflict (endpoint) do update set user_id=excluded.user_id, p256dh=excluded.p256dh, auth=excluded.auth, created_at=now();
+  -- At most 10 devices per member.
+  delete from public.push_subscriptions where user_id=uid and id not in (select id from public.push_subscriptions where user_id=uid order by created_at desc limit 10);
+end $$;
+
+create or replace function private.delete_push_subscription(p_endpoint text) returns void
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid := private.require_member();
+begin
+  delete from public.push_subscriptions where endpoint=p_endpoint and user_id=uid;
+end $$;
+
+create or replace function private.push_status() returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object('devices',(select count(*) from public.push_subscriptions where user_id=private.require_member()))
+$$;
+
+create or replace function public.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text) returns void language sql set search_path = '' as $$ select private.save_push_subscription(p_endpoint,p_p256dh,p_auth) $$;
+
+create or replace function public.delete_push_subscription(p_endpoint text) returns void language sql set search_path = '' as $$ select private.delete_push_subscription(p_endpoint) $$;
+
+create or replace function public.push_status() returns jsonb language sql set search_path = '' as $$ select private.push_status() $$;
+
+create or replace function private.push_on_notification() returns trigger language plpgsql security definer set search_path = '' as $$
+declare secret text; url text; subs jsonb; lang text;
+begin
+  begin
+    select jsonb_agg(jsonb_build_object('endpoint',s.endpoint,'p256dh',s.p256dh,'auth',s.auth)) into subs from public.push_subscriptions s where s.user_id=new.user_id;
+    if subs is null then return new; end if;
+    select decrypted_secret into secret from vault.decrypted_secrets where name='push_hook_secret' limit 1;
+    url := private.setting('push_function_url') #>> '{}';
+    if secret is null or url is null then return new; end if;
+    select coalesce(p.locale,'fr') into lang from public.profiles p where p.user_id=new.user_id;
+    perform net.http_post(url:=url,
+      headers:=jsonb_build_object('content-type','application/json','x-push-secret',secret),
+      body:=jsonb_build_object('kind',new.kind,'lang',coalesce(lang,'fr'),'badge',private.unread_total(new.user_id),'subscriptions',subs));
+    update public.push_subscriptions set last_sent_at=now() where user_id=new.user_id;
+  exception when others then
+    raise warning 'push_on_notification: %', sqlerrm;
+  end;
+  return new;
+end $$;
+revoke all on function private.unread_total(uuid), private.push_on_notification() from public, anon, authenticated;
+grant execute on function private.save_push_subscription(text,text,text), private.delete_push_subscription(text), private.push_status() to authenticated;
+grant execute on function public.save_push_subscription(text,text,text), public.delete_push_subscription(text), public.push_status() to authenticated, service_role;

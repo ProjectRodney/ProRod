@@ -588,3 +588,41 @@ do $$ declare v jsonb; begin
 end $$;
 select 'PASS: venue accounts apply/approve/dashboard (invites capped at 3 h, announcements, revoke ends sessions), pro sheets approved + subscribed only, enquiries scoped to the venue, venue accounts never list people' as result;
 rollback;
+
+-- Section 8 (7 November 2026). Push notifications: members save and remove only their own devices, https only, the table is
+-- never readable by clients, and the unread count matches the app (introductions waiting + unread messages + notifications).
+begin;
+insert into auth.users(id,email,email_confirmed_at,is_anonymous) values ('00000000-0000-4000-8000-000000000001','push-a@example.invalid',now(),false),('00000000-0000-4000-8000-000000000002','push-b@example.invalid',now(),false);
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select public.save_push_subscription('https://push.example.invalid/endpoint-a-1234567890','BPpublickey-abcdefghijklmnopqrstuvwxyz','authsecret123');
+do $$ begin
+  begin perform public.save_push_subscription('http://push.example.invalid/x-1234567890','BPpublickey-abcdefghijklmnopqrstuvwxyz','authsecret123'); raise exception 'TEST: http endpoint accepted'; exception when others then if sqlerrm<>'invalid_subscription' then raise; end if; end;
+  begin perform count(*) from public.push_subscriptions; raise exception 'TEST: subscriptions readable'; exception when insufficient_privilege then null; end;
+  if (public.push_status()->>'devices')::int<>1 then raise exception 'TEST: device not saved'; end if;
+end $$;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select public.delete_push_subscription('https://push.example.invalid/endpoint-a-1234567890');
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$ begin
+  if (public.push_status()->>'devices')::int<>1 then raise exception 'TEST: another member removed the device'; end if;
+  perform public.delete_push_subscription('https://push.example.invalid/endpoint-a-1234567890');
+  if (public.push_status()->>'devices')::int<>0 then raise exception 'TEST: own device not removed'; end if;
+end $$;
+reset role;
+do $$ begin if private.unread_total('00000000-0000-4000-8000-000000000001')<>0 then raise exception 'TEST: unread total'; end if; end $$;
+select 'PASS: push devices private and owned, https only, removal by owner only, unread total' as result;
+rollback;
+
+-- Section 8b (7 November 2026). An account confirmed by phone only (no e-mail) is a verified member; an unconfirmed one is not.
+begin;
+insert into auth.users(id,phone,phone_confirmed_at,is_anonymous) values ('00000000-0000-4000-8000-000000000031','33600000031',now(),false),('00000000-0000-4000-8000-000000000032','33600000032',null,false);
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000031","role":"authenticated"}',true);
+do $$ begin if (public.push_status()->>'devices')::int<>0 then raise exception 'TEST: phone member refused'; end if; end $$;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000032","role":"authenticated"}',true);
+do $$ begin begin perform public.push_status(); raise exception 'TEST: unconfirmed phone accepted'; exception when others then if sqlerrm<>'verified_account_required' then raise; end if; end; end $$;
+reset role;
+select 'PASS: phone-confirmed accounts are members, unconfirmed ones are not' as result;
+rollback;
+

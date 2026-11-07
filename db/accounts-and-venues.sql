@@ -71,7 +71,7 @@ create policy own_sessions on public.venue_sessions for select to authenticated 
 create function private.require_member() returns uuid language plpgsql security definer set search_path = '' as $$
 declare uid uuid := auth.uid();
 begin
-  if uid is null or not exists(select 1 from auth.users where id=uid and email_confirmed_at is not null and coalesce(is_anonymous,false)=false) then
+  if uid is null or not exists(select 1 from auth.users where id=uid and (email_confirmed_at is not null or phone_confirmed_at is not null) and coalesce(is_anonymous,false)=false) then
     raise exception 'verified_account_required' using errcode='42501';
   end if;
   if exists(select 1 from private.account_restrictions where user_id=uid and suspended) then
@@ -354,3 +354,8 @@ alter table public.conversations add column meeting_a boolean, add column meetin
 -- subscribe_talent_simulated, app_settings_public, submit_feedback. Admin: admin_venue_applications, admin_decide_venue (creates the venue + manager link),
 -- admin_pro_profiles, admin_decide_pro, admin_passes, admin_refund_pass, admin_feedback. Cron prod-feedback-emails (*/5) → private.send_feedback_emails()
 -- (pg_net → Brevo, key from vault secret brevo_api_key; silent while key/addresses are missing).
+
+-- Push notifications (7 November 2026, db/2026-11-07-push-notifications.sql): public.push_subscriptions (endpoint, keys; RLS on,
+-- no client grants), private.save_push_subscription / delete_push_subscription / push_status (own devices only, https only,
+-- 10 per member), private.unread_total(uid), trigger push_after_notification on public.notifications → pg_net → Edge Function
+-- send-push (secret push_hook_secret in the Vault = PUSH_HOOK_SECRET). The push carries the kind, language and unread count only.
