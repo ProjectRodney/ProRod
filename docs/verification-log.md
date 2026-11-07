@@ -22,3 +22,4 @@ and replace the definitions in the file (grants at the end of the file stay as t
 | 7 November 2026 (evening) | `db/2026-11-07-rename-anziak.sql` applied on ProRod (feedback e-mails renamed ANZIAK) | Success |
 | 7 November 2026 (evening) | Edge Function `send-sms` redeployed from the repository (ANZIAK text and SMS sender) | Deployed; SMS delivery still to test on a phone |
 | 7 November 2026 (evening) | Supabase Auth SMTP: sender ANZIAK, Brevo relay port 587, login = the client's Brevo SMTP login (only active key, created 7 November) | Configured; delivery to confirm with a real sign-up |
+| 7 November 2026 (15:07 Paris) | Real sign-up: confirmation e-mail delivered from ANZIAK through the client's Brevo SMTP (arrived in Yahoo spam: free-mail sender, expected until a domain is authenticated) | Delivered; link click and spam rate to follow |
