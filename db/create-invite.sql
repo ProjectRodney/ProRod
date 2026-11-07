@@ -9,7 +9,7 @@ with params as (
   select
     (select id from private.venues where name = 'PRod · Lieu de test' and active limit 1) as venue_id,
     interval '7 days' as validity,
-    'https://rdzoagbe.github.io/ProRod/account.html' as site_url
+    'https://projectrodney.github.io/ProRod/account.html' as site_url
 ),
 token as (
   select translate(encode(extensions.gen_random_bytes(32), 'base64'), '+/=', '-_') as value

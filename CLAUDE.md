@@ -10,8 +10,8 @@ qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le
 - Documents de référence (hors dépôt, chez Roland) : feuille de route « PRod » du 5 novembre 2026
   (9 pages, phases 1 à 6) et compte rendu de cadrage du 4 novembre 2026.
 - Parcours produit de référence, étape par étape avec l'état d'avancement : `docs/product-flow.md`.
-- Hébergement : dépôt public, GitHub Pages via `.github/workflows/deploy.yml` (build + tests, puis
-  publication de `dist/`) → https://rdzoagbe.github.io/ProRod/ . Sources, schéma et scripts sont
+- Hébergement : dépôt public **ProjectRodney/ProRod** (compte GitHub du client depuis le 7 novembre 2026 ; l’ancienne adresse rdzoagbe est morte pour GitHub Pages), GitHub Pages via `.github/workflows/deploy.yml` (build + tests, puis
+  publication de `dist/`) → https://projectrodney.github.io/ProRod/ . Sources, schéma et scripts sont
   donc visibles : rien de confidentiel ne doit entrer dans le dépôt.
 - Quatre principes : accès limité au lieu rejoint ; aucun droit à une réponse ; parcours simple
   sans selfie obligatoire ; mêmes protections pour tous (fermer, bloquer, signaler), avant tout paiement.

@@ -8,7 +8,7 @@ The pilot has one explicitly labelled test venue, with a 60-minute test session.
 
 Build: `npm ci`, `npm run build`, `npm test`. The build bundles the pinned Supabase client locally; no runtime CDN dependency. Static hosting serves `dist/`. Only a publishable API key is shipped. Authentication responses and private data are never service-worker cached.
 
-Before real signup testing: deploy to a public HTTPS address (`.github/workflows/deploy.yml` builds, tests and publishes `dist/` to GitHub Pages at https://rdzoagbe.github.io/ProRod/; the earlier ChatGPT Sites deployment was owner-private and unusable for the client), set `siteUrl` in `src/public-config.js` to that address, then in the ProRod Supabase project configure the Brevo SMTP (the built-in email service only delivers to organization members), Site URL and the allowed redirect `<siteUrl>/account.html`. Keep email confirmation enabled and verify actual inbox delivery with an agreed test user.
+Before real signup testing: deploy to a public HTTPS address (`.github/workflows/deploy.yml` builds, tests and publishes `dist/` to GitHub Pages at https://projectrodney.github.io/ProRod/; the earlier ChatGPT Sites deployment was owner-private and unusable for the client), set `siteUrl` in `src/public-config.js` to that address, then in the ProRod Supabase project configure the Brevo SMTP (the built-in email service only delivers to organization members), Site URL and the allowed redirect `<siteUrl>/account.html`. Keep email confirmation enabled and verify actual inbox delivery with an agreed test user.
 
 ## First real journey
 

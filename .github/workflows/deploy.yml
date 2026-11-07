@@ -1,5 +1,5 @@
 name: Deploy to GitHub Pages
-# Builds, tests and publishes dist/ to https://rdzoagbe.github.io/ProRod/ on every push to main.
+# Builds, tests and publishes dist/ to https://projectrodney.github.io/ProRod/ on every push to main.
 on:
   push:
     branches: [main]
