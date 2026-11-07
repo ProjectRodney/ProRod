@@ -19,3 +19,4 @@ and replace the definitions in the file (grants at the end of the file stay as t
 | 6 November 2026 (evening) | 3 with chat-only-while-co-present and refusals across visits, 4 with two-step verification always required | PASS, PASS |
 | 7 November 2026 | 3b pass expiry (new): logic run on a local PostgreSQL 16 with stand-in tables (old rule reproduced the bug, new rule passed); migration parsed | migration applied on ProRod |
 | 7 November 2026 (afternoon) | whole file in one run (1, 2, 3, 3b, 4, 5, 6, 7) after `db/2026-11-07-pass-expiry.sql` | all PASS (run stops at the first failure; final row was section 7's PASS) |
+| 7 November 2026 (evening) | `db/2026-11-07-rename-anziak.sql` applied on ProRod (feedback e-mails renamed ANZIAK) | Success |
