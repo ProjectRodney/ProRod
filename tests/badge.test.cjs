@@ -60,5 +60,5 @@ test('typed form values survive a redraw (refused save, language switch, counts 
   for(const k of ['rules_required','unsupported_language','name_length'])assert.ok(s.includes(k+':['),k);
 });
 test('a failed SMS code says so instead of the generic message',()=>{
-  assert.match(fs.readFileSync('src/account.js','utf8'),/The SMS code could not be sent\./);
+  const s=fs.readFileSync('src/account.js','utf8');assert.match(s,/The SMS code could not be sent\./);assert.equal((s.match(/error.smsStep=true/g)||[]).length,2,'sign-in and add-number both tagged');
 });
