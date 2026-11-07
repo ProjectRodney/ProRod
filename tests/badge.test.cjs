@@ -45,3 +45,9 @@ test('accounts confirmed by phone only are verified members (require_member)',()
   for(const f of ['db/functions.sql','db/accounts-and-venues.sql','db/2026-11-07-phone-members.sql'])
     assert.match(fs.readFileSync(f,'utf8'),/\(email_confirmed_at is not null or phone_confirmed_at is not null\) and coalesce\(is_anonymous,false\)=false/,f);
 });
+test('push_status checks membership before reading anything (fix found by check 8b)',()=>{
+  for(const f of ['db/2026-11-07-push-notifications.sql','db/2026-11-07-push-status-fix.sql','db/functions.sql']){
+    const s=fs.readFileSync(f,'utf8');const fn=s.slice(s.indexOf('function private.push_status()'));
+    assert.match(fn,/^function private\.push_status\(\) returns jsonb language plpgsql[^$]*\$\$\ndeclare uid uuid := private\.require_member\(\);/,f);
+  }
+});

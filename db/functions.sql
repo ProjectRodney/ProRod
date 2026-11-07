@@ -1552,9 +1552,11 @@ begin
   delete from public.push_subscriptions where endpoint=p_endpoint and user_id=uid;
 end $$;
 
-create or replace function private.push_status() returns jsonb language sql stable security definer set search_path = '' as $$
-  select jsonb_build_object('devices',(select count(*) from public.push_subscriptions where user_id=private.require_member()))
-$$;
+create or replace function private.push_status() returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare uid uuid := private.require_member();  -- checked first, whatever the table holds
+begin
+  return jsonb_build_object('devices',(select count(*) from public.push_subscriptions where user_id=uid));
+end $$;
 
 create or replace function public.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text) returns void language sql set search_path = '' as $$ select private.save_push_subscription(p_endpoint,p_p256dh,p_auth) $$;
 
