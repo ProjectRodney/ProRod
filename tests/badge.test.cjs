@@ -62,3 +62,8 @@ test('typed form values survive a redraw (refused save, language switch, counts 
 test('a failed SMS code says so instead of the generic message',()=>{
   const s=fs.readFileSync('src/account.js','utf8');assert.match(s,/The SMS code could not be sent\./);assert.equal((s.match(/error.smsStep=true/g)||[]).length,2,'sign-in and add-number both tagged');
 });
+test('SMS hook sends the code to the new number when a phone is added (phone_change), never logs numbers or codes',()=>{
+  const s=fs.readFileSync('supabase/functions/send-sms/index.ts','utf8');
+  assert.match(s,/data\.sms\?\.new_phone \|\| data\.new_phone/);
+  for(const line of s.split('\n').filter(l=>/console\./.test(l)))assert.doesNotMatch(line,/[,(]\s*(phone|otp|content|target|payload)\s*[,)]/,'never log the number, the code or the text: '+line.trim());
+});

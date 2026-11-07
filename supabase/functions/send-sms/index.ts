@@ -11,12 +11,19 @@ Deno.serve(async (req) => {
   const secret = Deno.env.get("SEND_SMS_HOOK_SECRET"), key = Deno.env.get("BREVO_API_KEY");
   if (!secret || !key) return hookError(500, "not_configured");
   const payload = await req.text();
-  let data: { user?: { phone?: string }; sms?: { otp?: string } };
+  let data: { user?: { phone?: string; phone_change?: string }; sms?: { otp?: string; new_phone?: string; phone?: string }; new_phone?: string };
   try { data = new Webhook(secret.replace("v1,whsec_", "")).verify(payload, Object.fromEntries(req.headers)) as typeof data; }
   catch { return hookError(401, "invalid_signature"); }
-  const phone = String(data.user?.phone || "").replace(/\D/g, "");
+  // Adding or changing a number (phone_change): the code must go to the NEW number, which Supabase sends as new_phone
+  // (not in user.phone, which is empty for an email account). Sign-in by phone: user.phone.
+  const target = data.sms?.new_phone || data.new_phone || data.sms?.phone || data.user?.phone_change || data.user?.phone || "";
+  const phone = String(target).replace(/\D/g, "");
   const otp = String(data.sms?.otp || "");
-  if (!/^[0-9]{6,20}$/.test(phone) || !/^[0-9]{6,10}$/.test(otp)) return hookError(400, "bad_request");
+  if (!/^[0-9]{6,20}$/.test(phone) || !/^[0-9]{6,10}$/.test(otp)) {
+    // No number or code is logged, only which part is missing and which fields arrived.
+    console.error("bad_request", { phone_ok: /^[0-9]{6,20}$/.test(phone), otp_ok: /^[0-9]{6,10}$/.test(otp), sms_fields: Object.keys(data.sms || {}), top_fields: Object.keys(data || {}) });
+    return hookError(400, "bad_request");
+  }
   const content = `ANZIAK : votre code est ${otp}. Il expire dans 10 minutes. / Your code is ${otp}. It expires in 10 minutes.`;
   const r = await fetch("https://api.brevo.com/v3/transactionalSMS/send", { method: "POST", headers: { "api-key": key, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ sender: "ANZIAK", recipient: phone, content, type: "transactional", tag: "auth" }) });
   if (!r.ok) { console.error("brevo sms", r.status, await r.text().catch(() => "")); return hookError(500, "sms_failed"); }
