@@ -346,7 +346,9 @@ alter table public.conversations add column meeting_a boolean, add column meetin
 -- public.feedback. RLS on, no client grants: everything goes through private.* SECURITY DEFINER + public.* wrappers.
 -- Guards: private.require_person() (member that is not a venue account) on join_venue, venue_members, venue_room, venue_talents, send_enquiry, buy_pass_simulated;
 -- private.needs_pass(conversation, uid): with pass_rule "everyone", the other party's messages are returned as locked (body null) and
--- send_message raises pass_required until a venue_pass covers the conversation (venue + created before the pass expiry).
+-- send_message raises pass_required unless a venue_pass for that venue is valid now; since 7 November 2026 (db/2026-11-07-pass-expiry.sql)
+-- private.message_hidden(conversation, reader, sender, sent_at) hides the other party's messages not covered by one of the reader's
+-- passes (pass expiry >= sent_at) in conversation_messages, my_inbox (last) and my_data_export.
 -- Member RPCs: set_account_type, my_account_type, apply_venue, my_venue, venue_create_invite, venue_revoke_invite, venue_update, venue_announce,
 -- venue_delete_announcement (expires it), venue_room, save_pro_profile, my_pro_profile, venue_talents, send_enquiry, buy_pass_simulated, my_passes,
 -- subscribe_talent_simulated, app_settings_public, submit_feedback. Admin: admin_venue_applications, admin_decide_venue (creates the venue + manager link),

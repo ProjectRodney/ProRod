@@ -369,7 +369,7 @@ begin
   other := case when conv.a_id=uid then conv.b_id else conv.a_id end;
   if private.blocked_between(uid,other) then raise exception 'conversation_unavailable'; end if;
   locked := private.needs_pass(conv,uid); live := private.co_present_in(conv,uid);
-  select coalesce(jsonb_agg(jsonb_build_object('id',m.id,'body',case when locked and m.sender_id<>uid then null else m.body end,'locked',locked and m.sender_id<>uid,'mine',m.sender_id=uid,'created_at',m.created_at) order by m.created_at),'[]'::jsonb) into msgs from public.messages m where m.conversation_id=conv.id;
+  select coalesce(jsonb_agg(jsonb_build_object('id',m.id,'body',case when private.message_hidden(conv,uid,m.sender_id,m.created_at) then null else m.body end,'locked',private.message_hidden(conv,uid,m.sender_id,m.created_at),'mine',m.sender_id=uid,'created_at',m.created_at) order by m.created_at),'[]'::jsonb) into msgs from public.messages m where m.conversation_id=conv.id;
   select count(*) filter (where sender_id=uid), count(*) filter (where sender_id=other) into mine_count, theirs_count from public.messages where conversation_id=conv.id;
   insert into public.conversation_reads(conversation_id,user_id) values(conv.id,uid) on conflict(conversation_id,user_id) do update set read_at=now();
   update public.notifications set read_at=now() where user_id=uid and read_at is null and kind in ('reply_received','message_received','conversation_closed') and (payload->>'key'=conv.id::text or payload->>'key'=conv.id::text||':meeting');
@@ -516,7 +516,7 @@ begin
     'introductions_sent',(select coalesce(jsonb_agg(jsonb_build_object('to',(select display_name from public.profiles where user_id=i.recipient_id),'message',i.message,'created_at',i.created_at,'status',case when i.status='accepted' then 'accepted' else 'pending' end) order by i.created_at),'[]'::jsonb) from public.introductions i where i.sender_id=uid),
     'introductions_received',(select coalesce(jsonb_agg(jsonb_build_object('from',(select display_name from public.profiles where user_id=i.sender_id),'message',i.message,'created_at',i.created_at,'status',i.status) order by i.created_at),'[]'::jsonb) from public.introductions i where i.recipient_id=uid),
     'conversations',(select coalesce(jsonb_agg(jsonb_build_object('with',(select display_name from public.profiles where user_id=case when c.a_id=uid then c.b_id else c.a_id end),'created_at',c.created_at,'closed_at',c.closed_at,
-        'messages',(select coalesce(jsonb_agg(jsonb_build_object('mine',m.sender_id=uid,'body',m.body,'created_at',m.created_at) order by m.created_at),'[]'::jsonb) from public.messages m where m.conversation_id=c.id)) order by c.created_at),'[]'::jsonb) from public.conversations c where c.a_id=uid or c.b_id=uid),
+        'messages',(select coalesce(jsonb_agg(jsonb_build_object('mine',m.sender_id=uid,'body',case when private.message_hidden(c,uid,m.sender_id,m.created_at) then null else m.body end,'created_at',m.created_at) order by m.created_at),'[]'::jsonb) from public.messages m where m.conversation_id=c.id)) order by c.created_at),'[]'::jsonb) from public.conversations c where c.a_id=uid or c.b_id=uid),
     'blocks',(select coalesce(jsonb_agg(jsonb_build_object('blocked',(select display_name from public.profiles where user_id=b.blocked_id),'created_at',b.created_at)),'[]'::jsonb) from public.blocks b where b.blocker_id=uid),
     'reports_made',(select coalesce(jsonb_agg(jsonb_build_object('category',r.category,'details',r.details,'created_at',r.created_at,'status',r.status)),'[]'::jsonb) from public.reports r where r.reporter_id=uid),
     'notifications',(select coalesce(jsonb_agg(jsonb_build_object('kind',n.kind,'created_at',n.created_at,'read_at',n.read_at)),'[]'::jsonb) from public.notifications n where n.user_id=uid));
@@ -537,7 +537,7 @@ begin
   into sent from public.introductions i where i.sender_id=uid and i.created_at>now()-interval '7 days' and not exists(select 1 from public.conversations c where c.introduction_id=i.id);
   select coalesce(jsonb_agg(jsonb_build_object('id',c.id,'created_at',c.created_at,'closed_at',c.closed_at,'closed_by_me',c.closed_by=uid,'venue',(select name from private.venues v where v.id=c.venue_id),
       'with',private.member_card(case when c.a_id=uid then c.b_id else c.a_id end),
-      'last',(select jsonb_build_object('body',m.body,'mine',m.sender_id=uid,'created_at',m.created_at) from public.messages m where m.conversation_id=c.id order by m.created_at desc limit 1),
+      'last',(select jsonb_build_object('body',case when private.message_hidden(c,uid,m.sender_id,m.created_at) then null else m.body end,'locked',private.message_hidden(c,uid,m.sender_id,m.created_at),'mine',m.sender_id=uid,'created_at',m.created_at) from public.messages m where m.conversation_id=c.id order by m.created_at desc limit 1),
       'unread',(select count(*) from public.messages m where m.conversation_id=c.id and m.sender_id<>uid and m.created_at>coalesce((select r.read_at from public.conversation_reads r where r.conversation_id=c.id and r.user_id=uid),'epoch'::timestamptz)))
     order by coalesce((select max(m.created_at) from public.messages m where m.conversation_id=c.id),c.created_at) desc),'[]'::jsonb)
   into convs from public.conversations c where (c.a_id=uid or c.b_id=uid) and not private.blocked_between(uid,case when c.a_id=uid then c.b_id else c.a_id end);
@@ -611,7 +611,17 @@ CREATE OR REPLACE FUNCTION private.needs_pass(p_conv conversations, p_uid uuid)
  SET search_path TO ''
 AS $function$
   select (private.setting('pass_rule') #>> '{}')='everyone'
-     and not exists(select 1 from public.passes p where p.user_id=p_uid and p.venue_id=p_conv.venue_id and p.status='active' and p.kind='venue_pass' and p_conv.created_at<=p.expires_at)
+     and not exists(select 1 from public.passes p where p.user_id=p_uid and p.venue_id=p_conv.venue_id and p.status='active' and p.kind='venue_pass' and p.expires_at>now())
+$function$;
+
+CREATE OR REPLACE FUNCTION private.message_hidden(p_conv public.conversations, p_uid uuid, p_sender uuid, p_at timestamp with time zone)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select p_sender<>p_uid and (private.setting('pass_rule') #>> '{}')='everyone'
+     and not exists(select 1 from public.passes p where p.user_id=p_uid and p.venue_id=p_conv.venue_id and p.status='active' and p.kind='venue_pass' and p.expires_at>=p_at)
 $function$;
 
 CREATE OR REPLACE FUNCTION private.notify(p_user uuid, p_kind text, p_payload jsonb DEFAULT '{}'::jsonb, p_dedupe_key text DEFAULT NULL::text)

@@ -261,6 +261,63 @@ reset role;
 select 'PASS: one introduction, consent with reply, venue-scoped, private threads, simulated pass unlocks replies, chat only while both are present, refusals hold across visits, neutral closure, blocks everywhere, reports hidden' as result;
 rollback;
 
+-- Section 3b (7 November 2026). A venue pass counts only while it is valid: a pass from an earlier visit neither lets
+-- the member write on a later visit nor reveals replies sent after it expired (thread, inbox preview, data export).
+begin;
+insert into auth.users(id,email,email_confirmed_at,is_anonymous) values
+('00000000-0000-4000-8000-000000000001','pass-a@example.invalid',now(),false),('00000000-0000-4000-8000-000000000002','pass-b@example.invalid',now(),false);
+insert into private.venues(id,name,category,duration_minutes) values ('00000000-0000-4000-8000-000000000011','Test A','test',60);
+insert into private.venue_invites(id,venue_id,token_hash,expires_at) values
+('00000000-0000-4000-8000-000000000021','00000000-0000-4000-8000-000000000011',encode(extensions.digest(repeat('a',40),'sha256'),'hex'),now()+interval '1 day');
+insert into storage.objects(bucket_id,name,owner) values
+('avatars','u/00000000-0000-4000-8000-000000000001/avatar.jpg','00000000-0000-4000-8000-000000000001'),('avatars','u/00000000-0000-4000-8000-000000000002/avatar.jpg','00000000-0000-4000-8000-000000000002');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select public.save_profile('Alex','2000-01-01','en',true,'Jazz','u/00000000-0000-4000-8000-000000000001/avatar.jpg');
+select public.join_venue(repeat('a',40));
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select public.save_profile('Maya','1995-06-15','fr',true,'Musique','u/00000000-0000-4000-8000-000000000002/avatar.jpg');
+select public.join_venue(repeat('a',40));
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select public.send_introduction('00000000-0000-4000-8000-000000000002','Hello Maya');
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select public.respond_introduction((public.my_inbox()->'received'->0->>'id')::uuid,true,'First visit reply');
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select public.buy_pass_simulated();
+select public.send_message((public.my_inbox()->'conversations'->0->>'id')::uuid,'Nice to meet you');
+reset role;
+-- Alex's first visit (and the pass bought for it) ended three days ago; everything so far moves back three days.
+update public.venue_sessions set started_at=started_at-interval '3 days', expires_at=expires_at-interval '3 days' where user_id='00000000-0000-4000-8000-000000000001';
+update public.passes set created_at=created_at-interval '3 days', expires_at=expires_at-interval '3 days' where user_id='00000000-0000-4000-8000-000000000001';
+update public.conversations set created_at=created_at-interval '3 days';
+update public.messages set created_at=created_at-interval '3 days';
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select public.join_venue(repeat('a',40));
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select public.buy_pass_simulated();
+select public.send_message((public.my_inbox()->'conversations'->0->>'id')::uuid,'Second visit reply');
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$ declare conv uuid := (public.my_inbox()->'conversations'->0->>'id')::uuid; thread jsonb; old_reply jsonb; new_reply jsonb; begin
+  begin perform public.send_message(conv,'hello again'); raise exception 'TEST: expired pass let the member write'; exception when others then if sqlerrm<>'pass_required' then raise; end if; end;
+  thread := public.conversation_messages(conv);
+  if not (thread->>'locked')::boolean then raise exception 'TEST: thread not locked with an expired pass'; end if;
+  if jsonb_array_length(thread->'messages')<>4 then raise exception 'TEST: thread length: %', thread; end if;
+  old_reply := thread->'messages'->1; new_reply := thread->'messages'->3;
+  if (old_reply->>'mine')::boolean or old_reply->>'body' is distinct from 'First visit reply' then raise exception 'TEST: reply covered by the earlier pass hidden: %', thread; end if;
+  if (new_reply->>'mine')::boolean or new_reply->>'body' is not null or not (new_reply->>'locked')::boolean then raise exception 'TEST: reply after pass expiry readable: %', thread; end if;
+  if public.my_inbox()->'conversations'->0->'last'->>'body' is not null then raise exception 'TEST: inbox preview leaks a hidden reply'; end if;
+  if exists(select 1 from jsonb_array_elements(public.my_data_export()->'conversations'->0->'messages') e where e->>'body'='Second visit reply') then raise exception 'TEST: data export leaks a hidden reply'; end if;
+  perform public.buy_pass_simulated();
+  thread := public.conversation_messages(conv);
+  if (thread->>'locked')::boolean or thread->'messages'->3->>'body' is distinct from 'Second visit reply' then raise exception 'TEST: new pass did not unlock: %', thread; end if;
+  if public.my_inbox()->'conversations'->0->'last'->>'body' is distinct from 'Second visit reply' then raise exception 'TEST: inbox preview not unlocked'; end if;
+  perform public.send_message(conv,'hello again');
+end $$;
+reset role;
+select 'PASS: a venue pass counts only while valid; replies after its expiry stay hidden in the thread, inbox and export until a new pass' as result;
+rollback;
+
 -- Administration: role from app_metadata only, venues, invitations, report decisions, suspension, audit.
 begin;
 insert into auth.users(id,email,email_confirmed_at,is_anonymous,raw_app_meta_data) values

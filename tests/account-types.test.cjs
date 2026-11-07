@@ -66,3 +66,20 @@ test('phone sign-in codes go through the Send SMS hook to Brevo, signature-verif
   for(const needle of ['standardwebhooks','Deno.env.get("SEND_SMS_HOOK_SECRET")','Deno.env.get("BREVO_API_KEY")','.verify(payload','api.brevo.com/v3/transactionalSMS/send','type: "transactional"'])assert.ok(fn.includes(needle),needle);
   assert.doesNotMatch(fn,/xkeysib-[0-9a-f]{20,}|whsec_[A-Za-z0-9+/=]{20,}/,'no key in the function source');
 });
+
+test('a venue pass counts only while valid, and hidden replies never leak (7 November 2026)',()=>{
+  const fn=fs.readFileSync('db/functions.sql','utf8');
+  const needs=fn.match(/FUNCTION private\.needs_pass\([\s\S]*?\$function\$;/)[0];
+  assert.match(needs,/p\.expires_at>now\(\)/);
+  assert.doesNotMatch(needs,/p_conv\.created_at<=p\.expires_at/);
+  const hidden=fn.match(/FUNCTION private\.message_hidden\([\s\S]*?\$function\$;/)[0];
+  assert.match(hidden,/p\.expires_at>=p_at/);
+  for(const name of ['conversation_messages','my_inbox','my_data_export']){
+    const body=fn.match(new RegExp('FUNCTION private\\.'+name+'\\([\\s\\S]*?\\$function\\$;'))[0];
+    assert.ok(body.includes('private.message_hidden('),name+' must hide replies not covered by a pass');
+    assert.doesNotMatch(body,/'body',m\.body/,name+' returns raw message bodies');
+  }
+  assert.ok(fs.readFileSync('db/verify-accounts-and-venues.sql','utf8').includes('PASS: a venue pass counts only while valid'));
+  assert.ok(source.includes("x.last?.locked"));
+});
+

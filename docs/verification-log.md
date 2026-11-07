@@ -17,3 +17,4 @@ and replace the definitions in the file (grants at the end of the file stay as t
 | 5 November 2026 | 1 base, 2 discovery, 3 introductions, 4 admin, 5 notifications, 6 meeting/export | all PASS |
 | 6 November 2026 (night) | 1–6 re-run with the pass rule, 7 account types / venues / pros | all PASS |
 | 6 November 2026 (evening) | 3 with chat-only-while-co-present and refusals across visits, 4 with two-step verification always required | PASS, PASS |
+| 7 November 2026 | 3b pass expiry (new): logic run on a local PostgreSQL 16 with stand-in tables (old rule reproduced the bug, new rule passed); migration parsed | **to run on ProRod** after applying `db/2026-11-07-pass-expiry.sql` |
