@@ -19,9 +19,10 @@ Deno.serve(async (req) => {
   const target = data.sms?.new_phone || data.new_phone || data.sms?.phone || data.user?.phone_change || data.user?.phone || "";
   const phone = String(target).replace(/\D/g, "");
   const otp = String(data.sms?.otp || "");
-  if (!/^[0-9]{6,20}$/.test(phone) || !/^[0-9]{6,10}$/.test(otp)) {
+  const phoneOk = /^[0-9]{6,20}$/.test(phone), otpOk = /^[0-9]{6,10}$/.test(otp);
+  if (!phoneOk || !otpOk) {
     // No number or code is logged, only which part is missing and which fields arrived.
-    console.error("bad_request", { phone_ok: /^[0-9]{6,20}$/.test(phone), otp_ok: /^[0-9]{6,10}$/.test(otp), sms_fields: Object.keys(data.sms || {}), top_fields: Object.keys(data || {}) });
+    console.error("bad_request", { phone_ok: phoneOk, otp_ok: otpOk, sms_fields: Object.keys(data.sms || {}), top_fields: Object.keys(data || {}) });
     return hookError(400, "bad_request");
   }
   const content = `ANZIAK : votre code est ${otp}. Il expire dans 10 minutes. / Your code is ${otp}. It expires in 10 minutes.`;
