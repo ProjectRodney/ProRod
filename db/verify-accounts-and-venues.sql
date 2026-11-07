@@ -516,7 +516,7 @@ do $$ declare apps jsonb; r jsonb; begin
 end $$;
 -- Venue dashboard: invite (capped at 180 min), announcement, update, present count.
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000004","role":"authenticated","app_metadata":{}}',true);
-create temp table t_inv as select public.venue_create_invite(30) as inv;
+select set_config('prod_test.invite_token',public.venue_create_invite(30)->>'token',true);
 do $$ declare v jsonb; begin
   v := public.my_venue()->'venue';
   if v is null or (v->>'duration_minutes')::int<>180 then raise exception 'TEST: venue duration not capped: %', v; end if;
@@ -537,7 +537,7 @@ do $$ declare r jsonb; begin
   r := public.save_pro_profile('Studio Alex','DJ Alex','DJ','Ambiance soul et funk pour vos soirées.','https://example.invalid','{"instagram":"@alex","evil":"x"}','Bondy');
   if r->>'status'<>'pending' then raise exception 'TEST: pro sheet not pending'; end if;
   if public.my_pro_profile()->'socials' ? 'evil' then raise exception 'TEST: unknown social kept'; end if;
-  perform public.join_venue((select inv->>'token' from t_inv));
+  perform public.join_venue(current_setting('prod_test.invite_token'));
   begin perform count(*) from public.pro_profiles; raise exception 'TEST: pro_profiles readable directly'; exception when insufficient_privilege then null; end;
 end $$;
 -- A personal member in the same venue sees the room (announcement, count) but no talent yet.
@@ -546,7 +546,7 @@ select public.save_profile('Maya','1995-06-15','fr',true,'Musique','u/00000000-0
 do $$ declare room jsonb; begin
   if public.my_account_type()<>'personal' then raise exception 'TEST: default type'; end if;
   begin perform public.venue_room(); raise exception 'TEST: room without session'; exception when others then if sqlerrm<>'no_live_session' then raise; end if; end;
-  perform public.join_venue((select inv->>'token' from t_inv));
+  perform public.join_venue(current_setting('prod_test.invite_token'));
   room := public.venue_room();
   if (room->>'present')::int<>2 or jsonb_array_length(room->'announcements')<>1 then raise exception 'TEST: room %', room; end if;
   if jsonb_array_length(public.venue_talents())<>0 then raise exception 'TEST: unapproved talent listed'; end if;
