@@ -30,3 +30,4 @@ and replace the definitions in the file (grants at the end of the file stay as t
 | 7 November 2026 (evening) | Edge Function send-push deployed; check 8 PASS on ProRod; check 8b found push_status skipping the membership check when no device exists → fixed (`db/2026-11-07-push-status-fix.sql`, verified locally) | 8 PASS; 8b to re-run after the fix |
 | 7 November 2026 (evening) | `db/2026-11-07-push-status-fix.sql` applied; whole check file re-run on ProRod, final row = section 8b PASS (every section before it passed) | all PASS |
 | 7 November 2026 (evening) | Supabase Authentication → Passkeys enabled (display name ANZIAK, RP ID projectrodney.github.io, origin https://projectrodney.github.io); app flag providers.passkey on | Configured; real-phone test next |
+| 7 November 2026 (evening) | Passkey on a real Android phone: created after sign-in, then sign-in with biometrics (no email, password or code) | PASS |
