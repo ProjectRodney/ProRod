@@ -68,6 +68,6 @@ After one hour of real use on the device (foreground time), a short pop-up: a fa
 
 ## Next complete milestone
 1. Pass expiry fix (7 November 2026): DONE, applied on ProRod and verified (section 3b with every other section PASS).
-2. One documented pilot with two member phones, one venue account and an admin: install, sign-up, confirmation e-mail, QR entry, introduction, acceptance and reply, pass, chat, refusal, block, report, leaving, re-entry, a second visit needing a new pass. Results go into `docs/verification-log.md`; features the client approves become ACCEPTED.
+2. One documented pilot with two member phones, one venue account and an admin (checklist: `docs/pilot-checklist.md`): install, sign-up, confirmation e-mail, QR entry, introduction, acceptance and reply, pass, chat, refusal, block, report, leaving, re-entry, a second visit needing a new pass. Results go into `docs/verification-log.md`; features the client approves become ACCEPTED.
 3. External services checked on real devices: confirmation and reset e-mails (Brevo SMTP), SMS codes (Brevo), translation (DeepL), feedback e-mails.
 Server checks (sections 1–7) passed on 5–6 November 2026; the Node tests mostly check source text, so the pilot is the evidence that people can really use it.
