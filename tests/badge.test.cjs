@@ -51,3 +51,11 @@ test('push_status checks membership before reading anything (fix found by check 
     assert.match(fn,/^function private\.push_status\(\) returns jsonb language plpgsql[^$]*\$\$\ndeclare uid uuid := private\.require_member\(\);/,f);
   }
 });
+test('typed form values survive a redraw (refused save, language switch, counts refresh); passwords and files never copied',()=>{
+  const s=fs.readFileSync('src/account.js','utf8');
+  assert.match(s,/function render\(\)\{const drafts=snapshotForms\(\);/);assert.match(s,/;restoreForms\(drafts\);/);
+  assert.match(s,/\['password','file','hidden','submit'\]\.includes\(el\.type\)/);
+  assert.match(s,/form\.querySelector\('#photo'\)\?\.files\?\.\[0\]\|\|pendingPhoto/);
+  assert.match(s,/!root\.querySelector\('form\[data-form\] :focus'\)\)render\(\)/);
+  for(const k of ['rules_required','unsupported_language','name_length'])assert.ok(s.includes(k+':['),k);
+});
