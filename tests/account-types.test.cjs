@@ -39,7 +39,7 @@ test('feedback appears after one hour of real use, can be postponed at most a fe
 });
 test('optional sign-in providers stay behind configuration flags and are off by default',()=>{
   const config=JSON.parse(fs.readFileSync('src/public-config.js','utf8').match(/export const config = (\{.*\});/)[1]);
-  assert.deepEqual(config.providers,{google:false,phone:true});
+  assert.deepEqual(config.providers,{google:false,phone:true,passkey:false},'passkeys stay off until the final domain is fixed (Relying Party ID)');
   for(const needle of ["config.providers?.google","config.providers?.phone","signInWithOAuth({provider:'google'","signInWithOtp({phone:","verifyOtp({phone:phoneValue,token:values.code,type:'sms'})"])assert.ok(source.includes(needle),needle);
 });
 test('a landing page with a language choice comes before account creation, and chat translation is opt-in through the server only',()=>{

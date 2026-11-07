@@ -67,3 +67,10 @@ test('SMS hook sends the code to the new number when a phone is added (phone_cha
   assert.match(s,/data\.sms\?\.new_phone \|\| data\.new_phone/);
   for(const line of s.split('\n').filter(l=>/console\./.test(l)))assert.doesNotMatch(line,/[,(]\s*(phone|otp|content|target|payload)\s*[,)]/,'never log the number, the code or the text: '+line.trim());
 });
+test('passkeys: behind a flag, offered once after sign-in, SMS/e-mail stay as fallback, cancel handled',()=>{
+  const s=fs.readFileSync('src/account.js','utf8');
+  assert.match(s,/const passkeyReady=\(\)=>!!\(config\.providers\?\.passkey&&window\.PublicKeyCredential&&window\.isSecureContext\)/);
+  assert.match(s,/client\.auth\.signInWithPasskey\(\)/);assert.match(s,/client\.auth\.registerPasskey\(\)/);assert.match(s,/client\.auth\.passkey\.delete\(\{passkeyId:target\.dataset\.id\}\)/);
+  assert.match(s,/ERROR_CEREMONY_ABORTED/);assert.match(s,/\$\{pk\}\$\{g\}\$\{ph\}/,'passkey first, other methods still offered');
+  assert.match(s,/passkeyLaterKey\(\)/);
+});
