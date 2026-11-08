@@ -21,7 +21,7 @@ test('settings and help views exist in both languages and account deletion goes 
 });
 test('QR scanning uses the rear camera only to read a venue invitation, explains it, and never asks for a selfie',()=>{
   const source=fs.readFileSync('src/account.js','utf8');
-  for(const needle of ['data-action="scan"',"facingMode:{ideal:'environment'}",'getTracks().forEach(t=>t.stop())','Aucune photo n’est prise ni conservée','No photo is taken or stored',"searchParams.get('venue')",'Saisir le code d’invitation à la place'])assert.ok(source.includes(needle),needle);
+  for(const needle of ['data-action="scan"',"facingMode:{ideal:'environment'}",'getTracks().forEach(t=>t.stop())','Aucune photo n’est prise ni conservée','No photo is taken or stored',"searchParams.get('venue')",'Saisir un code'])assert.ok(source.includes(needle),needle);
   assert.doesNotMatch(source,/capture="user"|facingMode:\s*['"]user/);
   const scanner=source.slice(source.indexOf('async function startScan'),source.indexOf('function render('));
   assert.doesNotMatch(scanner,/toDataURL|toBlob|\.upload\(|from\('avatars'\)/,'no camera frame is exported');

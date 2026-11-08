@@ -31,3 +31,13 @@ and replace the definitions in the file (grants at the end of the file stay as t
 | 7 November 2026 (evening) | `db/2026-11-07-push-status-fix.sql` applied; whole check file re-run on ProRod, final row = section 8b PASS (every section before it passed) | all PASS |
 | 7 November 2026 (evening) | Supabase Authentication → Passkeys enabled (display name ANZIAK, RP ID projectrodney.github.io, origin https://projectrodney.github.io); app flag providers.passkey on | Configured; real-phone test next |
 | 7 November 2026 (evening) | Passkey on a real Android phone: created after sign-in, then sign-in with biometrics (no email, password or code) | PASS |
+
+## 8 November 2026 - member interface redesign
+
+- Short bilingual welcome/installer with direct registration and sign-in links.
+- Member screens share a mobile layout and three persistent tabs: venue, messages, profile. Venue-management accounts retain their separate workflow.
+- Venue home prioritises scan/join/discovery. Session/pass details are expandable; simulated-payment labels remain visible.
+- Settings group the existing profile, sign-in methods, passkeys, notifications, data, account and safety controls. Email sign-in remains available behind an explicit disclosure.
+- Discovery uses photo cards; chat and consent screens inherit the same spacing, contrast and typography. No backend, entitlement or moderation rule changed.
+- Validation: production build; 44 Node tests; browser checks at 390px and desktop for welcome and sign-in; local fictional fixtures for venue home, settings and discovery. No real account mutation or SMS sent. Fixtures are not shipped.
+- Remaining: real-device signed-in pilot, SMS delivery diagnosis, client acceptance. These UI checks do not certify those integrations.
