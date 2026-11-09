@@ -41,3 +41,12 @@ and replace the definitions in the file (grants at the end of the file stay as t
 - Discovery uses photo cards; chat and consent screens inherit the same spacing, contrast and typography. No backend, entitlement or moderation rule changed.
 - Validation: production build; 44 Node tests; browser checks at 390px and desktop for welcome and sign-in; local fictional fixtures for venue home, settings and discovery. No real account mutation or SMS sent. Fixtures are not shipped.
 - Remaining: real-device signed-in pilot, SMS delivery diagnosis, client acceptance. These UI checks do not certify those integrations.
+
+
+## 9 November 2026 — optional private gender and meeting readiness
+- Added optional gender (woman/man/non-binary/another identity/prefer not to say, plus clear/blank) to personal/pro onboarding and settings, FR/EN. Venue onboarding unchanged. No attraction field or pricing rule added.
+- `save_member_profile` wraps the existing validated profile save in one transaction. Owner-only profiles RLS unchanged; explicit RPC grants, no anonymous access. Old save_profile remains compatible with cached clients and venue accounts.
+- Live transaction-only `db/verify-private-gender.sql`: PASS for all choices, reload, clearing, export, invalid value rollback, other-user isolation, venue denial and anonymous privilege check. Synthetic users rolled back.
+- Full existing `db/verify-accounts-and-venues.sql` executed without SQL errors after correcting global pending-application counts to scope assertions to fixtures. The original assertion assumed an empty live queue; no real application was changed. This verifies backend rules, not handset acceptance.
+- Supabase security advisor: no new error; existing leaked-password protection warning remains. No-policy RLS notices correspond to RPC-only tables; do not add broad access policies to silence them.
+- Meeting readiness and launch gaps: `docs/meeting-readiness.md`. No payment, SMS purchase, legal approval or store publication claimed.

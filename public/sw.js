@@ -1,4 +1,4 @@
-const CACHE = 'prorod-shell-v9';
+const CACHE = 'prorod-shell-v10';
 const ASSETS = ['./index.html', './demo.html', './pwa-install.js', './install.css', './app.css', './app.js', './install.js', './manifest.webmanifest', './assets/anziak-icon-192.png', './assets/anziak-icon-512.png', './assets/apple-touch-icon.png', './assets/maya.jpg', './assets/adam.jpg', './account.html', './account.css', './member-design.css', './welcome.js', './account.bundle.js'];
 const allowed = new Set(ASSETS.map(path => new URL(path, self.registration.scope).href));
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))));

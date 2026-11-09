@@ -5,3 +5,6 @@ dist/
 !.env.example
 .DS_Store
 *.log
+
+# Supabase CLI local cache
+supabase/.temp/

@@ -508,11 +508,11 @@ end $$;
 -- Admin approves the venue.
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal2","app_metadata":{"prod_admin":true}}',true);
 do $$ declare apps jsonb; r jsonb; begin
-  apps := public.admin_venue_applications('pending');
-  if jsonb_array_length(apps)<>1 then raise exception 'TEST: pending applications %', apps; end if;
+  select coalesce(jsonb_agg(a),'[]'::jsonb) into apps from jsonb_array_elements(public.admin_venue_applications('pending')) a where a->>'applicant'='Le Bar de test';
+  if jsonb_array_length(apps)<>1 then raise exception 'TEST: fixture application missing'; end if;
   r := public.admin_decide_venue((apps->0->>'id')::uuid,true,'Bienvenue');
   if r->>'status'<>'approved' then raise exception 'TEST: approval failed'; end if;
-  if jsonb_array_length(public.admin_venue_applications('pending'))<>0 then raise exception 'TEST: still pending'; end if;
+  if exists(select 1 from jsonb_array_elements(public.admin_venue_applications('pending')) a where a->>'id'=apps->0->>'id') then raise exception 'TEST: still pending'; end if;
 end $$;
 -- Venue dashboard: invite (capped at 180 min), announcement, update, present count.
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000004","role":"authenticated","app_metadata":{}}',true);
@@ -556,7 +556,7 @@ end $$;
 -- Admin approves the pro sheet; subscription is still required to appear (simulated later from the app).
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal2","app_metadata":{"prod_admin":true}}',true);
 do $$ begin
-  if jsonb_array_length(public.admin_pro_profiles('pending'))<>1 then raise exception 'TEST: pending pro sheets'; end if;
+  if not exists(select 1 from jsonb_array_elements(public.admin_pro_profiles('pending')) a where a->>'user_id'='00000000-0000-4000-8000-000000000001') then raise exception 'TEST: pending pro sheets'; end if;
   perform public.admin_decide_pro('00000000-0000-4000-8000-000000000001',true,'OK');
 end $$;
 reset role;
