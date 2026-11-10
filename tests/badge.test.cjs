@@ -74,3 +74,12 @@ test('passkeys: behind a flag, offered once after sign-in, SMS/e-mail stay as fa
   assert.match(s,/ERROR_CEREMONY_ABORTED/);assert.match(s,/\$\{pk\}\$\{g\}\$\{ph\}/,'passkey first, other methods still offered');
   assert.match(s,/passkeyLaterKey\(\)/);
 });
+test('a venue is joined only by scanning its QR code: no typed invitation code anywhere in the member app',()=>{
+  const s=fs.readFileSync('src/account.js','utf8');
+  assert.doesNotMatch(s,/data-form="invite"/);assert.doesNotMatch(s,/case 'invite':/);
+  assert.doesNotMatch(s,/Enter a code instead|Saisir un code|Venue invitation code/);
+  assert.match(s,/data-action="scan"/);assert.match(s,/searchParams\.get\('venue'\)/,'the QR link (camera app) still works');
+});
+test('a member without a readable photo shows an initial, never a broken image',()=>{
+  assert.match(fs.readFileSync('src/account.js','utf8'),/avatar-initial/);
+});

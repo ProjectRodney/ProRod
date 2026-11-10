@@ -63,7 +63,7 @@ Légende / Key : ☐ OK · ☐ Problème / Problem → décrire / describe.
 
 | # | Qui | Action | Attendu / Expected | OK | Problème / Problem |
 |---|---|---|---|---|---|
-| 5.1 | A, B | « Scanner le QR code » et viser le QR de V (sinon « Saisir le code d’invitation à la place »). *“Scan the QR code” on V’s screen (or “Enter the invitation code instead”).* | « Lieu rejoint », nom du lieu, temps restant, annonce de V. *“Checked in”, venue name, time remaining, V’s announcement.* | ☐ | |
+| 5.1 | A, B | « Scanner le QR code » et viser le QR de V. *“Scan the QR code” on V’s screen.* | « Lieu rejoint », nom du lieu, temps restant, annonce de V. *“Checked in”, venue name, time remaining, V’s announcement.* | ☐ | |
 | 5.2 | A | « Voir qui est là ». *“See who is here”.* | B apparaît (prénom, âge, bio, photo) ; jamais V ; jamais la date de naissance. *B appears (name, age, bio, photo); never V; never the birth date.* | ☐ | |
 | 5.3 | V | Regarder le tableau de bord du lieu. *Look at the venue dashboard.* | Nombre de présents = 2, sans liste de personnes. *Present count = 2, no list of people.* | ☐ | |
 

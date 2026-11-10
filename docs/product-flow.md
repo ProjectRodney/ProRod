@@ -23,6 +23,7 @@ Required before any venue: display name, profile photo (chosen from the phone, r
 Without a session: scan a QR / enter an invitation; « Mon profil et réglages » (display name, language, read-only birth date, account deletion); « Aide et sécurité » (how it works, community rules, what to do in a problem, data). No browsing outside the joined venue (enforced server-side). With an active session: back to that venue.
 
 ## 5. Scan and join a venue — DONE
+Since 10 November 2026 (client decision): a venue is joined only by scanning its QR code (in-app scanner, or the phone's camera opening the QR link); there is no field to type a code.
 In-app « Scanner le QR code du lieu » button (rear camera, used only to read the code, nothing stored; phone camera app and manual code remain as fallbacks). Invitation preview (name, duration, conditions) before joining. Server-timed session, countdown, one venue per account (joining another ends the previous one), rescanning never extends a session. Rule chosen on 5 November 2026: a valid invitation can be used again by the same account after leaving or expiry (a venue's printed QR serves returning visitors); rescanning during a live session returns it unchanged. Venues carry an address, shown before joining. Durations per venue type and departure detection: DECIDE. A QR alone does not prove presence.
 
 ## 6. Discover someone and send one introduction — DONE (talents: see 11)

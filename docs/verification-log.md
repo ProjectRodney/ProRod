@@ -50,3 +50,5 @@ and replace the definitions in the file (grants at the end of the file stay as t
 - Full existing `db/verify-accounts-and-venues.sql` executed without SQL errors after correcting global pending-application counts to scope assertions to fixtures. The original assertion assumed an empty live queue; no real application was changed. This verifies backend rules, not handset acceptance.
 - Supabase security advisor: no new error; existing leaked-password protection warning remains. No-policy RLS notices correspond to RPC-only tables; do not add broad access policies to silence them.
 - Meeting readiness and launch gaps: `docs/meeting-readiness.md`. No payment, SMS purchase, legal approval or store publication claimed.
+
+| 10 November 2026 | Venue joined only by QR (typed code removed); `db/seed-test-venue.sql` (test venue + 6 fictional profiles) tested twice and cleaned up on a local PostgreSQL 16 with stand-in tables; poster QR decoded back to the right link | PASS locally; to run on ProRod |
