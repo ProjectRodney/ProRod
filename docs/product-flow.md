@@ -1,4 +1,4 @@
-# ANZIAK (formerly PRod) — product flow (reference)
+# UPZONE (formerly ANZIAK, PRod) — product flow (reference)
 
 Status legend: **DONE** (implemented and verified with two accounts in the database checks, see `docs/verification-log.md`), **PART** (partly built), **TODO** (not started), **DECIDE** (client decision pending), **ACCEPTED** (tried and approved by Rodney; none yet). Status as of 7 November 2026. Repository transferred to Rodney's GitHub account (ProjectRodney/ProRod) on 7 November 2026; the app address became https://projectrodney.github.io/ProRod/ and every QR code was regenerated.
 

@@ -1,5 +1,5 @@
 const CACHE = 'prorod-shell-v10';
-const ASSETS = ['./index.html', './demo.html', './pwa-install.js', './install.css', './app.css', './app.js', './install.js', './manifest.webmanifest', './assets/anziak-icon-192.png', './assets/anziak-icon-512.png', './assets/apple-touch-icon.png', './assets/maya.jpg', './assets/adam.jpg', './account.html', './account.css', './member-design.css', './welcome.js', './account.bundle.js'];
+const ASSETS = ['./index.html', './demo.html', './pwa-install.js', './install.css', './app.css', './app.js', './install.js', './manifest.webmanifest', './assets/upzone-icon-192.png', './assets/upzone-icon-512.png', './assets/apple-touch-icon.png', './assets/maya.jpg', './assets/adam.jpg', './account.html', './account.css', './member-design.css', './welcome.js', './account.bundle.js'];
 const allowed = new Set(ASSETS.map(path => new URL(path, self.registration.scope).href));
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('prorod-shell-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
@@ -22,11 +22,11 @@ self.addEventListener('push', event => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = {}; }
   const badge = Number.isFinite(data.badge) ? data.badge : 0;
-  const jobs = [self.registration.showNotification(String(data.title || 'ANZIAK'), {
+  const jobs = [self.registration.showNotification(String(data.title || 'UPZONE'), {
     body: String(data.body || ''),
-    icon: './assets/anziak-icon-192.png',
-    badge: './assets/anziak-icon-192.png',
-    tag: String(data.tag || 'anziak'),
+    icon: './assets/upzone-icon-192.png',
+    badge: './assets/upzone-icon-192.png',
+    tag: String(data.tag || 'upzone'),
     renotify: true,
     data: { url: new URL(String(data.url || './account.html'), self.registration.scope).href }
   })];

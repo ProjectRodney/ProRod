@@ -1,4 +1,4 @@
--- ANZIAK pilot: automatic fictional members (« test bots ») in the test venue, so one tester can go through the whole
+-- UPZONE pilot: automatic fictional members (« test bots ») in the test venue, so one tester can go through the whole
 -- journey alone: introduction, acceptance or refusal, simulated pass, conversation, meeting proposal, receiving an
 -- introduction. Run once in the Supabase SQL editor of the ProRod project, after db/seed-test-venue.sql.
 --

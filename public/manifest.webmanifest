@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "ANZIAK",
-  "short_name": "ANZIAK",
+  "name": "UPZONE",
+  "short_name": "UPZONE",
   "description": "Un premier pas, dans le même lieu.",
   "start_url": "./account.html",
   "scope": "./",
@@ -10,25 +10,25 @@
   "theme_color": "#fff9df",
   "icons": [
     {
-      "src": "./assets/anziak-icon-192.png",
+      "src": "./assets/upzone-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./assets/anziak-icon-512.png",
+      "src": "./assets/upzone-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./assets/anziak-icon-1024.png",
+      "src": "./assets/upzone-icon-1024.png",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./assets/anziak-icon-512.png",
+      "src": "./assets/upzone-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

@@ -1,9 +1,9 @@
-# ANZIAK — Test pilote / Pilot test checklist
+# UPZONE — Test pilote / Pilot test checklist
 
 Version du 7 novembre 2026. Adresse de l’application / App address : https://projectrodney.github.io/ProRod/
 
-**But / Goal.** Vérifier, sur de vrais téléphones et avec de vrais comptes, tout le parcours de ANZIAK. Chaque ligne a un résultat attendu ; cochez **OK** ou décrivez le **problème** (capture d’écran bienvenue).
-*Check the whole ANZIAK journey on real phones with real accounts. Each line has an expected result; tick **OK** or describe the **problem** (a screenshot helps).*
+**But / Goal.** Vérifier, sur de vrais téléphones et avec de vrais comptes, tout le parcours de UPZONE. Chaque ligne a un résultat attendu ; cochez **OK** ou décrivez le **problème** (capture d’écran bienvenue).
+*Check the whole UPZONE journey on real phones with real accounts. Each line has an expected result; tick **OK** or describe the **problem** (a screenshot helps).*
 
 ## Préparation / Before you start
 
@@ -31,15 +31,15 @@ Légende / Key : ☐ OK · ☐ Problème / Problem → décrire / describe.
 
 | # | Qui | Action | Attendu / Expected | OK | Problème / Problem |
 |---|---|---|---|---|---|
-| 1.1 | A, B, V | Ouvrir l’adresse de l’application dans le navigateur. *Open the app address in the browser.* | Page d’accueil ANZIAK, choix FR / EN. *ANZIAK welcome page, FR / EN choice.* | ☐ | |
-| 1.2 | A, B, V | « Installer l’application » (Android : invite d’installation ; iPhone : suivre le guide Partager → Sur l’écran d’accueil). *“Install the app” (Android prompt; iPhone: follow the Share → Add to Home Screen guide).* | Icône ANZIAK sur l’écran d’accueil ; l’application s’ouvre en plein écran. *ANZIAK icon on the home screen; the app opens full screen.* | ☐ | |
+| 1.1 | A, B, V | Ouvrir l’adresse de l’application dans le navigateur. *Open the app address in the browser.* | Page d’accueil UPZONE, choix FR / EN. *UPZONE welcome page, FR / EN choice.* | ☐ | |
+| 1.2 | A, B, V | « Installer l’application » (Android : invite d’installation ; iPhone : suivre le guide Partager → Sur l’écran d’accueil). *“Install the app” (Android prompt; iPhone: follow the Share → Add to Home Screen guide).* | Icône UPZONE sur l’écran d’accueil ; l’application s’ouvre en plein écran. *UPZONE icon on the home screen; the app opens full screen.* | ☐ | |
 
 ## 2. Créer un compte / Create an account (A, B, V)
 
 | # | Qui | Action | Attendu / Expected | OK | Problème / Problem |
 |---|---|---|---|---|---|
 | 2.1 | A, B | Créer un compte avec e-mail + mot de passe (12 caractères minimum), accepter les conditions. *Create an account with e-mail + password (12+ characters), accept the terms.* | Message demandant de confirmer l’adresse. *Message asking to confirm the address.* | ☐ | |
-| 2.2 | A, B | Ouvrir l’e-mail de confirmation et cliquer le lien. Heure de réception : …… *Open the confirmation e-mail and click the link. Time received: ……* | E-mail reçu en moins de 5 min ; le lien ramène dans ANZIAK, connecté. *E-mail within 5 min; the link brings you back into ANZIAK, signed in.* | ☐ | |
+| 2.2 | A, B | Ouvrir l’e-mail de confirmation et cliquer le lien. Heure de réception : …… *Open the confirmation e-mail and click the link. Time received: ……* | E-mail reçu en moins de 5 min ; le lien ramène dans UPZONE, connecté. *E-mail within 5 min; the link brings you back into UPZONE, signed in.* | ☐ | |
 | 2.3 | A, B | Choisir « compte personnel », compléter le profil : prénom, date de naissance, photo, bio, accepter les règles de communauté. *Choose “personal account”, complete the profile: name, birth date, photo, bio, accept the community rules.* | Écran d’accueil « Scanner le QR code du lieu ». *Home screen “Scan the venue’s QR code”.* | ☐ | |
 | 2.4 | A | Essayer une date de naissance de moins de 18 ans (puis corriger). *Try a birth date under 18 (then correct it).* | Refusé : 18 ans minimum. *Refused: 18 minimum.* | ☐ | |
 | 2.5 | V | Créer un compte, choisir « Compte établissement », décrire le lieu et envoyer la demande. *Create an account, choose “Venue account”, describe the venue and submit.* | Demande en attente de validation. *Application pending approval.* | ☐ | |
@@ -116,7 +116,7 @@ Légende / Key : ☐ OK · ☐ Problème / Problem → décrire / describe.
 | # | Qui | Action | Attendu / Expected | OK | Problème / Problem |
 |---|---|---|---|---|---|
 | 11.1 | A | Se déconnecter ; « Mot de passe oublié ? » ; suivre l’e-mail. *Sign out; “Forgot password?”; follow the e-mail.* | E-mail reçu ; nouveau mot de passe enregistré. *E-mail received; new password saved.* | ☐ | |
-| 11.2 | B | Se déconnecter ; « Continuer avec mon numéro de téléphone » ; « M’envoyer un code ». *Sign out; “Continue with my phone number”; “Send me a code”.* | SMS de « ANZIAK » avec un code à 6 chiffres en moins de 2 min ; connexion réussie. *SMS from “ANZIAK” with a 6-digit code within 2 min; signed in.* | ☐ | |
+| 11.2 | B | Se déconnecter ; « Continuer avec mon numéro de téléphone » ; « M’envoyer un code ». *Sign out; “Continue with my phone number”; “Send me a code”.* | SMS de « UPZONE » avec un code à 6 chiffres en moins de 2 min ; connexion réussie. *SMS from “UPZONE” with a 6-digit code within 2 min; signed in.* | ☐ | |
 | 11.3 | A | « Compte et réglages » → « Télécharger mes données ». *“Account & settings” → “Download my data”.* | Fichier avec ses propres données, seulement les prénoms des autres. *File with own data, only other people’s display names.* | ☐ | |
 | 11.4 | A, B | « Donner mon avis sur le test ». *“Give feedback on the test”.* | « Merci ! Votre avis a été envoyé… » ; visible dans l’admin (Retours) ; e-mail à l’opérateur dans les 5 min. *“Thank you! Your feedback has been sent…”; visible in admin (Feedback); e-mail to the operator within 5 min.* | ☐ | |
 

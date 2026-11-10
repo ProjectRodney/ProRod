@@ -16,7 +16,7 @@ test('push notifications: generic text only, private subscriptions, removed at s
   // the push payload is built from the notification kind only, never its payload (names, conversation ids)
   assert.match(db,/body:=jsonb_build_object\('kind',new\.kind,'lang',coalesce\(lang,'fr'\),'badge',private\.unread_total\(new\.user_id\),'subscriptions',subs\)/);
   assert.doesNotMatch(db,/new\.payload/);
-  assert.match(fn,/JSON\.stringify\(\{ title: "ANZIAK", body: data\.lang === "en" \? en : fr, badge, tag: data\.kind \|\| "anziak", url: "\.\/account\.html" \}\)/);
+  assert.match(fn,/JSON\.stringify\(\{ title: "UPZONE", body: data\.lang === "en" \? en : fr, badge, tag: data\.kind \|\| "upzone", url: "\.\/account\.html" \}\)/);
   assert.match(fn,/sameSecret\(req\.headers\.get\("x-push-secret"\)/);assert.doesNotMatch(fn,/VAPID_PRIVATE_KEY\s*=\s*"/);
   assert.match(db,/revoke all on public\.push_subscriptions from anon, authenticated;/);
   assert.match(db,/private\.save_push_subscription[\s\S]*?private\.require_member\(\)/);
@@ -29,7 +29,7 @@ test('one account, several sign-in methods: phone or e-mail added to the current
   assert.match(s,/verifyOtp\(\{phone:linkPhone,token:values\.linkCode,type:'phone_change'\}\)/);
   assert.match(s,/client\.auth\.updateUser\(\{email:values\.linkEmail\},\{emailRedirectTo:redirect\}\)/);
 });
-test('ANZIAK icons exist at the declared sizes and the iPhone icon is 180 px',()=>{
+test('UPZONE icons exist at the declared sizes and the iPhone icon is 180 px',()=>{
   const b=fs.readFileSync('public/assets/apple-touch-icon.png');assert.equal(b.readUInt32BE(16),180);
   for(const f of ['account.html','index.html'])assert.match(fs.readFileSync('public/'+f,'utf8'),/rel="apple-touch-icon" href="\.\/assets\/apple-touch-icon\.png"/);
 });

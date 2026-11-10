@@ -1,4 +1,4 @@
-// ANZIAK — push notifications (Web Push). Called only by the database (trigger push_after_notification through pg_net),
+// UPZONE — push notifications (Web Push). Called only by the database (trigger push_after_notification through pg_net),
 // authenticated by a shared secret. Sends a generic text (never a name or a message) and the unread count for the icon badge.
 // Secrets, set in Supabase → Edge Functions → Secrets, never in Git:
 //   PUSH_HOOK_SECRET   same value as the Vault secret push_hook_secret
@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
   const subs = (data.subscriptions || []).filter((s) => typeof s?.endpoint === "string" && s.endpoint.startsWith("https://")).slice(0, 10);
   const [fr, en] = TEXT[data.kind || ""] || ["Nouvelle activité.", "New activity."];
   const badge = Math.max(0, Math.min(999, Math.floor(Number(data.badge) || 0)));
-  const payload = JSON.stringify({ title: "ANZIAK", body: data.lang === "en" ? en : fr, badge, tag: data.kind || "anziak", url: "./account.html" });
+  const payload = JSON.stringify({ title: "UPZONE", body: data.lang === "en" ? en : fr, badge, tag: data.kind || "upzone", url: "./account.html" });
   webpush.setVapidDetails(subject, pub, priv);
   const gone: string[] = [];
   let sent = 0;

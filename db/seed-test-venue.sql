@@ -1,4 +1,4 @@
--- ANZIAK pilot: a fictional test venue, its QR invitation and 6 fictional profiles checked in there.
+-- UPZONE pilot: a fictional test venue, its QR invitation and 6 fictional profiles checked in there.
 -- Run in the Supabase SQL editor of the ProRod project (postgres role). Everything is in one transaction.
 -- Re-run it any time: it is idempotent and puts the 6 profiles back « present » for 3 hours.
 --
@@ -18,7 +18,7 @@ do $$ begin
 end $$;
 
 insert into private.venues (id, name, category, duration_minutes, active, address)
-values ('a2c1a2c1-0000-4000-8000-000000000001', 'ANZIAK · Lieu de test', 'test', 180, true, 'Lieu fictif du pilote')
+values ('a2c1a2c1-0000-4000-8000-000000000001', 'UPZONE · Lieu de test', 'test', 180, true, 'Lieu fictif du pilote')
 on conflict (id) do update set active = true, duration_minutes = 180, name = excluded.name;
 
 insert into private.venue_invites (id, venue_id, token_hash, expires_at)
@@ -48,7 +48,7 @@ update public.venue_sessions set ended_at = now()
 where user_id in (select id from auth.users where email like '%.test@example.invalid') and ended_at is null;
 
 insert into public.venue_sessions (user_id, venue_id, invite_id, venue_name, expires_at)
-select u.id, 'a2c1a2c1-0000-4000-8000-000000000001', 'a2c1a2c1-0000-4000-8000-000000000002', 'ANZIAK · Lieu de test', now() + interval '180 minutes'
+select u.id, 'a2c1a2c1-0000-4000-8000-000000000001', 'a2c1a2c1-0000-4000-8000-000000000002', 'UPZONE · Lieu de test', now() + interval '180 minutes'
 from auth.users u where u.email like '%.test@example.invalid';
 
 -- Test bots on (db/2026-11-10-test-bots.sql must have been run once): the fictional people answer, chat,
