@@ -51,6 +51,7 @@ qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le
 - Traduction du chat : fonction Edge `supabase/functions/translate` (DeepL, secret `DEEPL_API_KEY` dans Supabase → Edge Functions → Secrets), appelée seulement à la demande du membre ; jamais de clé côté client.
 - Paiements : uniquement simulés (`passes.simulated`, 0 €) tant que le modèle tarifaire n’est pas validé juridiquement ; aucune règle liée au genre dans le code.
 - Règles de rencontre décidées le 6 novembre 2026 : un refus (ou une absence de réponse) vaut pour toujours, dans tous les lieux, sauf si la personne écrit la première ; on n’écrit dans une conversation que lorsque les deux sont présents dans le lieu (l’historique reste lisible).
+- « Qui souhaitez-vous voir ? » (femmes / hommes / tout le monde, 10 nov. 2026) : avec le genre, révèle l’orientation sexuelle = donnée sensible (art. 9 RGPD) → facultatif, consentement explicite obligatoire (`interest_consent_at`, refus serveur sinon), privé, sert uniquement à filtrer `venue_members` côté serveur, jamais renvoyé à un autre membre, jamais pour la tarification, retrait = effacement du consentement.
 - Données : e-mail dans Auth uniquement, date de naissance privée et verrouillée, 18 ans minimum,
   jamais de genre déduit d'une adresse, jamais de données privées dans le service worker.
 

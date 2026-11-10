@@ -999,16 +999,15 @@ begin
   update public.venue_announcements set expires_at=now() where id=p_id and venue_id=vid;
 end $function$;
 
-CREATE OR REPLACE FUNCTION private.venue_members()
- RETURNS TABLE(user_id uuid, display_name text, age integer, bio text, avatar_path text, since timestamp with time zone)
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare uid uuid := private.require_person(); mine public.venue_sessions;
+-- Updated 10 November 2026 (db/2026-11-10-interest-filter.sql): follows the viewer's « who would you like to see ».
+create or replace function private.venue_members()
+ returns table(user_id uuid, display_name text, age integer, bio text, avatar_path text, since timestamp with time zone)
+ language plpgsql stable security definer set search_path to '' as $function$
+declare uid uuid := private.require_person(); mine public.venue_sessions; wants text;
 begin
   mine := private.live_session(uid);
   if mine.id is null then raise exception 'no_live_session'; end if;
+  select p.interested_in into wants from public.profiles p where p.user_id=uid;
   return query
     select p.user_id, p.display_name, date_part('year', age(p.birth_date))::integer, p.bio, p.avatar_path, s.started_at
     from public.venue_sessions s join public.profiles p on p.user_id=s.user_id
@@ -1016,6 +1015,7 @@ begin
       and p.account_type<>'venue' and private.profile_complete(p)
       and not private.blocked_between(uid, s.user_id)
       and not exists(select 1 from private.account_restrictions r where r.user_id=s.user_id and r.suspended)
+      and (wants is null or wants='everyone' or (wants='women' and p.gender='woman') or (wants='men' and p.gender='man'))
     order by s.started_at desc;
 end $function$;
 
@@ -1693,3 +1693,24 @@ begin
   return n;
 end $$;
 
+-- « Who would you like to see? » (db/2026-11-10-interest-filter.sql).
+create or replace function private.set_interest(p_interest text, p_consent boolean) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid := private.require_member(); me public.profiles;
+begin
+  select * into me from public.profiles where user_id=uid for update;
+  if not found then raise exception 'profile_required'; end if;
+  if me.account_type='venue' then raise exception 'person_required'; end if;
+  if p_interest is null or p_interest='' then
+    update public.profiles set interested_in=null, interest_consent_at=null, updated_at=now() where user_id=uid;
+    return jsonb_build_object('interested_in',null);
+  end if;
+  if p_interest not in ('women','men','everyone') then raise exception 'invalid_interest'; end if;
+  if p_consent is distinct from true then raise exception 'interest_consent_required'; end if;
+  update public.profiles set interested_in=p_interest, interest_consent_at=coalesce(case when interested_in is not null then interest_consent_at end, now()), updated_at=now() where user_id=uid;
+  return jsonb_build_object('interested_in',p_interest);
+end $$;
+
+create or replace function public.set_interest(p_interest text, p_consent boolean) returns jsonb language sql set search_path = '' as $$ select private.set_interest(p_interest,p_consent) $$;
+grant execute on function private.set_interest(text,boolean) to authenticated;
+grant execute on function public.set_interest(text,boolean) to authenticated, service_role;

@@ -34,14 +34,14 @@ insert into auth.users (id, email, email_confirmed_at, is_anonymous) values
   ('a2c1a2c1-0000-4000-8000-0000000000f6', 'tom.test@example.invalid',   now(), false)
 on conflict (id) do nothing;
 
-insert into public.profiles (user_id, display_name, birth_date, locale, bio, avatar_path, account_type) values
-  ('a2c1a2c1-0000-4000-8000-0000000000f1', 'Maya (test)',  '1999-04-12', 'fr', '[Profil de test] Jazz, terrasses et concerts.', 'u/a2c1a2c1-0000-4000-8000-0000000000f1/test.jpg', 'personal'),
-  ('a2c1a2c1-0000-4000-8000-0000000000f2', 'Sam (test)',   '1995-09-03', 'en', '[Test profile] New in town, loves live music.', 'u/a2c1a2c1-0000-4000-8000-0000000000f2/test.jpg', 'personal'),
-  ('a2c1a2c1-0000-4000-8000-0000000000f3', 'Léa (test)',   '2002-01-25', 'fr', '[Profil de test] Danse et voyages.', 'u/a2c1a2c1-0000-4000-8000-0000000000f3/test.jpg', 'personal'),
-  ('a2c1a2c1-0000-4000-8000-0000000000f4', 'Karim (test)', '1997-06-30', 'fr', '[Profil de test] Football et cuisine.', 'u/a2c1a2c1-0000-4000-8000-0000000000f4/test.jpg', 'personal'),
-  ('a2c1a2c1-0000-4000-8000-0000000000f5', 'Aïcha (test)', '1993-11-08', 'fr', '[Profil de test] Photo et expositions.', 'u/a2c1a2c1-0000-4000-8000-0000000000f5/test.jpg', 'personal'),
-  ('a2c1a2c1-0000-4000-8000-0000000000f6', 'Tom (test)',   '2000-02-14', 'en', '[Test profile] Live music and board games.', 'u/a2c1a2c1-0000-4000-8000-0000000000f6/test.jpg', 'personal')
-on conflict (user_id) do update set display_name = excluded.display_name, bio = excluded.bio, avatar_path = excluded.avatar_path;
+insert into public.profiles (user_id, display_name, birth_date, locale, bio, avatar_path, account_type, gender) values
+  ('a2c1a2c1-0000-4000-8000-0000000000f1', 'Maya (test)',  '1999-04-12', 'fr', '[Profil de test] Jazz, terrasses et concerts.', 'u/a2c1a2c1-0000-4000-8000-0000000000f1/test.jpg', 'personal', 'woman'),
+  ('a2c1a2c1-0000-4000-8000-0000000000f2', 'Sam (test)',   '1995-09-03', 'en', '[Test profile] New in town, loves live music.', 'u/a2c1a2c1-0000-4000-8000-0000000000f2/test.jpg', 'personal', 'man'),
+  ('a2c1a2c1-0000-4000-8000-0000000000f3', 'Léa (test)',   '2002-01-25', 'fr', '[Profil de test] Danse et voyages.', 'u/a2c1a2c1-0000-4000-8000-0000000000f3/test.jpg', 'personal', 'woman'),
+  ('a2c1a2c1-0000-4000-8000-0000000000f4', 'Karim (test)', '1997-06-30', 'fr', '[Profil de test] Football et cuisine.', 'u/a2c1a2c1-0000-4000-8000-0000000000f4/test.jpg', 'personal', 'man'),
+  ('a2c1a2c1-0000-4000-8000-0000000000f5', 'Aïcha (test)', '1993-11-08', 'fr', '[Profil de test] Photo et expositions.', 'u/a2c1a2c1-0000-4000-8000-0000000000f5/test.jpg', 'personal', 'woman'),
+  ('a2c1a2c1-0000-4000-8000-0000000000f6', 'Tom (test)',   '2000-02-14', 'en', '[Test profile] Live music and board games.', 'u/a2c1a2c1-0000-4000-8000-0000000000f6/test.jpg', 'personal', 'man')
+on conflict (user_id) do update set display_name = excluded.display_name, bio = excluded.bio, avatar_path = excluded.avatar_path, gender = excluded.gender;
 
 -- Present now, for 3 hours (the venue's maximum): close any open visit, then open a fresh one.
 update public.venue_sessions set ended_at = now()

@@ -100,3 +100,16 @@ test('incomplete e-mail addresses and expired e-mail links get a clear message',
   assert.match(s,/case 'auth':\{values\.email=String\(values\.email\|\|''\)\.trim\(\);if\(!validEmail\(values\.email\)\)/);assert.match(s,/if\(!validEmail\(email\.value\)\)/);
   assert.match(s,/otp_expired/);assert.ok((s.match(/showLinkError\(\)/g)||[]).length>=3,'link message shown on every signed-out path');assert.match(s,/validation_failed:\[/);
 });
+test('« who would you like to see »: optional, explicit consent, private, filters only the viewer\'s own venue list on the server',()=>{
+  const s=fs.readFileSync('src/account.js','utf8'),db=fs.readFileSync('db/2026-11-10-interest-filter.sql','utf8');
+  assert.match(s,/if\(values\.interest&&values\.interestConsent!=='on'\)/,'consent checked before saving');
+  assert.match(db,/if p_consent is distinct from true then raise exception 'interest_consent_required'/);
+  assert.match(db,/check \(interested_in is null or interest_consent_at is not null\)/,'no choice without a consent date');
+  assert.match(db,/interested_in=null, interest_consent_at=null/,'withdrawal erases consent');
+  const vm=db.slice(db.indexOf('function private.venue_members'));
+  assert.match(vm,/returns table\(user_id uuid, display_name text, age integer, bio text, avatar_path text, since timestamp with time zone\)/,'no gender or preference returned');
+  assert.match(vm,/wants is null or wants='everyone'/);
+  assert.doesNotMatch(fs.readFileSync('db/functions.sql','utf8').slice(0,0)+s,/interested_in[^']*display/);
+  const card=fs.readFileSync('db/functions.sql','utf8');const mc=card.slice(card.indexOf('FUNCTION private.member_card'),card.indexOf('$function$;',card.indexOf('FUNCTION private.member_card')));
+  assert.doesNotMatch(mc,/interested_in|gender/,'member cards never show gender or preference');
+});
