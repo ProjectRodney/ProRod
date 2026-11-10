@@ -83,3 +83,12 @@ test('a venue is joined only by scanning its QR code: no typed invitation code a
 test('a member without a readable photo shows an initial, never a broken image',()=>{
   assert.match(fs.readFileSync('src/account.js','utf8'),/avatar-initial/);
 });
+test('test bots: only fictional accounts, only the test venue, only when switched on, through the app functions',()=>{
+  const s=fs.readFileSync('db/2026-11-10-test-bots.sql','utf8');
+  assert.match(s,/if coalesce\(\(private\.setting\('test_bots'\) #>> '\{\}'\)::boolean,false\) is not true then return 0;/);
+  assert.ok((s.match(/like '%\.test@example\.invalid'/g)||[]).length>=5,'every step limited to fictional accounts');
+  for(const f of ['public.respond_introduction(','public.send_message(','public.meeting_answer(','public.send_introduction(','public.buy_pass_simulated()'])assert.ok(s.includes(f),f);
+  assert.doesNotMatch(s,/insert into public\.(messages|introductions|conversations|passes)/,'bots never write around the rules');
+  assert.match(s,/revoke all on function private\.run_test_bots\(\) from public, anon, authenticated/);
+  const seed=fs.readFileSync('db/seed-test-venue.sql','utf8');assert.match(seed,/REPLACE_WITH_TOKEN_HASH/);assert.match(seed,/set value='false' where key='test_bots'/);
+});

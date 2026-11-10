@@ -52,3 +52,4 @@ and replace the definitions in the file (grants at the end of the file stay as t
 - Meeting readiness and launch gaps: `docs/meeting-readiness.md`. No payment, SMS purchase, legal approval or store publication claimed.
 
 | 10 November 2026 | Venue joined only by QR (typed code removed); `db/seed-test-venue.sql` (test venue + 6 fictional profiles) tested twice and cleaned up on a local PostgreSQL 16 with stand-in tables; poster QR decoded back to the right link | PASS locally; to run on ProRod |
+| 10 November 2026 | Test bots (`db/2026-11-10-test-bots.sql`): full journey played on a local PostgreSQL 16 loaded with the project schema and all functions — tester sees 6 profiles, Maya accepts (reply hidden until the simulated pass, writing refused without it), Karim declines (tester sees waiting), Sam introduces himself, chat answers, meeting proposed and agreed, notifications created, bots never talk to each other | PASS locally; to run on ProRod |

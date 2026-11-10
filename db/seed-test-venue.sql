@@ -51,14 +51,19 @@ insert into public.venue_sessions (user_id, venue_id, invite_id, venue_name, exp
 select u.id, 'a2c1a2c1-0000-4000-8000-000000000001', 'a2c1a2c1-0000-4000-8000-000000000002', 'ANZIAK · Lieu de test', now() + interval '180 minutes'
 from auth.users u where u.email like '%.test@example.invalid';
 
+-- Test bots on (db/2026-11-10-test-bots.sql must have been run once): the fictional people answer, chat,
+-- propose to meet and Sam introduces himself; Karim always declines.
+insert into private.app_settings(key,value) values ('test_bots','true') on conflict (key) do update set value='true';
+
 commit;
 
 select 'Test venue ready: ' || count(*) || ' fictional profiles present until ' || to_char(max(s.expires_at) at time zone 'Europe/Paris', 'HH24:MI') || ' (Paris)' as result
 from public.venue_sessions s where s.venue_id = 'a2c1a2c1-0000-4000-8000-000000000001' and s.ended_at is null and s.expires_at > now()
   and s.user_id in (select id from auth.users where email like '%.test@example.invalid');
 
--- Clean-up after the pilot (uncomment and run): removes the 6 fictional accounts (their profiles, visits,
+-- Clean-up after the pilot (uncomment and run): stops the bots, removes the 6 fictional accounts (their profiles, visits,
 -- introductions and messages follow), then revokes the QR code and closes the venue.
+-- update private.app_settings set value='false' where key='test_bots';
 -- delete from auth.users where email like '%.test@example.invalid';
 -- update private.venue_invites set revoked_at = now() where id = 'a2c1a2c1-0000-4000-8000-000000000002';
 -- update public.venue_sessions set ended_at = now() where venue_id = 'a2c1a2c1-0000-4000-8000-000000000001' and ended_at is null;
