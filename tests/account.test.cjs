@@ -38,7 +38,7 @@ test('venue discovery is server-scoped and only reachable from a live session',(
 });
 test('conversations are consent-gated and every screen exposes end, block and report',()=>{
   const source=fs.readFileSync('src/account.js','utf8');
-  for(const needle of ["rpc('send_introduction'","rpc('respond_introduction'","rpc('my_inbox')","rpc('conversation_messages'","rpc('send_message'","rpc('close_conversation'","rpc('block_member'","rpc('report_member'",'This person is not obliged to respond','Cette personne n’est pas obligée de répondre','data-action="block"','data-action="report"','data-action="close"'])assert.ok(source.includes(needle),needle);
+  for(const needle of ["rpc('send_introduction'","rpc('respond_introduction'","rpc('my_inbox')","rpc('conversation_messages'","rpc('send_message'","rpc('end_conversation'","rpc('block_member'","rpc('report_member'",'This person is not obliged to respond','Cette personne n’est pas obligée de répondre','data-action="block"','data-action="report"','data-action="close"'])assert.ok(source.includes(needle),needle);
   assert.doesNotMatch(source,/from\('(messages|conversations|introductions|reports|blocks)'\)/,'no direct table access from the client');
 });
 test('notifications are fetched through the server and rendered without message contents',()=>{

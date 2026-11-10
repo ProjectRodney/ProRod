@@ -81,7 +81,7 @@ test('a venue is joined only by scanning its QR code: no typed invitation code a
   assert.match(s,/data-action="scan"/);assert.match(s,/searchParams\.get\('venue'\)/,'the QR link (camera app) still works');
 });
 test('a member without a readable photo shows an initial, never a broken image',()=>{
-  assert.match(fs.readFileSync('src/account.js','utf8'),/avatar-initial/);
+  assert.match(fs.readFileSync('src/account.js','utf8'),/pin-initial/);assert.match(fs.readFileSync('src/account.js','utf8'),/function pinPhoto\(m,size\)/);
 });
 test('test bots: only fictional accounts, only the test venue, only when switched on, through the app functions',()=>{
   const s=fs.readFileSync('db/2026-11-10-test-bots.sql','utf8');
@@ -112,4 +112,15 @@ test('« who would you like to see »: optional, explicit consent, private, filt
   assert.doesNotMatch(fs.readFileSync('db/functions.sql','utf8').slice(0,0)+s,/interested_in[^']*display/);
   const card=fs.readFileSync('db/functions.sql','utf8');const mc=card.slice(card.indexOf('FUNCTION private.member_card'),card.indexOf('$function$;',card.indexOf('FUNCTION private.member_card')));
   assert.doesNotMatch(mc,/interested_in|gender/,'member cards never show gender or preference');
+});
+test('meeting of 10 November: height on the profile, report = automatic block, warnings, conversation end reasons',()=>{
+  const db=fs.readFileSync('db/2026-11-10-height-safety.sql','utf8'),s=fs.readFileSync('src/account.js','utf8'),a=fs.readFileSync('src/admin.js','utf8');
+  assert.match(db,/check \(height_cm is null or height_cm between 120 and 230\)/);
+  assert.match(db,/perform private\.block_member\(p_user\);/,'a report blocks the reported person for the reporter');
+  assert.match(db,/'harassment','insults','inappropriate'/);
+  assert.match(db,/function private\.admin_warn_member\(p_report uuid, p_message text\)[\s\S]*?private\.require_admin\(\)/,'only admins warn');
+  assert.match(db,/closed_reason in \('not_available','left_venue','not_interested','other'\)/);
+  assert.match(s,/rpc\('end_conversation',\{p_id:target\.dataset\.conversation,p_reason:reason\}\)/);
+  assert.match(s,/rpc\('set_height',\{p_cm:/);assert.match(a,/rpc\('admin_warn_member'/);
+  assert.match(s,/Stay respectful\. Insults, vulgar language or harassment/);
 });

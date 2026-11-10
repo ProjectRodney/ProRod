@@ -17,6 +17,7 @@ const TEXT: Record<string, [string, string]> = {
   conversation_closed: ["Une conversation est terminée.", "A conversation has ended."],
   report_handled: ["Votre signalement a été examiné.", "Your report has been reviewed."],
   account_restricted: ["Information importante sur votre compte.", "Important information about your account."],
+  account_warned: ["Avertissement : merci de rester respectueux·se.", "Warning: please stay respectful."],
   account_reinstated: ["Information importante sur votre compte.", "Important information about your account."],
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
