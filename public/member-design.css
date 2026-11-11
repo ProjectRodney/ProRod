@@ -12,3 +12,8 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 .pin-large .pin-dot{width:22px;height:22px;margin-left:-11px}
 .person .pin{margin-top:18px}
 .person > span:not(.pin){display:block;padding:8px 14px 14px;text-align:center}
+.pin-veiled .pin-head{background:#d9dccd;border-color:#8f927f}
+.pin-silhouette{position:absolute;inset:8%;width:84%;height:84%;transform:rotate(45deg);fill:#9a9d89}
+.person.veiled{cursor:default}
+.person.veiled b{font-size:20px}
+.veiled-notice p{margin:0 0 12px}

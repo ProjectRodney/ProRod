@@ -481,13 +481,8 @@ AS $function$
     'agreed_at', conv.meeting_agreed_at)
 $function$;
 
-CREATE OR REPLACE FUNCTION private.member_card(p_user uuid)
- RETURNS jsonb
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-  select jsonb_build_object('user_id',p.user_id,'display_name',p.display_name,'age',date_part('year',age(p.birth_date))::int,'bio',p.bio,'avatar_path',p.avatar_path,'height_cm',p.height_cm)
+create or replace function private.member_card(p_user uuid) returns jsonb language sql stable security definer set search_path to '' as $function$
+  select jsonb_build_object('user_id',p.user_id,'display_name',p.display_name,'age',date_part('year',age(p.birth_date))::int,'bio',p.bio,'avatar_path',p.avatar_path,'height_cm',p.height_cm,'department',p.department)
   from public.profiles p where p.user_id=p_user
 $function$;
 
@@ -854,17 +849,14 @@ begin
   return n;
 end $function$;
 
-CREATE OR REPLACE FUNCTION private.send_introduction(p_to uuid, p_message text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
+create or replace function private.send_introduction(p_to uuid, p_message text) returns jsonb
+ language plpgsql security definer set search_path to '' as $function$
 declare uid uuid := private.require_member(); mine public.venue_sessions; theirs public.venue_sessions; row public.introductions;
 begin
   if p_to is null or p_to=uid then raise exception 'invalid_recipient'; end if;
   if p_message is null or char_length(btrim(p_message)) not between 1 and 500 then raise exception 'message_length'; end if;
   mine := private.live_session(uid); if mine.id is null then raise exception 'no_live_session'; end if;
+  if not private.venue_unlocked(uid, mine.venue_id) then raise exception 'pass_required'; end if;
   theirs := private.live_session(p_to);
   if theirs.id is null or theirs.venue_id<>mine.venue_id then raise exception 'not_co_present'; end if;
   if private.blocked_between(uid,p_to) then raise exception 'not_co_present'; end if;
@@ -1002,24 +994,29 @@ begin
   update public.venue_announcements set expires_at=now() where id=p_id and venue_id=vid;
 end $function$;
 
--- Updated 10 November 2026 (height): db/2026-11-10-height-safety.sql.
+-- Updated 11 November 2026 (veiled until the pass): db/2026-11-11-veiled-venue.sql.
 create or replace function private.venue_members()
- returns table(user_id uuid, display_name text, age integer, bio text, avatar_path text, since timestamp with time zone, height_cm smallint)
+ returns table(user_id uuid, display_name text, age integer, bio text, avatar_path text, since timestamp with time zone, height_cm smallint,
+               department text, age_band text, veiled boolean)
  language plpgsql stable security definer set search_path to '' as $function$
-declare uid uuid := private.require_person(); mine public.venue_sessions; wants text;
+declare uid uuid := private.require_person(); mine public.venue_sessions; wants text; open boolean;
 begin
   mine := private.live_session(uid);
   if mine.id is null then raise exception 'no_live_session'; end if;
   select p.interested_in into wants from public.profiles p where p.user_id=uid;
+  open := private.venue_unlocked(uid, mine.venue_id);
   return query
-    select p.user_id, p.display_name, date_part('year', age(p.birth_date))::integer, p.bio, p.avatar_path, s.started_at, p.height_cm
+    select case when open then p.user_id end, case when open then p.display_name end,
+           case when open then date_part('year', age(p.birth_date))::integer end, case when open then p.bio end,
+           case when open then p.avatar_path end, case when open then s.started_at end, case when open then p.height_cm end,
+           p.department, private.age_band(p.birth_date), not open
     from public.venue_sessions s join public.profiles p on p.user_id=s.user_id
     where s.venue_id=mine.venue_id and s.ended_at is null and s.expires_at>now() and s.user_id<>uid
       and p.account_type<>'venue' and private.profile_complete(p)
       and not private.blocked_between(uid, s.user_id)
       and not exists(select 1 from private.account_restrictions r where r.user_id=s.user_id and r.suspended)
       and (wants is null or wants='everyone' or (wants='women' and p.gender='woman') or (wants='men' and p.gender='man'))
-    order by s.started_at desc;
+    order by case when open then s.started_at end desc nulls last, p.department nulls last, 9;
 end $function$;
 
 CREATE OR REPLACE FUNCTION private.venue_revoke_invite(p_id uuid)
@@ -1380,7 +1377,7 @@ CREATE OR REPLACE FUNCTION public.venue_delete_announcement(p_id uuid)
 AS $function$ select private.venue_delete_announcement(p_id) $function$;
 
 CREATE OR REPLACE FUNCTION public.venue_members()
- RETURNS TABLE(user_id uuid, display_name text, age integer, bio text, avatar_path text, since timestamp with time zone, height_cm smallint)
+ RETURNS TABLE(user_id uuid, display_name text, age integer, bio text, avatar_path text, since timestamp with time zone, height_cm smallint, department text, age_band text, veiled boolean)
  LANGUAGE sql
  SET search_path TO ''
 AS $function$ select * from private.venue_members() $function$;
@@ -1752,3 +1749,40 @@ begin
 end $$;
 
 create or replace function public.admin_warn_member(p_report uuid, p_message text) returns void language sql set search_path = '' as $$ select private.admin_warn_member(p_report,p_message) $$;
+
+-- Veiled venue until the pass, 11 November 2026 (db/2026-11-11-veiled-venue.sql; the storage policy avatars_venue_select now calls private.photo_visible).
+-- Age range from the private birth date: 18-20, then steps of five (21-25, 26-30…).
+create or replace function private.age_band(p_birth date) returns text language sql stable set search_path = '' as $$
+  select case when a is null then null when a <= 20 then '18-20' else (21 + 5*((a-21)/5))::text || '-' || (25 + 5*((a-21)/5))::text end
+  from (select date_part('year', age(p_birth))::int as a) x
+$$;
+revoke all on function private.age_band(date) from public, anon, authenticated;
+-- True when this member may see the people of this venue: no pass needed, or an active venue pass there.
+create or replace function private.venue_unlocked(p_uid uuid, p_venue uuid) returns boolean
+ language sql stable security definer set search_path = '' as $$
+  select p_uid is not null and p_venue is not null and (
+    (private.setting('pass_rule') #>> '{}') is distinct from 'everyone'
+    or exists(select 1 from public.passes p where p.user_id=p_uid and p.venue_id=p_venue and p.status='active' and p.kind='venue_pass' and p.expires_at>now()))
+$$;
+revoke all on function private.venue_unlocked(uuid,uuid) from public, anon, authenticated;
+create or replace function private.set_department(p_department text) returns jsonb
+ language plpgsql security definer set search_path = '' as $$
+declare uid uuid := private.require_person(); d text := nullif(upper(btrim(coalesce(p_department,''))),'');
+begin
+  if d is not null and d !~ '^(0[1-9]|1[0-9]|2[1-9]|[3-8][0-9]|9[0-5]|2A|2B|97[1-6])$' then raise exception 'invalid_department'; end if;
+  update public.profiles set department=d, updated_at=now() where user_id=uid;
+  return jsonb_build_object('department',d);
+end $$;
+create or replace function public.set_department(p_department text) returns jsonb language sql set search_path = '' as $$ select private.set_department(p_department) $$;
+revoke all on function private.set_department(text), public.set_department(text) from public, anon;
+grant execute on function private.set_department(text) to authenticated;
+grant execute on function public.set_department(text) to authenticated, service_role;
+create or replace function private.photo_visible(viewer uuid, owner uuid) returns boolean
+ language sql stable security definer set search_path to '' as $function$
+  select private.co_present(viewer, owner) and (
+    private.venue_unlocked(viewer, (private.live_session(viewer)).venue_id)
+    or exists(select 1 from public.introductions i where (i.sender_id=owner and i.recipient_id=viewer) or (i.sender_id=viewer and i.recipient_id=owner))
+    or exists(select 1 from public.conversations c where (c.a_id=viewer and c.b_id=owner) or (c.a_id=owner and c.b_id=viewer)))
+$function$;
+revoke all on function private.photo_visible(uuid,uuid) from public, anon, authenticated;
+grant execute on function private.photo_visible(uuid,uuid) to authenticated;

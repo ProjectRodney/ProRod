@@ -124,3 +124,21 @@ test('meeting of 10 November: height on the profile, report = automatic block, w
   assert.match(s,/rpc\('set_height',\{p_cm:/);assert.match(a,/rpc\('admin_warn_member'/);
   assert.match(s,/Stay respectful\. Insults, vulgar language or harassment/);
 });
+test('veiled venue (11 November): nothing identifying before the pass, département + age range, photos and introductions follow the pass',()=>{
+  const db=fs.readFileSync('db/2026-11-11-veiled-venue.sql','utf8'),s=fs.readFileSync('src/account.js','utf8'),v=fs.readFileSync('db/verify-veiled-venue.sql','utf8');
+  const vm=db.slice(db.indexOf('create or replace function private.venue_members()'),db.indexOf('end $function$;',db.indexOf('create or replace function private.venue_members()')));
+  for(const col of ['p.user_id','p.display_name','p.bio','p.avatar_path','s.started_at','p.height_cm'])assert.ok(vm.includes(`case when open then ${col} end`),`${col} only once unlocked`);
+  assert.match(vm,/case when open then date_part\('year', age\(p\.birth_date\)\)::integer end/,'exact age only once unlocked');
+  assert.match(vm,/open := private\.venue_unlocked\(uid, mine\.venue_id\)/);
+  assert.match(db,/is distinct from 'everyone'[\s\S]*?p\.kind='venue_pass' and p\.expires_at>now\(\)/,'unlocked = no pass rule or an active pass for that venue');
+  assert.match(db,/when a <= 20 then '18-20' else \(21 \+ 5\*\(\(a-21\)\/5\)\)/,'age ranges 18-20 then steps of five');
+  assert.match(db,/private\.photo_visible\(\(select auth\.uid\(\)\)/,'storage photos follow the same rule');
+  assert.match(db,/if not private\.venue_unlocked\(uid, mine\.venue_id\) then raise exception 'pass_required'/,'introductions need the pass');
+  assert.match(db,/revoke all on function private\.age_band\(date\) from public, anon, authenticated/);
+  assert.doesNotMatch(db,/gender'?\s*=\s*'(woman|man)'[\s\S]{0,80}pass/,'never a pass rule based on gender');
+  assert.match(v,/PASS: veiled venue/);
+  assert.match(s,/rpc\('set_department',\{p_department:/);
+  assert.match(s,/function personCard\(m\)\{if\(m\.veiled\)return veiledCard\(m\);/);
+  assert.match(s,/function veiledCard\(m\)\{return `<div class="person veiled">/,'veiled cards are not clickable');
+  assert.doesNotMatch(s.slice(s.indexOf('function veiledCard'),s.indexOf('function personCard')),/display_name|user_id|bio|photo/,'veiled card shows nothing identifying');
+});
