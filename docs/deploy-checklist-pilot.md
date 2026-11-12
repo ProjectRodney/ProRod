@@ -16,8 +16,8 @@ Legend: ✅ done and recorded in `docs/verification-log.md` · ⬜ to do · ⚠�
 ### Database (Supabase)
 - ✅ All migrations applied: pass expiry, rename, phone members, push notifications, push_status fix.
 - ✅ Whole check file `db/verify-accounts-and-venues.sql` PASS on ProRod (sections 1–8b, 7 Nov 2026).
-- ⬜ **Blocking before any test:** run `db/2026-11-12-apply-pending-migrations.sql` (all five pending migrations, one transaction, safe to re-run). Until then the published app is ahead of the database (profile save fails half-way, report does not block, venue not veiled).
-- ⬜ Run `db/2026-11-11-veiled-venue.sql` (veiled venue until the pass, département), then `db/verify-veiled-venue.sql` → expect `PASS: veiled venue…`; then re-run the seed (it now sets the fictional départements).
+- ✅ (12 Nov 2026) **Blocking before any test:** run `db/2026-11-12-apply-pending-migrations.sql` (all five pending migrations, one transaction, safe to re-run). Until then the published app is ahead of the database (profile save fails half-way, report does not block, venue not veiled).
+- ✅ (12 Nov 2026, included in the file above, checks PASS on ProRod) Run `db/2026-11-11-veiled-venue.sql` (veiled venue until the pass, département), then `db/verify-veiled-venue.sql` → expect `PASS: veiled venue…`; then re-run the seed (it now sets the fictional départements).
 - ⬜ Re-run the whole check file on the pilot morning (2 min, rolls back everything); expect the final row `PASS: phone-confirmed accounts…`.
 
 ### Accounts, settings and secrets
