@@ -119,10 +119,16 @@ select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-00000000
 select public.save_profile('Chris','1990-01-01','en',true,'Elsewhere','u/00000000-0000-4000-8000-000000000004/avatar.jpg');
 select public.join_venue(repeat('b',40));
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+-- Since 11 November 2026 (pass_rule "everyone"): before a pass the list is veiled; the simulated pass unlocks it (details: db/verify-veiled-venue.sql).
+do $$ begin
+  if (select count(*) from public.venue_members() where display_name is null and veiled)<>1 then raise exception 'TEST: list not veiled before the pass'; end if;
+  if (select count(*) from storage.objects where name='u/00000000-0000-4000-8000-000000000002/avatar.jpg')<>0 then raise exception 'TEST: photo readable before the pass'; end if;
+  perform public.buy_pass_simulated();
+end $$;
 do $$ declare n int; begin
   select count(*) into n from public.venue_members(); if n<>1 then raise exception 'TEST: expected exactly Maya, got %', n; end if;
-  if (select display_name from public.venue_members())<>'Maya' then raise exception 'TEST: wrong member'; end if;
-  if (select age from public.venue_members())<>date_part('year',age(date '1995-06-15'))::int then raise exception 'TEST: age mismatch'; end if;
+  if (select display_name from public.venue_members()) is distinct from 'Maya' then raise exception 'TEST: wrong member'; end if;
+  if (select age from public.venue_members()) is distinct from date_part('year',age(date '1995-06-15'))::int then raise exception 'TEST: age mismatch'; end if;
   if (select count(*) from storage.objects where name='u/00000000-0000-4000-8000-000000000002/avatar.jpg')<>1 then raise exception 'TEST: co-present photo not readable'; end if;
   if (select count(*) from storage.objects where name='u/00000000-0000-4000-8000-000000000004/avatar.jpg')<>0 then raise exception 'TEST: other-venue photo readable'; end if;
 end $$;
@@ -175,6 +181,9 @@ select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-00000000
 select public.save_profile('Chris','1990-01-01','en',true,'Elsewhere','u/00000000-0000-4000-8000-000000000004/avatar.jpg');
 select public.join_venue(repeat('b',40));
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+-- Since 11 November 2026 introducing yourself needs the pass; to keep testing that a reply stays hidden from someone without a pass,
+-- the introduction below is sent with pass_rule "none" and the rule is set back to "everyone" after the introduction checks.
+reset role; update private.app_settings set value='"none"' where key='pass_rule'; set local role authenticated;
 select public.send_introduction('00000000-0000-4000-8000-000000000002','Hello Maya, same taste in jazz?');
 do $$ begin
   begin perform public.send_introduction('00000000-0000-4000-8000-000000000002','again'); raise exception 'TEST: second introduction allowed'; exception when others then if sqlerrm<>'introduction_exists' then raise; end if; end;
@@ -183,11 +192,13 @@ do $$ begin
   begin perform count(*) from public.messages; raise exception 'TEST: messages readable'; exception when insufficient_privilege then null; end;
   if jsonb_array_length(public.my_inbox()->'sent')<>1 or (public.my_inbox()->'sent'->0->>'status')<>'pending' then raise exception 'TEST: sent introduction missing'; end if;
 end $$;
+reset role; update private.app_settings set value='"everyone"' where key='pass_rule'; set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 do $$ declare intro uuid; result jsonb; begin
   if jsonb_array_length(public.my_inbox()->'received')<>1 then raise exception 'TEST: received introduction missing'; end if;
   if (public.my_inbox()->'received'->0->'from'->>'display_name')<>'Alex' or (public.my_inbox()->'received'->0->'from') ? 'birth_date' then raise exception 'TEST: sender card wrong'; end if;
   intro := (public.my_inbox()->'received'->0->>'id')::uuid;
+  perform public.buy_pass_simulated();  -- Maya holds a pass, so the refusal below is about the received introduction, not the pass
   begin perform public.send_introduction('00000000-0000-4000-8000-000000000001','me too'); raise exception 'TEST: counter-introduction allowed'; exception when others then if sqlerrm<>'introduction_received' then raise; end if; end;
   begin perform public.respond_introduction(intro,true,null); raise exception 'TEST: accept without reply allowed'; exception when others then if sqlerrm<>'reply_required' then raise; end if; end;
   result := public.respond_introduction(intro,true,'Yes! Coltrane fan here.');
@@ -242,6 +253,7 @@ do $$ begin
 end $$;
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000004","role":"authenticated"}',true);
 select public.join_venue(repeat('a',40));
+select public.buy_pass_simulated();  -- introducing yourself needs the pass since 11 November 2026
 select public.send_introduction('00000000-0000-4000-8000-000000000001','Hi Alex');
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 do $$ declare intro uuid; begin
@@ -279,7 +291,11 @@ select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-00000000
 select public.save_profile('Maya','1995-06-15','fr',true,'Musique','u/00000000-0000-4000-8000-000000000002/avatar.jpg');
 select public.join_venue(repeat('a',40));
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+-- Since 11 November 2026 introducing yourself needs the pass; to keep testing that a reply stays hidden from someone without a pass,
+-- the introduction below is sent with pass_rule "none" and the rule is set back to "everyone" right after.
+reset role; update private.app_settings set value='"none"' where key='pass_rule'; set local role authenticated;
 select public.send_introduction('00000000-0000-4000-8000-000000000002','Hello Maya');
+reset role; update private.app_settings set value='"everyone"' where key='pass_rule'; set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 select public.respond_introduction((public.my_inbox()->'received'->0->>'id')::uuid,true,'First visit reply');
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
@@ -337,8 +353,9 @@ select public.save_profile('Alex','2000-01-01','en',true,'Jazz','u/00000000-0000
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
 select public.save_profile('Maya','1995-06-15','fr',true,'Musique','u/00000000-0000-4000-8000-000000000002/avatar.jpg');
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal2","app_metadata":{"prod_admin":true}}',true);
-do $$ declare v jsonb; inv jsonb; rep jsonb; n int; begin
+do $$ declare v jsonb; inv jsonb; rep jsonb; n int; base jsonb; begin
   if not public.is_admin() then raise exception 'TEST: is_admin false for admin'; end if;
+  base := public.admin_overview();  -- other live data (e.g. the fictional test venue) is left out of the comparisons
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal1","app_metadata":{"prod_admin":true}}',true);
   begin perform public.admin_overview(); raise exception 'TEST: admin without two-step verification allowed'; exception when insufficient_privilege then null; end;
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal2","app_metadata":{"prod_admin":true}}',true);
@@ -349,18 +366,19 @@ do $$ declare v jsonb; inv jsonb; rep jsonb; n int; begin
   perform public.join_venue(inv->>'token');
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
   perform public.join_venue(inv->>'token');
+  perform public.buy_pass_simulated();
   perform public.send_introduction('00000000-0000-4000-8000-000000000001','hi');
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
   rep := public.report_member('00000000-0000-4000-8000-000000000002','harassment','rude');
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal2","app_metadata":{"prod_admin":true}}',true);
-  if (public.admin_overview()->>'reports_open')::int<>1 or (public.admin_overview()->>'sessions_live')::int<>2 then raise exception 'TEST: overview wrong'; end if;
+  if (public.admin_overview()->>'reports_open')::int<>(base->>'reports_open')::int+1 or (public.admin_overview()->>'sessions_live')::int<>(base->>'sessions_live')::int+2 then raise exception 'TEST: overview wrong'; end if;
   if (public.admin_reports('open')->0->'reported'->>'display_name')<>'Maya' or (public.admin_reports('open')->0->'reporter'->>'display_name')<>'Alex' then raise exception 'TEST: report cards wrong'; end if;
   perform public.admin_decide_report((rep->>'id')::uuid,'actioned','Suspended after review',true);
-  if (public.admin_overview()->>'reports_open')::int<>0 or (public.admin_overview()->>'suspended')::int<>1 then raise exception 'TEST: decision not applied'; end if;
+  if (public.admin_overview()->>'reports_open')::int<>(base->>'reports_open')::int or (public.admin_overview()->>'suspended')::int<>(base->>'suspended')::int+1 then raise exception 'TEST: decision not applied'; end if;
   if (select count(*) from jsonb_array_elements(public.admin_members('May')) m where (m->>'suspended')::boolean)<>1 then raise exception 'TEST: member search/suspension wrong'; end if;
   perform public.admin_revoke_invite((inv->>'id')::uuid);
   select count(*) into n from jsonb_array_elements(public.admin_audit(50)); if n<>4 then raise exception 'TEST: audit incomplete (%)', n; end if;
-  if (public.admin_overview()->>'sessions_live')::int<>0 then raise exception 'TEST: revoke did not end sessions'; end if;
+  if (public.admin_overview()->>'sessions_live')::int<>(base->>'sessions_live')::int then raise exception 'TEST: revoke did not end sessions'; end if;
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
   begin perform public.my_inbox(); raise exception 'TEST: suspended member still active'; exception when insufficient_privilege then null; end;
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000009","role":"authenticated","aal":"aal2","app_metadata":{"prod_admin":true}}',true);
@@ -391,7 +409,11 @@ select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-00000000
 select public.save_profile('Maya','1995-06-15','fr',true,'Musique','u/00000000-0000-4000-8000-000000000002/avatar.jpg');
 select public.join_venue(repeat('a',40));
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
+-- Since 11 November 2026 introducing yourself needs the pass; to keep testing that a reply stays hidden from someone without a pass,
+-- the introduction below is sent with pass_rule "none" and the rule is set back to "everyone" right after.
+reset role; update private.app_settings set value='"none"' where key='pass_rule'; set local role authenticated;
 select public.send_introduction('00000000-0000-4000-8000-000000000002','Hello Maya, secret words here');
+reset role; update private.app_settings set value='"everyone"' where key='pass_rule'; set local role authenticated;
 do $$ declare n jsonb; intro uuid; conv uuid; begin
   begin perform count(*) from public.notifications; raise exception 'TEST: notifications readable'; exception when insufficient_privilege then null; end;
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
@@ -446,7 +468,11 @@ select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-00000000
 select public.save_profile('Maya','1995-06-15','fr',true,'Musique','u/00000000-0000-4000-8000-000000000002/avatar.jpg');
 select public.join_venue(repeat('a',40));
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{}}',true);
+-- Since 11 November 2026 introducing yourself needs the pass; to keep testing that a reply stays hidden from someone without a pass,
+-- the introduction below is sent with pass_rule "none" and the rule is set back to "everyone" right after.
+reset role; update private.app_settings set value='"none"' where key='pass_rule'; set local role authenticated;
 select public.send_introduction('00000000-0000-4000-8000-000000000002','Hello');
+reset role; update private.app_settings set value='"everyone"' where key='pass_rule'; set local role authenticated;
 do $$ declare intro uuid; conv uuid; st jsonb; ex jsonb; begin
   perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
   intro := (public.my_inbox()->'received'->0->>'id')::uuid;
