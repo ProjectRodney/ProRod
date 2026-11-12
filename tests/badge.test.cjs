@@ -56,7 +56,7 @@ test('typed form values survive a redraw (refused save, language switch, counts 
   assert.match(s,/function render\(\)\{const drafts=snapshotForms\(\);/);assert.match(s,/;restoreForms\(drafts\);/);
   assert.match(s,/\['password','file','hidden','submit'\]\.includes\(el\.type\)/);
   assert.match(s,/form\.querySelector\('#photo'\)\?\.files\?\.\[0\]\|\|pendingPhoto/);
-  assert.match(s,/!root\.querySelector\('form\[data-form\] :focus'\)\)render\(\)/);
+  assert.match(s,/&&!typing\(\)\)render\(\)/);
   for(const k of ['rules_required','unsupported_language','name_length'])assert.ok(s.includes(k+':['),k);
 });
 test('a failed SMS code says so instead of the generic message',()=>{
@@ -141,4 +141,10 @@ test('veiled venue (11 November): nothing identifying before the pass, départem
   assert.match(s,/function personCard\(m\)\{if\(m\.veiled\)return veiledCard\(m\);/);
   assert.match(s,/function veiledCard\(m\)\{return `<div class="person veiled">/,'veiled cards are not clickable');
   assert.doesNotMatch(s.slice(s.indexOf('function veiledCard'),s.indexOf('function personCard')),/display_name|user_id|bio|photo/,'veiled card shows nothing identifying');
+});
+test('periodic refreshes never redraw while a field has focus (the phone keyboard would close)',()=>{
+  const s=fs.readFileSync('src/account.js','utf8');
+  assert.match(s,/function typing\(\)\{const a=document\.activeElement;/);
+  assert.match(s,/if\(view==='conversation'&&thread\?\.id===id&&!busy\)\{if\(!typing\(\)\)openThread\(id,true\)/,'conversation refresh waits while typing');
+  assert.match(s,/if\(view==='home'&&complete\(profile\)&&!typing\(\)\)render\(\);/,'home refresh waits while typing');
 });
