@@ -18,8 +18,8 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 .person.veiled b{font-size:20px}
 .veiled-notice p{margin:0 0 12px}
 /* Colours approved by the client on 12 November 2026: the app's yellow as a gradient behind, pastel yellow in front, dark main buttons. */
-html{background:#ffc61a}
-body{background:linear-gradient(180deg,#fff3b0 0%,#ffdb43 45%,#ffc61a 100%) fixed;min-height:100dvh}
+html{background:#fffbe6}
+body{background:linear-gradient(180deg,#ffdb43 0%,#ffe680 55%,#fffbe6 100%) fixed;min-height:100dvh}
 .account-card{background:#fff6d1;border-color:#f1dc8c}
 .button{background:#24271e;color:#ffdb43;border-color:#24271e}
 .button.secondary{background:#fff;color:#24271e;border-color:#d9cf9f}
