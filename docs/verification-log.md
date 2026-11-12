@@ -56,3 +56,18 @@ and replace the definitions in the file (grants at the end of the file stay as t
 | 10 November 2026 | « Who would you like to see? » (`db/2026-11-10-interest-filter.sql`) on a local PostgreSQL 16 with the project schema: refused without consent; women → the 3 women, men → the 3 men, everyone/blank → all 6; member card without gender or preference; own export includes it; withdrawal erases consent. Test venue profiles now carry a gender | PASS locally; to run on ProRod |
 | 10 November 2026 | `db/2026-11-10-height-safety.sql` on a local PostgreSQL 16 built in the production state: height saved and refused out of range, shown in list and card; end reason stored, invalid reason refused, other person sees it and is notified; report « insults » blocks automatically (pending introduction cancelled, no longer listed, cannot introduce again); warning refused for non-admins, works for an admin with aal2 (notification, report actioned, logged). Pin photos checked in a browser | PASS locally; to run on ProRod |
 | 11 November 2026 | `db/2026-11-11-veiled-venue.sql` on a local PostgreSQL 16 built from the project schema, migrations and functions: without a pass the venue list returns only veiled rows (0 identifying fields out of 6 rows), département + age range correct; introduction refused (`pass_required`); storage shows only one's own photo; with the simulated pass the full list, the département and all photos; the recipient of an introduction (no pass) sees the sender's photo and no other; `pass_rule` none → nothing veiled; départements 20 and 99 refused, « 2a » saved as 2A; age ranges 18-20 / 21-25 / 26-30 / 36-40 / 41-45 checked. Standalone file `db/verify-veiled-venue.sql` PASS locally (to rerun on ProRod after the migration). Seed re-run with départements. 52 Node tests pass. | PASS (local) |
+
+
+## 12 November 2026 — live backend catch-up
+
+Applied to ProRod `blqcmpqctetmjqsfdvsq` in one transaction, in order:
+1. `2026-11-10-interest-filter.sql`
+2. `2026-11-10-height-safety.sql`
+3. `2026-11-11-veiled-venue.sql`
+4. `2026-11-10-rename-upzone.sql`
+
+PostgREST schema reload requested. No real payments activated. No real-member profile values changed; the optional columns remain null until a member submits them.
+
+Live `db/verify-veiled-venue.sql`: PASS. Live `db/verify-release-2026-11-12.sql`: PASS (hidden identities/photos before a pass, pass unlock, introduction access, consent and withdrawal, height bounds, conversation end reason, automatic blocking on report, admin warning and MFA denial). Synthetic fixtures rolled back. 52 Node tests passed against source commit 420bcb2. Security advisories unchanged: existing leaked-password protection warning and RPC-only tables with no direct RLS policies.
+
+This closes the published-UI/database mismatch found in the review. It does not certify real SMS/push delivery, handset acceptance, billing or store publication. Test-bot deployment/seeding was not enabled in this change; it can send automated introductions and must be prepared as a separate controlled pilot step. Older entries marked local-only remain historical records; the four migrations listed above are now applied live.
