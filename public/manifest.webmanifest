@@ -6,8 +6,8 @@
   "start_url": "./account.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#fff9df",
-  "theme_color": "#fff9df",
+  "background_color": "#fffadd",
+  "theme_color": "#fffadd",
   "icons": [
     {
       "src": "./assets/upzone-icon-192.png",
