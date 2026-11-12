@@ -18,16 +18,16 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 .person.veiled b{font-size:20px}
 .veiled-notice p{margin:0 0 12px}
 /* Colours decided by the client on 12–13 November 2026 (taken from his image): a very pale yellow always behind (#fffadd), a slightly
-   deeper pale yellow to frame things (#fdf2ba), purple for the logo, pins and main buttons (#5005b0) with very pale yellow writing,
+   deeper pale yellow to frame things (#fdf2ba), purple for the logo and the active tab (#5005b0), main buttons in bright yellow (#fffc00) with black writing, white pin outlines and dots,
    thin white outlines, black text. Never a white page or a white fill. */
 html,body{background:#fffadd;color:#111}
 body{min-height:100dvh}
-.brand b{color:#5005b0}
+.brand b{color:#5005b0;font-weight:900;font-size:1.15em;letter-spacing:-.2px;-webkit-text-stroke:.7px #5005b0}
 .account-card{background:#fdf2ba;border:1.5px solid #fff;color:#111}
 .account-card h2,.account-card h3,.account-card label,.account-card summary{color:#111}
 .quiet,small{color:#3d3a2c}
 .account-card .eyebrow{color:#5005b0}
-.button{background:#5005b0;color:#fffadd;border-color:#5005b0}
+.button{background:#fffc00;color:#111;border-color:#fffc00;box-shadow:0 2px 10px #5a4a0026}
 .button.secondary{background:#fffadd;color:#111;border-color:#5005b0}
 .account-card input:not([type=checkbox]),.account-card textarea,.account-card select{background:#fffadd;color:#111;border-color:#8c8770}
 .notice{background:#fffadd;border:1.5px solid #fff;color:#111}
@@ -44,8 +44,8 @@ body>header nav button{background:#fffadd;color:#111;border-color:#5005b0}
 .scan-art,.welcome-art{background:transparent}
 .scan-art svg{background:#fffadd;border-color:#fff;box-shadow:10px 12px 0 #5005b0}
 .hello-bubble{background:#fffadd}
-.pin-head{border-color:#5005b0}.pin-dot{background:#5005b0;border-color:#fff}
-.pin-veiled .pin-head{background:#f3ecc9;border-color:#5005b0}.pin-silhouette{fill:#b7ae86}
+.pin-head{border-color:#fff;box-shadow:0 4px 14px #5a4a0030}.pin-dot{background:#fff;border-color:#fff;box-shadow:0 2px 6px #5a4a0040}
+.pin-veiled .pin-head{background:#f3ecc9;border-color:#fff}.pin-silhouette{fill:#b7ae86}
 .pw-eye{background:transparent}
 body>header{background:transparent}
 .feed p,.choice,.tile,.item,.steps li,.lang-choice button,.feedback textarea{background:#fffadd;color:#111;border-color:#fff}
