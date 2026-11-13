@@ -18,18 +18,19 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 .person.veiled b{font-size:20px}
 .veiled-notice p{margin:0 0 12px}
 /* Colours decided by the client on 12–13 November 2026 (taken from his image): a very pale yellow always behind (#fffadd), a slightly
-   deeper pale yellow to frame things (#fdf2ba), purple for the logo and the active tab (#5005b0), main buttons in bright yellow (#fffc00) with black writing, white pin outlines and dots,
+   deeper pale yellow to frame things (#fdf2ba), purple for the logo and the active tab (#e20066), main buttons in bright yellow (#fffc00) with black writing, white pin outlines and dots,
    thin white outlines, black text. Never a white page or a white fill. */
 html,body{background:#fffadd;color:#111}
 body{min-height:100dvh}
 .brand img{width:60px;height:60px;border-radius:18px}
-.brand b{color:#5005b0;font-weight:900;font-size:1.75em;letter-spacing:-.5px;-webkit-text-stroke:.9px #5005b0}
+@font-face{font-family:"Playfair Display";src:url("./assets/fonts/playfair-display-900.woff2") format("woff2");font-weight:900;font-style:normal;font-display:swap}
+.brand b{color:#e20066;font-family:"Playfair Display",Georgia,"Times New Roman",serif;font-weight:900;font-size:1.9em;letter-spacing:0;line-height:1}
 .account-card{background:#fdf2ba;border:1.5px solid #fff;color:#111}
 .account-card h2,.account-card h3,.account-card label,.account-card summary{color:#111}
 .quiet,small{color:#3d3a2c}
-.account-card .eyebrow{color:#5005b0}
+.account-card .eyebrow{color:#e20066}
 .button{background:#fffc00;color:#111;border-color:#fffc00;box-shadow:0 2px 10px #5a4a0026}
-.button.secondary{background:#fffadd;color:#111;border-color:#5005b0}
+.button.secondary{background:#fffadd;color:#111;border-color:#e20066}
 .account-card input:not([type=checkbox]),.account-card textarea,.account-card select{background:#fffadd;color:#111;border-color:#8c8770}
 .notice{background:#fffadd;border:1.5px solid #fff;color:#111}
 .person{background:#fffadd;border:1.5px solid #fff;color:#111}
@@ -37,20 +38,20 @@ body{min-height:100dvh}
 .member-nav button{color:#111}
 .member-nav button[aria-current]{background:#fffadd;color:#111}
 .setting-group,.settings-link{background:#fffadd;border-color:#fff!important;color:#111}
-.bubble{background:#fffadd;border:1px solid #fff;color:#111}.bubble.mine{background:#5005b0;border-color:#5005b0;color:#fffadd}
-.tabs button{background:#fffadd;color:#111;border-color:#5005b0}.tabs button[aria-pressed=true]{background:#5005b0;color:#fffadd;border-color:#5005b0}
-body>header nav button{background:#fffadd;color:#111;border-color:#5005b0}
+.bubble{background:#fffadd;border:1px solid #fff;color:#111}.bubble.mine{background:#e20066;border-color:#e20066;color:#fffadd}
+.tabs button{background:#fffadd;color:#111;border-color:#e20066}.tabs button[aria-pressed=true]{background:#e20066;color:#fffadd;border-color:#e20066}
+body>header nav button{background:#fffadd;color:#111;border-color:#e20066}
 .pass{background:#fffadd;border-color:#fff}
 .venue-hero{background:#fffadd;border:1.5px solid #fff}
 .scan-art,.welcome-art{background:transparent}
-.scan-art svg{background:#fffadd;border-color:#fff;box-shadow:10px 12px 0 #5005b0}
+.scan-art svg{background:#fffadd;border-color:#fff;box-shadow:10px 12px 0 #e20066}
 .hello-bubble{background:#fffadd}
 .pin-head{border-color:#fff;box-shadow:0 4px 14px #5a4a0030}.pin-dot{background:#fff;border-color:#fff;box-shadow:0 2px 6px #5a4a0040}
 .pin-veiled .pin-head{background:#f3ecc9;border-color:#fff}.pin-silhouette{fill:#b7ae86}
 .pw-eye{background:transparent}
 body>header{background:transparent}
 .feed p,.choice,.tile,.item,.steps li,.lang-choice button,.feedback textarea{background:#fffadd;color:#111;border-color:#fff}
-.choice,.lang-choice button{border-color:#5005b0}
+.choice,.lang-choice button{border-color:#e20066}
 /* The QR code keeps its white square: scanners need the contrast. */
 .dept-abbr{font-size:11px;font-weight:600;font-style:normal}
 /* The venue list gives padding to every span inside a card; the pin's own parts must not get it (the dot was pushed to the right). */
@@ -74,7 +75,7 @@ body[data-screen=people] .people-compact .person b{font-size:14px;line-height:1.
 body[data-screen=people] .people-compact .person.veiled b{font-size:16px}
 /* Blurred preview before the pass: the file is already a 20 px copy; the extra blur only smooths the pixels. */
 .pin-head img.pin-blur{filter:blur(5px);inset:-22%;width:144%;height:144%}
-.avatar-letter{display:inline-flex;align-items:center;justify-content:center;background:#5005b0;color:#fffadd;font-weight:800;font-size:26px}
+.avatar-letter{display:inline-flex;align-items:center;justify-content:center;background:#e20066;color:#fffadd;font-weight:800;font-size:26px}
 /* Client request (13 Nov 2026): one frame around all the people (same width as the notice above, separate from it), no frame per person, bigger faces. */
 body[data-screen=people] .people.people-compact{background:#fffadd;border:1.5px solid #fff;border-radius:18px;padding:12px 6px 10px;gap:10px 0;margin-top:14px}
 body[data-screen=people] .people-compact .person{background:transparent;border:0;border-radius:0;box-shadow:none}
