@@ -35,3 +35,8 @@ test('the URL is an installer: welcome page with install button, app banner, man
   new vm.Script(helper);assert.match(helper,/beforeinstallprompt/);assert.match(helper,/Sur l’écran d’accueil/);assert.doesNotMatch(helper,/getUserMedia/);
   const manifest=JSON.parse(fs.readFileSync('public/manifest.webmanifest','utf8'));assert.equal(manifest.display,'standalone');assert.equal(manifest.short_name,'UPZONE');
 });
+test('the service worker always revalidates the app shell, so a release shows on the next reload',()=>{
+  const sw=fs.readFileSync('public/sw.js','utf8');
+  assert.equal((sw.match(/cache: 'no-cache'/g)||[]).length,2,'pages and shell files');
+  assert.match(sw,/self\.skipWaiting\(\)/);
+});
