@@ -162,3 +162,8 @@ test('blurred preview before the pass: a separate tiny file, the real photo neve
   assert.match(s,/canvas\.width=canvas\.height=20;/,'the blurred copy is 20 pixels wide');
   assert.match(s,/const file=m\.veiled\?m\.blur_path:m\.avatar_path;/);
 });
+test('a person without a readable photo shows their initial in lists, never a broken image',()=>{
+  const s=fs.readFileSync('src/account.js','utf8');
+  assert.match(s,/function facePhoto\(photo,name,lazy\)\{return photo\?`<img class="avatar"/);
+  assert.doesNotMatch(s,/<img class="avatar" src="\$\{esc\([mt]\.photo\|\|''\)\}"/);
+});

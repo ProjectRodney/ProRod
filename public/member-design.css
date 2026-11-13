@@ -74,3 +74,4 @@ body[data-screen=people] .people-compact .person b{font-size:14px;line-height:1.
 body[data-screen=people] .people-compact .person.veiled b{font-size:16px}
 /* Blurred preview before the pass: the file is already a 20 px copy; the extra blur only smooths the pixels. */
 .pin-head img.pin-blur{filter:blur(5px);inset:-22%;width:144%;height:144%}
+.avatar-letter{display:inline-flex;align-items:center;justify-content:center;background:#5005b0;color:#fffadd;font-weight:800;font-size:26px}
