@@ -82,3 +82,7 @@ body[data-screen=people] .people-compact .person .pin{width:104px;height:128px;m
 body[data-screen=people] .people-compact .person .pin-head{width:96px;height:96px;margin-left:-48px}
 body[data-screen=people] .people-compact .person .pin-initial{font-size:40px}
 body[data-screen=people] .people-compact .person .pin-dot{width:16px;height:16px}
+/* Photo picker: our own button instead of the browser's « Choose file / No file chosen » (always in the browser's language). */
+.account-card input.photo-input{position:absolute;width:1px;height:1px;min-height:0;padding:0;border:0;opacity:0;overflow:hidden;clip-path:inset(50%)}
+.photo-pick{width:100%;margin:10px 0 6px;cursor:pointer}
+.account-card .photo-preview{border:1.5px solid #fff}

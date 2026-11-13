@@ -167,3 +167,10 @@ test('a person without a readable photo shows their initial in lists, never a br
   assert.match(s,/function facePhoto\(photo,name,lazy\)\{return photo\?`<img class="avatar"/);
   assert.doesNotMatch(s,/<img class="avatar" src="\$\{esc\([mt]\.photo\|\|''\)\}"/);
 });
+test('settings: département is a list of all departments, the photo picker is our own bilingual button',()=>{
+  const s=fs.readFileSync('src/account.js','utf8');
+  const f=s.slice(s.indexOf('function departmentField'),s.indexOf('function heightField'));
+  for(const d of ['01 Ain','2A Corse-du-Sud','2B Haute-Corse','75 Paris','93 Seine-Saint-Denis','976 Mayotte'])assert.ok(f.includes(d),d);
+  assert.match(f,/<select id="department" name="department" required>/);
+  assert.match(s,/class="button secondary photo-pick" for="photo"/);
+});

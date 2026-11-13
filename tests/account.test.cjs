@@ -28,7 +28,7 @@ test('QR scanning uses the rear camera only to read a venue invitation, explains
 });
 test('profile onboarding requires name, photo, date of birth and bio, and photos go to the private avatars bucket',()=>{
   const source=fs.readFileSync('src/account.js','utf8');
-  for(const needle of ['function complete(p)','p.bio&&p.avatar_path','id="photo" name="photo" type="file" accept="image/*"','<textarea id="bio" name="bio" required','p_bio:values.bio','p_avatar_path:path',"from('avatars').upload","createSignedUrl(profile.avatar_path",'function age(date)'])assert.ok(source.includes(needle),needle);
+  for(const needle of ['function complete(p)','p.bio&&p.avatar_path','class="photo-input" id="photo" name="photo" type="file" accept="image/*"','<textarea id="bio" name="bio" required','p_bio:values.bio','p_avatar_path:path',"from('avatars').upload","createSignedUrl(profile.avatar_path",'function age(date)'])assert.ok(source.includes(needle),needle);
   assert.doesNotMatch(source,/capture="user"/);
 });
 test('venue discovery is server-scoped and only reachable from a live session',()=>{
