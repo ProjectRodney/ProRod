@@ -57,3 +57,15 @@ body>header{background:transparent}
 body[data-screen=people] .person .pin,body[data-screen=people] .person .pin span{padding:0}
 .pin-dot{width:20px;height:20px;margin-left:0;transform:translateX(-50%)}
 .pin-large .pin-dot{width:24px;height:24px;margin-left:0}
+/* Smaller pins in the venue list to show more people per screen: three per row while veiled, two per row with photos. */
+body[data-screen=people] .person .pin{width:100px;height:124px;margin:12px auto 2px}
+body[data-screen=people] .person .pin-head{width:90px;height:90px;margin-left:-45px;border-width:3px}
+body[data-screen=people] .person .pin-initial{font-size:36px}
+body[data-screen=people] .person .pin-dot{width:16px;height:16px}
+body[data-screen=people] .people.people-veiled{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+body[data-screen=people] .people-veiled .person .pin{width:74px;height:92px;margin:10px auto 0}
+body[data-screen=people] .people-veiled .person .pin-head{width:66px;height:66px;margin-left:-33px}
+body[data-screen=people] .people-veiled .person .pin-dot{width:13px;height:13px}
+body[data-screen=people] .people-veiled .person>span:not(.pin){padding:4px 4px 10px}
+body[data-screen=people] .people-veiled .person b{font-size:16px}
+body[data-screen=people] .people-veiled .person small{font-size:11.5px}
