@@ -87,3 +87,6 @@ body[data-screen=people] .people-compact .person .pin-dot{width:16px;height:16px
 .account-card input.photo-input{position:absolute;width:1px;height:1px;min-height:0;padding:0;border:0;opacity:0;overflow:hidden;clip-path:inset(50%)}
 .photo-pick{width:100%;margin:10px 0 6px;cursor:pointer}
 .account-card .photo-preview{border:1.5px solid #fff}
+/* Event dashboard: the validity list and the « New QR code » button share the row without cutting the text. */
+form[data-form=venue-invite]{flex-wrap:wrap}
+form[data-form=venue-invite] select,form[data-form=venue-invite] .button{flex:1 1 100%;width:100%}
