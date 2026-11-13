@@ -189,3 +189,10 @@ test('the venue account is presented as « événement » everywhere, and places
   assert.equal((db.match(/'barber','event','test'/g)||[]).length,3,'both tables and the admin function accept the event type');
   assert.match(s,/data-type="\$\{k\}"/);
 });
+test('texts: French by default, no wording about a typed venue code or a test, English and French say the same thing',()=>{
+  const s=fs.readFileSync('src/account.js','utf8');
+  assert.match(s,/let lang=localStorage\.getItem\('prorod-lang'\)==='en'\?'en':'fr',/,'French unless English was chosen');
+  assert.doesNotMatch(s,/enter the code below|saisissez le code ci-dessous/);
+  assert.doesNotMatch(s,/pendant le test|during the test|in this test|dans ce test|ce pilote|this pilot/);
+  assert.match(s,/T\('Say hello','Dire bonjour'\)/);
+});
