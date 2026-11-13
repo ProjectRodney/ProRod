@@ -11,14 +11,14 @@ import webpush from "npm:web-push@3.6.7";
 
 type Sub = { endpoint: string; p256dh: string; auth: string };
 const TEXT: Record<string, [string, string]> = {
-  introduction_received: ["Quelqu’un s’est présenté à vous.", "Someone introduced themselves to you."],
-  reply_received: ["Vous avez reçu une réponse.", "You received a reply."],
+  introduction_received: ["Quelqu’un dit bonjour.", "Someone says hello."],
+  reply_received: ["Nouvelle réponse.", "New reply."],
   message_received: ["Nouveau message.", "New message."],
   conversation_closed: ["Une conversation est terminée.", "A conversation has ended."],
-  report_handled: ["Votre signalement a été examiné.", "Your report has been reviewed."],
-  account_restricted: ["Information importante sur votre compte.", "Important information about your account."],
+  report_handled: ["Signalement examiné.", "Report reviewed."],
+  account_restricted: ["Information importante sur le compte.", "Important information about the account."],
   account_warned: ["Avertissement : merci de rester respectueux·se.", "Warning: please stay respectful."],
-  account_reinstated: ["Information importante sur votre compte.", "Important information about your account."],
+  account_reinstated: ["Information importante sur le compte.", "Important information about the account."],
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 function sameSecret(a: string, b: string) {
