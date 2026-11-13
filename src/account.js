@@ -208,4 +208,6 @@ document.addEventListener('change',event=>{const input=event.target;if(input.dat
 client.auth.onAuthStateChange(event=>{if(event==='PASSWORD_RECOVERY'){recovery=true;setTimeout(()=>load().catch(e=>notice(friendly(e),true)),0);}if(event==='SIGNED_OUT'){user=profile=session=venue=null;render();}});
 setInterval(clock,1000);
 load().catch(e=>{render();notice(friendly(e),true);});
-if('serviceWorker' in navigator && window.isSecureContext)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+// Updates: every release changes sw.js (the build stamps it). The phone checks for it when the app opens or comes back to the
+// foreground; when the new version takes over, the page reloads itself once (never while someone is typing).
+if('serviceWorker' in navigator && window.isSecureContext){const hadController=!!navigator.serviceWorker.controller;let reloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadController||reloaded||typing())return;reloaded=true;location.reload();});navigator.serviceWorker.register('./sw.js').then(reg=>{const check=()=>{if(document.visibilityState==='visible')reg.update().catch(()=>{});};document.addEventListener('visibilitychange',check);check();}).catch(()=>{});}
