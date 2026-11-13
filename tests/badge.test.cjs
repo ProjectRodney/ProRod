@@ -174,3 +174,10 @@ test('settings: département is a list of all departments, the photo picker is o
   assert.match(f,/<select id="department" name="department" required>/);
   assert.match(s,/class="button secondary photo-pick" for="photo"/);
 });
+test('a scanned venue code survives sign-up (new tab after the confirmation e-mail), for 3 hours at most, and is erased on join and sign-out',()=>{
+  const s=fs.readFileSync('src/account.js','utf8');
+  assert.match(s,/INVITE_TTL=3\*3600\*1000/);
+  assert.match(s,/Date\.now\(\)-v\.at<INVITE_TTL/);
+  assert.equal((s.match(/dropInvite\(\);/g)||[]).length,3,'join, sign-out, account deletion');
+  assert.doesNotMatch(s,/sessionStorage\.setItem\('prorod-invite'/);
+});
