@@ -53,3 +53,7 @@ body>header{background:transparent}
 .choice,.lang-choice button{border-color:#5005b0}
 /* The QR code keeps its white square: scanners need the contrast. */
 .dept-abbr{font-size:11px;font-weight:600;font-style:normal}
+/* The venue list gives padding to every span inside a card; the pin's own parts must not get it (the dot was pushed to the right). */
+body[data-screen=people] .person .pin,body[data-screen=people] .person .pin span{padding:0}
+.pin-dot{width:20px;height:20px;margin-left:0;transform:translateX(-50%)}
+.pin-large .pin-dot{width:24px;height:24px;margin-left:0}
