@@ -1750,6 +1750,10 @@ begin
 end $$;
 
 create or replace function public.admin_warn_member(p_report uuid, p_message text) returns void language sql set search_path = '' as $$ select private.admin_warn_member(p_report,p_message) $$;
+revoke all on function private.set_height(integer), private.end_conversation(uuid,text), private.admin_warn_member(uuid,text) from public, anon;
+revoke all on function public.set_height(integer), public.end_conversation(uuid,text), public.admin_warn_member(uuid,text) from public, anon;
+grant execute on function private.set_height(integer), private.end_conversation(uuid,text), private.admin_warn_member(uuid,text) to authenticated;
+grant execute on function public.set_height(integer), public.end_conversation(uuid,text), public.admin_warn_member(uuid,text) to authenticated, service_role;
 
 -- Veiled venue until the pass, 11 November 2026 (db/2026-11-11-veiled-venue.sql; the storage policy avatars_venue_select now calls private.photo_visible).
 -- Age range from the private birth date: 18-20, then steps of five (21-25, 26-30…).
