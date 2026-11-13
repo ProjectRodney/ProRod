@@ -72,3 +72,5 @@ body[data-screen=people] .people-compact .person small{font-size:11.5px}
 body[data-screen=people] .account-card h2,body[data-screen=people] .account-card h2+.quiet,.veiled-notice p{text-align:center}
 body[data-screen=people] .people-compact .person b{font-size:14px;line-height:1.25;display:block;overflow-wrap:anywhere}
 body[data-screen=people] .people-compact .person.veiled b{font-size:16px}
+/* Blurred preview before the pass: the file is already a 20 px copy; the extra blur only smooths the pixels. */
+.pin-head img.pin-blur{filter:blur(5px);inset:-22%;width:144%;height:144%}

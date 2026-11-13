@@ -152,3 +152,13 @@ test('a passkey the server no longer recognises gets a clear message and a way i
   const s=fs.readFileSync('src/account.js','utf8');
   assert.match(s,/code==='webauthn_verification_failed'[\s\S]{0,200}Sign in with your email below, then add a new passkey/);
 });
+test('blurred preview before the pass: a separate tiny file, the real photo never sent to someone without a pass',()=>{
+  const db=fs.readFileSync('db/2026-11-13-blurred-preview.sql','utf8'),s=fs.readFileSync('src/account.js','utf8');
+  const vm=db.slice(db.indexOf('create or replace function private.venue_members()'),db.indexOf('end $function$;',db.indexOf('create or replace function private.venue_members()')));
+  assert.match(vm,/case when open then p\.avatar_path end/,'real photo path only once unlocked');
+  assert.match(vm,/case when not open then p\.avatar_blur_path end/,'blurred path only while veiled');
+  assert.match(db,/p_path !~ \('\^u\/' \|\| uid::text \|\| '\/blur-\[A-Za-z0-9\._-\]\+\$'\)/,'only the member’s own blur- file is accepted');
+  assert.match(db,/storage\.filename\(name\) like 'blur-%'[\s\S]{0,120}private\.co_present\(/,'storage: blurred files only, for people in the same venue');
+  assert.match(s,/canvas\.width=canvas\.height=20;/,'the blurred copy is 20 pixels wide');
+  assert.match(s,/const file=m\.veiled\?m\.blur_path:m\.avatar_path;/);
+});
