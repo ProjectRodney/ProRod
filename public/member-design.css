@@ -69,3 +69,4 @@ body[data-screen=people] .people-veiled .person .pin-dot{width:13px;height:13px}
 body[data-screen=people] .people-veiled .person>span:not(.pin){padding:4px 4px 10px}
 body[data-screen=people] .people-veiled .person b{font-size:16px}
 body[data-screen=people] .people-veiled .person small{font-size:11.5px}
+body[data-screen=people] .account-card h2,body[data-screen=people] .account-card h2+.quiet,.veiled-notice p{text-align:center}
