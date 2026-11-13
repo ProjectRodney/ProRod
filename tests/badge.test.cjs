@@ -148,3 +148,7 @@ test('periodic refreshes never redraw while a field has focus (the phone keyboar
   assert.match(s,/if\(view==='conversation'&&thread\?\.id===id&&!busy\)\{if\(!typing\(\)\)openThread\(id,true\)/,'conversation refresh waits while typing');
   assert.match(s,/if\(view==='home'&&complete\(profile\)&&!typing\(\)\)render\(\);/,'home refresh waits while typing');
 });
+test('a passkey the server no longer recognises gets a clear message and a way in',()=>{
+  const s=fs.readFileSync('src/account.js','utf8');
+  assert.match(s,/code==='webauthn_verification_failed'[\s\S]{0,200}Sign in with your email below, then add a new passkey/);
+});
