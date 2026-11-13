@@ -1,13 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 import { config } from './public-config.js';
 import { BRAND } from './brand.js';
+import { TU } from './tu.js';
 import jsQR from 'jsqr';
 import qrDataUrl from './qr.js';
 const client = createClient(config.url, config.key, {auth:{flowType:'implicit',detectSessionInUrl:true,persistSession:true,autoRefreshToken:true,storageKey:'prorod-auth',experimental:{passkey:true}}});
 const root=document.getElementById('account-root'), feedback=document.getElementById('feedback');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let lang=localStorage.getItem('prorod-lang')==='en'?'en':'fr', mode='landing', view='home', user=null, profile=null, session=null, venue=null, busy=false, recovery=location.hash.includes('type=recovery'), scanStream=null, scanTimer=null, avatarUrl='', photoPreview='', people=[], person=null, peopleLoaded=false, inbox=null, thread=null, threadTimer=null, reportTarget=null, isAdmin=false, notifs=null, meetingTimer=null, meetingDismissed={}, accountType=null, venueData=null, proData=null, talents=[], talent=null, talentsLoaded=false, room=null, passes=[], settings={simulation:true,max_session_minutes:180,pass_rule:'everyone'}, venueQr={}, phoneStep=null, phoneValue='', autoTranslate=localStorage.getItem('prorod-autotranslate')==='1', translations={}, translating={};
-const T=(en,fr)=>lang==='fr'?fr:en;
+// French: « tu » for personal accounts and visitors, « vous » for professional and event accounts (src/tu.js).
+const formal=()=>{const t=profile?.account_type||accountType;return t==='pro'||t==='venue';};
+const T=(en,fr)=>lang!=='fr'?en:(formal()?fr:(TU[fr]||fr));
 // The venue code from a scanned QR is kept for 3 hours on this phone, so it survives sign-up: the confirmation e-mail
 // opens a new tab, where the venue is then still proposed. It is erased as soon as the venue is joined or on sign-out.
 const INVITE_KEY='prorod-invite',INVITE_TTL=3*3600*1000;

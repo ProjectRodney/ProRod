@@ -63,3 +63,4 @@ qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le
 - Toute fonction livrée doit marcher avec de vrais comptes et des contrôles côté serveur ;
   la démo ne vaut pas livraison. Ajouter un test pour chaque règle de sécurité.
 - Textes FR/EN partout ; on pousse directement sur `main` après build + tests verts.
+- Tutoiement (décision du client, 13 nov. 2026) : « tu » pour les comptes personnels et les visiteurs, « vous » pour les comptes professionnels et événement. Les textes français s’écrivent avec « vous » dans `src/account.js` ; la version « tu » de chaque phrase qui s’adresse au lecteur va dans `src/tu.js` (toute nouvelle phrase avec vous/votre/vos doit y être ajoutée). Conditions et politique de confidentialité : « vous ».

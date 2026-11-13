@@ -196,3 +196,13 @@ test('texts: French by default, no wording about a typed venue code or a test, E
   assert.doesNotMatch(s,/pendant le test|during the test|in this test|dans ce test|ce pilote|this pilot/);
   assert.match(s,/T\('Say hello','Dire bonjour'\)/);
 });
+test('French: « tu » for personal accounts and visitors, « vous » for professional and event accounts',()=>{
+  const s=fs.readFileSync('src/account.js','utf8'),t=fs.readFileSync('src/tu.js','utf8');
+  assert.match(s,/const formal=\(\)=>\{const t=profile\?\.account_type\|\|accountType;return t==='pro'\|\|t==='venue';\};/);
+  assert.match(s,/const T=\(en,fr\)=>lang!=='fr'\?en:\(formal\(\)\?fr:\(TU\[fr\]\|\|fr\)\);/);
+  const pairs=[...t.matchAll(/^'((?:[^'\\]|\\.)*)':'((?:[^'\\]|\\.)*)',$/gm)];
+  assert.ok(pairs.length>100,'the table covers the member screens');
+  for(const [,vous] of pairs)assert.ok(s.includes(vous)||vous==='Votre espace UPZONE',`every key is a sentence of the app: ${vous.slice(0,50)}`);
+  const plural=/tous les deux|Échangez d’abord|de vous rencontrer/;
+  for(const [,vous,tu] of pairs)if(!plural.test(tu))assert.doesNotMatch(tu,/\b[Vv]ous\b|\b[Vv]otre\b|\b[Vv]os\b/,`no « vous » left in: ${tu.slice(0,60)}`);
+});
