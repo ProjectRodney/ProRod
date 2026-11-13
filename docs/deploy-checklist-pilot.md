@@ -11,7 +11,7 @@ Legend: ✅ done and recorded in `docs/verification-log.md` · ⬜ to do · ⚠�
 - ✅ CI green on `c30215d`: « PWA checks » and « Deploy to GitHub Pages » passed (8 Nov 2026).
 - ✅ 44 Node tests pass locally; the committed `account.bundle.js` equals a fresh build.
 - ✅ Code review of `c30215d` done (9 Nov 2026): no blocking issue; follow-ups listed below.
-- ⬜ Image rights for `assets/maya.jpg` and `assets/adam.jpg` on the welcome page: origin unknown. Confirm a licence + consent, or replace with an illustration **before showing the app outside DZOFT**.
+- ✅ (13 Nov 2026) Welcome photos of unknown origin removed from the app, the demo and the repository's current files; replaced by two neutral location pins.
 
 ### Database (Supabase)
 - ✅ All migrations applied: pass expiry, rename, phone members, push notifications, push_status fix.

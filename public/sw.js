@@ -1,5 +1,5 @@
 const CACHE = 'prorod-shell-v11';
-const ASSETS = ['./index.html', './demo.html', './pwa-install.js', './install.css', './app.css', './app.js', './install.js', './manifest.webmanifest', './assets/upzone-icon-192.png', './assets/upzone-icon-512.png', './assets/apple-touch-icon.png', './assets/fonts/playfair-display-900.woff2', './assets/maya.jpg', './assets/adam.jpg', './account.html', './account.css', './member-design.css', './welcome.js', './account.bundle.js'];
+const ASSETS = ['./index.html', './demo.html', './pwa-install.js', './install.css', './app.css', './app.js', './install.js', './manifest.webmanifest', './assets/upzone-icon-192.png', './assets/upzone-icon-512.png', './assets/apple-touch-icon.png', './assets/fonts/playfair-display-900.woff2', './account.html', './account.css', './member-design.css', './welcome.js', './account.bundle.js'];
 const allowed = new Set(ASSETS.map(path => new URL(path, self.registration.scope).href));
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('prorod-shell-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
