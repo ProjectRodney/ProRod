@@ -217,7 +217,7 @@ AS $function$
 declare uid uuid := private.require_admin(); row private.venues;
 begin
   if p_name is null or char_length(btrim(p_name)) not between 2 and 100 then raise exception 'name_length'; end if;
-  if p_category not in ('restaurant','pub','chicha','nightclub','barber','test') then raise exception 'invalid_category'; end if;
+  if p_category not in ('restaurant','pub','chicha','nightclub','barber','event','test') then raise exception 'invalid_category'; end if;
   if p_duration is null or p_duration not between 15 and 720 then raise exception 'invalid_duration'; end if;
   if p_id is null then
     insert into private.venues(name,category,duration_minutes,address,active) values(btrim(p_name),p_category,p_duration,nullif(btrim(p_address),''),coalesce(p_active,true)) returning * into row;

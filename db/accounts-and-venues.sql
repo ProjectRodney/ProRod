@@ -34,7 +34,7 @@ create policy avatars_own_delete on storage.objects for delete to authenticated
 
 create table private.venues (
   id uuid primary key default gen_random_uuid(), name text not null check(char_length(name) between 2 and 100),
-  category text not null check(category in ('restaurant','pub','chicha','nightclub','barber','test')),
+  category text not null check(category in ('restaurant','pub','chicha','nightclub','barber','event','test')),
   duration_minutes integer not null check(duration_minutes between 15 and 720), active boolean not null default true,
   address text
 );

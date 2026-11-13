@@ -181,3 +181,11 @@ test('a scanned venue code survives sign-up (new tab after the confirmation e-ma
   assert.equal((s.match(/dropInvite\(\);/g)||[]).length,3,'join, sign-out, account deletion');
   assert.doesNotMatch(s,/sessionStorage\.setItem\('prorod-invite'/);
 });
+test('the venue account is presented as « événement » everywhere, and places can be of type event',()=>{
+  const s=fs.readFileSync('src/account.js','utf8'),db=fs.readFileSync('db/2026-11-13-event-category.sql','utf8');
+  assert.doesNotMatch(s,/[ÉéEe]tablissement/,'no « établissement » left in the app');
+  assert.match(s,/T\('An event','Un événement'\)/);
+  assert.match(s,/\['event',T\('Event \(party, show, fair…\)'/);
+  assert.equal((db.match(/'barber','event','test'/g)||[]).length,3,'both tables and the admin function accept the event type');
+  assert.match(s,/data-type="\$\{k\}"/);
+});
