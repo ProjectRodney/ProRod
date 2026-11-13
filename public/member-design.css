@@ -75,3 +75,10 @@ body[data-screen=people] .people-compact .person.veiled b{font-size:16px}
 /* Blurred preview before the pass: the file is already a 20 px copy; the extra blur only smooths the pixels. */
 .pin-head img.pin-blur{filter:blur(5px);inset:-22%;width:144%;height:144%}
 .avatar-letter{display:inline-flex;align-items:center;justify-content:center;background:#5005b0;color:#fffadd;font-weight:800;font-size:26px}
+/* Client request (13 Nov 2026): one frame around all the people (same width as the notice above, separate from it), no frame per person, bigger faces. */
+body[data-screen=people] .people.people-compact{background:#fffadd;border:1.5px solid #fff;border-radius:18px;padding:12px 6px 10px;gap:10px 0;margin-top:14px}
+body[data-screen=people] .people-compact .person{background:transparent;border:0;border-radius:0;box-shadow:none}
+body[data-screen=people] .people-compact .person .pin{width:104px;height:128px;margin:4px auto 0}
+body[data-screen=people] .people-compact .person .pin-head{width:96px;height:96px;margin-left:-48px}
+body[data-screen=people] .people-compact .person .pin-initial{font-size:40px}
+body[data-screen=people] .people-compact .person .pin-dot{width:16px;height:16px}
