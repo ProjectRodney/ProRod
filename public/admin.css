@@ -1,6 +1,96 @@
-.admin-shell{max-width:1100px;margin:30px auto;padding:0 16px}.account-card.wide{max-width:none}.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;font-size:14px;color:#626052}.tabs{flex-wrap:wrap}.tabs button{flex:1 1 120px}.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0}.tile{background:#fff;border:1px solid #e3dcc0;border-radius:18px;padding:16px}.tile b{display:block;font-size:30px;line-height:1.1}.tile span{font-size:13px;color:#626052}.list{display:grid;gap:12px;margin:14px 0}.item{background:#fff;border:1px solid #e3dcc0;border-radius:18px;padding:14px 16px}.item .head{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.item .right{margin-left:auto;color:#626052;font-size:13px}.pill{display:inline-block;border-radius:12px;padding:2px 10px;font-size:12px;background:#f3eedb}.pill.off{background:#fde2dc;color:#813025}.item.token{background:#fff8d6;border-color:#e2c766}.item.token input{width:100%;font-family:ui-monospace,monospace;font-size:13px}.item.token img{display:block;margin-top:10px;border-radius:12px;background:#fff}.bubble.from{background:#fde2dc}.admin-shell form.row{display:flex;gap:10px;align-items:end}.admin-shell form.row input{flex:1}@media(max-width:720px){.admin-shell{margin:0;padding:12px}}
-
-header nav{display:flex;gap:8px;align-items:center}header nav a{margin-right:6px}header nav button{border:1px solid #d8d1b8;border-radius:20px;padding:8px 12px;background:white;color:#292b24}header nav button[aria-pressed=true]{background:#f2ce57;border-color:#9c7c1e}.totp{display:block;margin:12px 0;border-radius:12px;background:#fff;border:1px solid #e3dcc0}code{background:#f3eedb;padding:2px 6px;border-radius:6px;font-size:13px}
-
-.danger-link{color:#a3271b;font-weight:650}
-a.button{text-decoration:none;display:inline-block;text-align:center}
+/* UPZONE administration: its own look, on top of the shared base styles. */
+@font-face{font-family:"Playfair Display";font-weight:900;font-display:swap;src:url(./assets/fonts/playfair-display-900.woff2) format("woff2")}
+body.admin{--ink:#1c1530;--muted:#6a6480;--purple:#5005b0;--purple-dark:#3d0489;--soft:#f1eafb;--line:#e7e3ef;--bg:#f6f5fa;--card:#fff;--red:#b3261e;--green:#1b7a45;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+body.admin>header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--line);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+body.admin .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+body.admin .brand img{width:34px;height:34px;border-radius:10px;margin:0}
+body.admin .brand b{font-family:"Playfair Display",Georgia,serif;font-weight:900;font-size:20px;color:#e20066;letter-spacing:.3px}
+body.admin .brand small{margin:0;background:var(--soft);color:var(--purple);font-weight:700;font-size:11px;letter-spacing:.6px;text-transform:uppercase;padding:4px 9px;border-radius:20px}
+body.admin header nav{display:flex;gap:6px;align-items:center}
+body.admin header nav a{color:var(--muted);font-size:13px;margin-right:6px}
+body.admin header nav button{border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:#fff;color:var(--muted);font-size:12px;font-weight:700}
+body.admin header nav button[aria-pressed=true]{background:var(--purple);border-color:var(--purple);color:#fff}
+.admin-shell{max-width:1180px;margin:0 auto;padding:20px}
+body.admin .account-card.wide{max-width:none;background:transparent;border:0;box-shadow:none;padding:0;border-radius:0}
+body.admin h2{font-size:22px;line-height:1.25;letter-spacing:-.3px;margin:0 0 14px}
+body.admin h3{font-size:15px;margin:26px 0 10px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted)}
+body.admin .quiet,body.admin small{color:var(--muted);font-size:13px}
+body.admin a{color:var(--purple)}
+/* sign-in and other single cards */
+#admin-root>h2,#admin-root>form,#admin-root>p,#admin-root>img,#admin-root>button{max-width:420px;margin-left:auto;margin-right:auto}
+#admin-root>h2{margin-top:32px}
+/* layout */
+.admin-layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:22px;align-items:start}
+.side{position:sticky;top:76px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px}
+body.admin .tabs{display:flex;flex-direction:column;gap:2px;margin:0;flex-wrap:nowrap}
+body.admin .tabs button{flex:none;text-align:left;border:0;background:transparent;color:var(--ink);padding:10px 12px;border-radius:10px;font:inherit;font-size:14px;font-weight:600}
+body.admin .tabs button:hover{background:var(--bg)}
+body.admin .tabs button[aria-pressed=true]{background:var(--soft);color:var(--purple);font-weight:750}
+.topbar{display:block;margin:10px 0 0;padding:12px 12px 4px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.topbar span{display:block;overflow-wrap:anywhere}
+body.admin .topbar .link{padding:6px 0;color:var(--purple);font-size:13px;font-weight:650}
+body.admin .panel{margin:0}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;min-width:0}
+body.admin .panel-title{font-size:24px;margin:0 0 16px}
+/* numbers */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin:0 0 16px}
+.tile{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:16px}
+.tile b{display:block;font-size:32px;line-height:1.1;color:var(--purple);font-variant-numeric:tabular-nums}
+.tile span{display:block;margin-top:4px;font-size:13px;color:var(--muted)}
+.tile span::first-letter{text-transform:uppercase}
+.tile.alert{background:#fdecea;border-color:#f3c4bf}.tile.alert b{color:var(--red)}
+/* lists */
+.list{display:grid;gap:10px;margin:0 0 14px}
+.item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.item.inactive{background:var(--bg)}.item.inactive .head b{color:var(--muted)}
+.item .head{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.item .head b{font-size:16px}
+.item .right{margin-left:auto;color:var(--muted);font-size:13px}
+.item p{margin:6px 0}
+.item details{margin:8px 0}.item summary{cursor:pointer;font-size:13px;font-weight:650;color:var(--purple)}
+.pill{display:inline-block;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:650;background:var(--soft);color:var(--purple)}
+.pill.on{background:#e3f4ea;color:var(--green)}.pill.off{background:#fdecea;color:var(--red)}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+/* buttons */
+body.admin .button{width:auto;margin:0;min-height:44px;padding:10px 18px;border:1px solid var(--purple);border-radius:10px;background:var(--purple);color:#fff;font:inherit;font-weight:700;box-shadow:none;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+body.admin .button:hover{background:var(--purple-dark)}
+body.admin .button.secondary{background:#fff;color:var(--purple);border-color:#cdbdeb}
+body.admin .button.secondary:hover{background:var(--soft)}
+body.admin .button.secondary[aria-pressed=true]{background:var(--soft);border-color:var(--purple)}
+body.admin .button.small{min-height:38px;padding:7px 14px;font-size:14px}
+body.admin .link{border:0;background:none;padding:6px 0;color:var(--purple);text-decoration:underline;font:inherit;font-size:14px}
+body.admin .danger-link{color:var(--red);font-weight:650}
+body.admin .row{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}body.admin .row>*{flex:none}
+body.admin form.row{align-items:center}body.admin form.row input{flex:1 1 220px}
+/* forms */
+body.admin label{display:block;font-size:13px;font-weight:650;margin:12px 0 5px;color:var(--ink)}
+body.admin input:not([type=checkbox]),body.admin select,body.admin textarea{width:100%;min-height:44px;border:1px solid #cfc9dd;border-radius:10px;padding:9px 12px;background:#fff;color:var(--ink);font:inherit;font-size:16px}
+body.admin input:focus-visible,body.admin select:focus-visible,body.admin textarea:focus-visible,body.admin button:focus-visible,body.admin a:focus-visible{outline:3px solid #b99cf0;outline-offset:2px}
+body.admin .agreement{display:flex;align-items:center;gap:10px;font-weight:600;margin:14px 0}
+body.admin .agreement input{width:20px;height:20px;accent-color:var(--purple)}
+.grid-form{max-width:560px}.grid-form .button{margin-top:6px}
+/* QR box */
+.item.token{background:var(--soft);border-color:#cdbdeb;text-align:center;margin:0 0 14px}
+.item.token img{display:block;margin:12px auto;border-radius:12px;background:#fff;padding:6px;max-width:100%;height:auto}
+/* misc */
+.bubble{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0}
+.bubble.from{background:#fdecea;border-color:#f3c4bf}
+.totp{display:block;margin:12px auto;border-radius:12px;background:#fff;border:1px solid var(--line)}
+code{background:var(--soft);padding:2px 6px;border-radius:6px;font-size:13px}
+#feedback{position:sticky;bottom:12px;max-width:560px;margin:14px auto 0;background:var(--ink);color:#fff;border-radius:12px;padding:12px 16px;font-size:14px;box-shadow:0 8px 30px #1c153033}
+#feedback.error{background:var(--red)}
+@media(max-width:860px){
+  .admin-shell{padding:12px}
+  .admin-layout{display:block}
+  .side{position:static;padding:0;border:0;background:transparent;border-radius:0;margin-bottom:12px}
+  body.admin .tabs{flex-direction:row;overflow-x:auto;gap:6px;padding:2px 2px 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  body.admin .tabs::-webkit-scrollbar{display:none}
+  body.admin .tabs button{white-space:nowrap;background:#fff;border:1px solid var(--line);border-radius:20px;padding:8px 14px}
+  body.admin .tabs button[aria-pressed=true]{background:var(--purple);border-color:var(--purple);color:#fff}
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;border:0;margin:0;padding:0 4px}
+  .panel{padding:16px;border-radius:14px}
+  body.admin .panel-title{font-size:21px}
+  .tiles{grid-template-columns:1fr 1fr}
+  body.admin header nav a{display:none}
+  .actions .button{flex:1}
+}

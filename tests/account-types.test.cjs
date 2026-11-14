@@ -10,12 +10,11 @@ test('three account types are chosen once, venue accounts never take part in enc
   for(const fn of ['join_venue','venue_members','venue_talents','send_enquiry','buy_pass_simulated'])assert.ok(migration.includes(`function private.${fn}(`)&&migration.split(`function private.${fn}(`)[1].split('$$;')[0].includes('private.require_person()'),fn+' must call require_person');
   assert.ok(migration.includes("p.account_type<>'venue' and private.profile_complete(p)"),'venue accounts excluded from discovery');
 });
-test('venue QR codes are generated on the phone from a one-time token and sessions are capped at 3 hours',()=>{
+test('venue QR codes are generated on the phone from a one-time token and sessions are capped by the server setting',()=>{
   for(const needle of ["import qrDataUrl from './qr.js'","qrDataUrl(url)","download=\"prod-qr-",'function durationOptions','max_session_minutes'])assert.ok(source.includes(needle),needle);
   assert.ok(migration.includes("check (duration_minutes between 15 and 180)"));
   assert.ok(migration.includes("least(venue.duration_minutes,coalesce((private.setting('max_session_minutes'))::int,180))"));
-  assert.ok(admin.includes('max="180"'),'admin venue form capped');
-  assert.doesNotMatch(admin,/max="720"/);
+  assert.ok(admin.includes('max="720"'),'the administrator may set a visit up to 12 hours (client request, 14 Nov 2026); the server setting max_session_minutes still caps every visit');
 });
 test('professional sheets are approved before being listed, only inside the live venue, with enquiries scoped to co-presence',()=>{
   for(const needle of ['function proSheetView','function proView','function talentsView','function talentView',"rpc('save_pro_profile'","rpc('my_pro_profile')","rpc('venue_talents')","rpc('send_enquiry'",'data-action="talents"'])assert.ok(source.includes(needle),needle);
