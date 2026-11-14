@@ -98,3 +98,5 @@ form[data-form=venue-invite] select,form[data-form=venue-invite] .button{flex:1 
 .welcome-art .art-a .art-head{background:#ece2ff}.welcome-art .art-a svg{fill:#5005b0}
 .welcome-art .art-b .art-head{background:#ffe0ee}.welcome-art .art-b svg{fill:#e20066}
 .welcome-art .art-dot{position:absolute;left:50%;bottom:6px;width:18px;height:18px;transform:translateX(-50%);border-radius:50%;background:#fff;box-shadow:0 2px 6px #5a4a0040}
+
+.settings-heading .account-id{margin:4px 0 0;font-size:13px;overflow-wrap:anywhere}
