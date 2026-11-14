@@ -93,3 +93,13 @@ test('review of 14 November 2026: blocking and reporting need a real encounter, 
   assert.ok(fn.includes("where user_id=b.blocked_id and private.exchanged_with(uid,b.blocked_id)"),'export does not name a blocked stranger');
   assert.ok(fn.includes("i.sender_id=uid and i.venue_id=mine.venue_id and i.created_at>now()-interval '12 hours')>=5"),'hello limit survives a new scan');
 });
+
+test('feedback on demand: only an administrator sends the grouped feedback, and the per-feedback e-mail can be switched off',()=>{
+  const fn=fs.readFileSync('db/functions.sql','utf8');
+  const digest=fn.split('FUNCTION private.admin_send_feedback(')[1].split('$function$;')[0];
+  assert.ok(digest.includes('declare uid uuid := private.require_admin()'),'administrator only');
+  assert.ok(digest.includes("raise exception 'feedback_email_not_configured'"),'says so when no address is set');
+  assert.ok(digest.includes("private.log_admin(uid,'feedback_sent'"),'journaled');
+  assert.ok(fn.split('FUNCTION private.send_feedback_emails(')[1].includes("if coalesce(private.setting('feedback_auto_email'),'true'::jsonb) = 'false'::jsonb then return 0; end if;"),'automatic e-mails follow the setting');
+  assert.doesNotMatch(fn,/feedback_email'\s*,\s*'[^']*@/,'no address in the repository');
+});
