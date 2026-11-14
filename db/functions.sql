@@ -280,6 +280,30 @@ begin
   return jsonb_build_object('id',row.id,'status',row.status);
 end $function$;
 
+CREATE OR REPLACE FUNCTION private.exchanged_with(a uuid, b uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select a is not null and b is not null and a <> b and (
+    exists(select 1 from public.introductions i where (i.sender_id=a and i.recipient_id=b) or (i.sender_id=b and i.recipient_id=a))
+    or exists(select 1 from public.enquiries e where (e.from_id=a and e.pro_id=b) or (e.from_id=b and e.pro_id=a)))
+$function$;
+
+CREATE OR REPLACE FUNCTION private.has_met(a uuid, b uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select private.exchanged_with(a,b) or exists(
+    select 1 from public.venue_sessions x join public.venue_sessions y on x.venue_id=y.venue_id
+    where x.user_id=a and y.user_id=b
+      and x.started_at < coalesce(y.ended_at,y.expires_at) and y.started_at < coalesce(x.ended_at,x.expires_at)
+      and greatest(x.started_at,y.started_at) > now()-interval '7 days')
+$function$;
+
 CREATE OR REPLACE FUNCTION private.block_member(p_user uuid)
  RETURNS void
  LANGUAGE plpgsql
@@ -290,6 +314,7 @@ declare uid uuid := auth.uid();
 begin
   if uid is null then raise exception 'verified_account_required' using errcode='42501'; end if;
   if p_user is null or p_user=uid then raise exception 'invalid_recipient'; end if;
+  if not private.has_met(uid,p_user) then raise exception 'invalid_recipient'; end if;
   insert into public.blocks(blocker_id,blocked_id) values(uid,p_user) on conflict do nothing;
   update public.conversations set closed_at=now(), closed_by=uid where closed_at is null and ((a_id=uid and b_id=p_user) or (a_id=p_user and b_id=uid));
   update public.introductions set status='declined', responded_at=now() where status='pending' and ((sender_id=uid and recipient_id=p_user) or (sender_id=p_user and recipient_id=uid));
@@ -513,7 +538,7 @@ begin
     'introductions_received',(select coalesce(jsonb_agg(jsonb_build_object('from',(select display_name from public.profiles where user_id=i.sender_id),'message',i.message,'created_at',i.created_at,'status',i.status) order by i.created_at),'[]'::jsonb) from public.introductions i where i.recipient_id=uid),
     'conversations',(select coalesce(jsonb_agg(jsonb_build_object('with',(select display_name from public.profiles where user_id=case when c.a_id=uid then c.b_id else c.a_id end),'created_at',c.created_at,'closed_at',c.closed_at,
         'messages',(select coalesce(jsonb_agg(jsonb_build_object('mine',m.sender_id=uid,'body',case when private.message_hidden(c,uid,m.sender_id,m.created_at) then null else m.body end,'created_at',m.created_at) order by m.created_at),'[]'::jsonb) from public.messages m where m.conversation_id=c.id)) order by c.created_at),'[]'::jsonb) from public.conversations c where c.a_id=uid or c.b_id=uid),
-    'blocks',(select coalesce(jsonb_agg(jsonb_build_object('blocked',(select display_name from public.profiles where user_id=b.blocked_id),'created_at',b.created_at)),'[]'::jsonb) from public.blocks b where b.blocker_id=uid),
+    'blocks',(select coalesce(jsonb_agg(jsonb_build_object('blocked',(select display_name from public.profiles where user_id=b.blocked_id and private.exchanged_with(uid,b.blocked_id)),'created_at',b.created_at)),'[]'::jsonb) from public.blocks b where b.blocker_id=uid),
     'reports_made',(select coalesce(jsonb_agg(jsonb_build_object('category',r.category,'details',r.details,'created_at',r.created_at,'status',r.status)),'[]'::jsonb) from public.reports r where r.reporter_id=uid),
     'notifications',(select coalesce(jsonb_agg(jsonb_build_object('kind',n.kind,'created_at',n.created_at,'read_at',n.read_at)),'[]'::jsonb) from public.notifications n where n.user_id=uid));
 end $function$;
@@ -672,6 +697,7 @@ declare uid uuid := auth.uid(); row public.reports; conv public.conversations;
 begin
   if uid is null then raise exception 'verified_account_required' using errcode='42501'; end if;
   if p_user is null or p_user=uid then raise exception 'invalid_recipient'; end if;
+  if not private.has_met(uid,p_user) then raise exception 'invalid_recipient'; end if;
   if p_category is null or p_category not in ('harassment','insults','inappropriate','impersonation','prohibited','other') then raise exception 'invalid_category'; end if;
   if p_conversation is not null then
     select * into conv from public.conversations where id=p_conversation and (a_id=uid or b_id=uid);
@@ -865,7 +891,7 @@ begin
   if exists(select 1 from public.profiles p where p.user_id=p_to and not private.profile_complete(p)) then raise exception 'not_co_present'; end if;
   if exists(select 1 from public.introductions i where i.recipient_id=uid and i.sender_id=p_to and i.session_id=theirs.id and i.status='pending') then raise exception 'introduction_received'; end if;
   if exists(select 1 from public.introductions i where i.sender_id=uid and i.recipient_id=p_to and (i.session_id=mine.id or i.status<>'accepted')) then raise exception 'introduction_exists'; end if;
-  if (select count(*) from public.introductions i where i.sender_id=uid and i.session_id=mine.id)>=5 then raise exception 'introduction_limit'; end if;
+  if (select count(*) from public.introductions i where i.sender_id=uid and i.venue_id=mine.venue_id and i.created_at>now()-interval '12 hours')>=5 then raise exception 'introduction_limit'; end if;
   insert into public.introductions(sender_id,recipient_id,venue_id,session_id,message) values(uid,p_to,mine.venue_id,mine.id,btrim(p_message)) returning * into row;
   perform private.notify(p_to,'introduction_received',jsonb_build_object('from',(select display_name from public.profiles where user_id=uid),'venue',(select name from private.venues where id=mine.venue_id)),row.id::text);
   return jsonb_build_object('id',row.id,'status',row.status,'created_at',row.created_at);

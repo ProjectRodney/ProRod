@@ -86,3 +86,10 @@ test('a venue pass counts only while valid, and hidden replies never leak (7 Nov
   assert.ok(source.includes("x.last?.locked"));
 });
 
+
+test('review of 14 November 2026: blocking and reporting need a real encounter, the export names only people exchanged with',()=>{
+  const fn=fs.readFileSync('db/functions.sql','utf8');
+  for(const f of ['block_member','report_member'])assert.ok(fn.split('FUNCTION private.'+f+'(')[1].split('$function$;')[0].includes("if not private.has_met(uid,p_user) then raise exception 'invalid_recipient'"),f+' refuses someone never met');
+  assert.ok(fn.includes("where user_id=b.blocked_id and private.exchanged_with(uid,b.blocked_id)"),'export does not name a blocked stranger');
+  assert.ok(fn.includes("i.sender_id=uid and i.venue_id=mine.venue_id and i.created_at>now()-interval '12 hours')>=5"),'hello limit survives a new scan');
+});
