@@ -96,12 +96,14 @@ const grid=document.getElementById('grid');['a','b','c','d','e','f'].forEach((k,
 const qr=document.getElementById('qr');let seed=7;const rnd=()=>(seed=(seed*9301+49297)%233280)/233280;
 const finder=(r,c)=>{for(const [R,C] of [[0,0],[0,14],[14,0]]){const y=r-R,x=c-C;if(y>=-1&&y<=7&&x>=-1&&x<=7){if(y<0||y>6||x<0||x>6)return 0;const ring=Math.max(Math.abs(y-3),Math.abs(x-3));return ring===2?0:1;}}return null;};
 for(let r=0;r<21;r++)for(let c=0;c<21;c++){const f=finder(r,c);const on=f===null?rnd()>.52:f===1;qr.insertAdjacentHTML('beforeend',`<i class="${on?'':'o'}"></i>`);}
-const scenes=[...document.querySelectorAll('.scene')];let acc=0;const T=scenes.map(s=>{const d=Number(s.dataset.d);const o={s,start:acc,d};acc+=d;return o;});
+// Scene lengths can be given in the address (?d=11.7,12.4,…) so the pictures follow a narration; the steps inside a scene stretch with it.
+const over=(new URLSearchParams(location.search).get('d')||'').split(',').map(Number);
+const scenes=[...document.querySelectorAll('.scene')];let acc=0;const T=scenes.map((s,i)=>{const base=Number(s.dataset.d);const d=over[i]>0?over[i]:base;const o={s,start:acc,d,k:d/base};acc+=d;return o;});
 window.TOTAL=acc;const dots=document.getElementById('dots');for(let i=1;i<=6;i++)dots.insertAdjacentHTML('beforeend','<i></i>');
 const ease=x=>x<0?0:x>1?1:1-Math.pow(1-x,3);
-window.show=function(t){t=((t%acc)+acc)%acc;for(const {s,start,d} of T){const lt=t-start;const on=lt>=0&&lt<d;const fade=Math.min(ease(lt/0.5),ease((d-lt)/0.5));s.style.opacity=on?fade:0;s.style.visibility=on?'visible':'hidden';if(!on)continue;
-  s.querySelectorAll('.a').forEach(e=>{const p=ease((lt-Number(e.dataset.at))/0.6);e.style.opacity=p;e.style.transform=`translateY(${(1-p)*36}px)`;});
-  if(s.dataset.step==='5'){const p=ease((lt-4.0)/1.2);s.querySelectorAll('.veil svg').forEach(h=>h.style.filter=`blur(${(1-p)*9}px)`);const b=document.getElementById('passbtn');if(lt>4.0){b.style.opacity=1-p;}}
+window.show=function(t){t=((t%acc)+acc)%acc;for(const {s,start,d,k} of T){const lt=t-start;const on=lt>=0&&lt<d;const fade=Math.min(ease(lt/0.5),ease((d-lt)/0.5));s.style.opacity=on?fade:0;s.style.visibility=on?'visible':'hidden';if(!on)continue;
+  s.querySelectorAll('.a').forEach(e=>{const p=ease((lt-Number(e.dataset.at)*k)/0.6);e.style.opacity=p;e.style.transform=`translateY(${(1-p)*36}px)`;});
+  if(s.dataset.step==='5'){const p=ease((lt-4.0*k)/1.2);s.querySelectorAll('.veil svg').forEach(h=>h.style.filter=`blur(${(1-p)*9}px)`);const b=document.getElementById('passbtn');if(lt>4.0*k){b.style.opacity=1-p;}}
   const step=Number(s.dataset.step||0);document.querySelectorAll('#dots i').forEach((e,i)=>e.classList.toggle('on',step>0&&i<step));document.getElementById('dots').style.opacity=step?1:0;document.getElementById('brand').style.opacity=step?1:0;}};
 show(0);
 if(location.hash==='#play'){const t0=performance.now();(function loop(){show((performance.now()-t0)/1000);requestAnimationFrame(loop);})();}
