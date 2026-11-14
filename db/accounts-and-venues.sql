@@ -40,7 +40,8 @@ create table private.venues (
 );
 create table private.venue_invites (
   id uuid primary key default gen_random_uuid(), venue_id uuid not null references private.venues(id),
-  token_hash text not null unique, expires_at timestamptz not null, revoked_at timestamptz
+  token_hash text not null unique, expires_at timestamptz not null, revoked_at timestamptz,
+  duration_minutes integer check (duration_minutes is null or duration_minutes between 15 and 720)
 );
 create index on private.venue_invites(venue_id);
 create table private.account_restrictions (

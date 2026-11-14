@@ -52,7 +52,7 @@ export const TU = {
 'Vous êtes ici':'Tu es ici',
 'Quitter termine votre session.':'Quitter termine ta session.',
 'Scannez le QR affiché dans votre lieu pour découvrir qui est là.':'Scanne le QR affiché dans ton lieu pour découvrir qui est là.',
-'minutes · rejoindre remplace votre session actuelle':'minutes · rejoindre remplace ta session actuelle',
+'rejoindre remplace votre session actuelle':'rejoindre remplace ta session actuelle',
 'Obtenez une copie de tout ce qui est enregistré à votre sujet (fichier JSON).':'Obtiens une copie de tout ce qui est enregistré à ton sujet (fichier JSON).',
 'Supprime immédiatement votre compte, votre profil et votre historique de lieux. Cette action est définitive.':'Supprime immédiatement ton compte, ton profil et ton historique de lieux. Cette action est définitive.',
 'Scannez le QR code du lieu où vous êtes. Son nom et la durée de la session s’affichent avant de rejoindre.':'Scanne le QR code du lieu où tu es. Son nom et la durée de la session s’affichent avant de rejoindre.',

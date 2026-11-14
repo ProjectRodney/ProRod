@@ -14,7 +14,10 @@ test('venue QR codes are generated on the phone from a one-time token and sessio
   for(const needle of ["import qrDataUrl from './qr.js'","qrDataUrl(url)","download=\"prod-qr-",'function durationOptions','max_session_minutes'])assert.ok(source.includes(needle),needle);
   assert.ok(migration.includes("check (duration_minutes between 15 and 180)"));
   assert.ok(migration.includes("least(venue.duration_minutes,coalesce((private.setting('max_session_minutes'))::int,180))"));
-  assert.ok(admin.includes('max="720"'),'the administrator may set a visit up to 12 hours (client request, 14 Nov 2026); the server setting max_session_minutes still caps every visit');
+  assert.ok(admin.includes("p_minutes:minutes"),'the administrator chooses the visit length when generating a QR code');
+  const fn2=fs.readFileSync('db/functions.sql','utf8');
+  assert.ok(fn2.split('FUNCTION private.join_venue')[1].includes("coalesce(invitation.duration_minutes,least(venue.duration_minutes,coalesce((private.setting('max_session_minutes'))::int,180)))"),'a visit follows the QR code scanned, otherwise the capped venue length');
+  assert.ok(fn2.split('FUNCTION private.admin_create_invite')[1].includes("declare uid uuid := private.require_admin()")&&fn2.includes("p_minutes not between 15 and 720 then raise exception 'invalid_duration'"),'only an administrator sets it, within 15 minutes to 12 hours');
 });
 test('professional sheets are approved before being listed, only inside the live venue, with enquiries scoped to co-presence',()=>{
   for(const needle of ['function proSheetView','function proView','function talentsView','function talentView',"rpc('save_pro_profile'","rpc('my_pro_profile')","rpc('venue_talents')","rpc('send_enquiry'",'data-action="talents"'])assert.ok(source.includes(needle),needle);

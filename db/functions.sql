@@ -14,7 +14,7 @@ begin
     from (select * from private.admin_actions order by created_at desc limit least(coalesce(p_limit,100),500)) a),'[]'::jsonb);
 end $function$;
 
-CREATE OR REPLACE FUNCTION private.admin_create_invite(p_venue uuid, p_days integer DEFAULT 30)
+CREATE OR REPLACE FUNCTION private.admin_create_invite(p_venue uuid, p_days integer DEFAULT 30, p_minutes integer DEFAULT NULL::integer)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -24,10 +24,11 @@ declare uid uuid := private.require_admin(); token text; row private.venue_invit
 begin
   if not exists(select 1 from private.venues where id=p_venue) then raise exception 'venue_missing'; end if;
   if p_days is null or p_days not between 1 and 365 then raise exception 'invalid_duration'; end if;
+  if p_minutes is not null and p_minutes not between 15 and 720 then raise exception 'invalid_duration'; end if;
   token := translate(encode(extensions.gen_random_bytes(32),'base64'),'+/=','-_');
-  insert into private.venue_invites(venue_id,token_hash,expires_at) values(p_venue,encode(extensions.digest(token,'sha256'),'hex'),now()+make_interval(days=>p_days)) returning * into row;
-  perform private.log_admin(uid,'invite_created',row.id::text,jsonb_build_object('venue',p_venue,'expires_at',row.expires_at));
-  return jsonb_build_object('id',row.id,'token',token,'expires_at',row.expires_at);
+  insert into private.venue_invites(venue_id,token_hash,expires_at,duration_minutes) values(p_venue,encode(extensions.digest(token,'sha256'),'hex'),now()+make_interval(days=>p_days),p_minutes) returning * into row;
+  perform private.log_admin(uid,'invite_created',row.id::text,jsonb_build_object('venue',p_venue,'expires_at',row.expires_at,'duration_minutes',row.duration_minutes));
+  return jsonb_build_object('id',row.id,'token',token,'expires_at',row.expires_at,'duration_minutes',row.duration_minutes);
 end $function$;
 
 CREATE OR REPLACE FUNCTION private.admin_decide_pro(p_user uuid, p_approve boolean, p_decision text DEFAULT NULL::text)
@@ -251,7 +252,7 @@ declare uid uuid := private.require_admin();
 begin
   return coalesce((select jsonb_agg(jsonb_build_object('id',v.id,'name',v.name,'category',v.category,'duration_minutes',v.duration_minutes,'address',v.address,'active',v.active,
       'live',(select count(*) from public.venue_sessions s where s.venue_id=v.id and s.ended_at is null and s.expires_at>now()),
-      'invites',coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'expires_at',i.expires_at,'revoked_at',i.revoked_at,'uses',(select count(*) from public.venue_sessions s where s.invite_id=i.id)) order by i.expires_at desc) from private.venue_invites i where i.venue_id=v.id),'[]'::jsonb)) order by v.name) from private.venues v),'[]'::jsonb);
+      'invites',coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'expires_at',i.expires_at,'duration_minutes',i.duration_minutes,'revoked_at',i.revoked_at,'uses',(select count(*) from public.venue_sessions s where s.invite_id=i.id)) order by i.expires_at desc) from private.venue_invites i where i.venue_id=v.id),'[]'::jsonb)) order by v.name) from private.venues v),'[]'::jsonb);
 end $function$;
 
 CREATE OR REPLACE FUNCTION private.app_settings_public()
@@ -408,7 +409,7 @@ begin
   if found then return result; end if;
   update public.venue_sessions set ended_at=now() where user_id=uid and ended_at is null;
   insert into public.venue_sessions(user_id,venue_id,invite_id,venue_name,expires_at)
-  values(uid,venue.id,invitation.id,venue.name,now()+make_interval(mins=>least(venue.duration_minutes,coalesce((private.setting('max_session_minutes'))::int,180)))) returning * into result;
+  values(uid,venue.id,invitation.id,venue.name,now()+make_interval(mins=>coalesce(invitation.duration_minutes,least(venue.duration_minutes,coalesce((private.setting('max_session_minutes'))::int,180))))) returning * into result;
   return result;
 end $function$;
 
@@ -643,7 +644,7 @@ declare result jsonb;
 begin
   perform private.require_member();
   if p_token is null or length(p_token) not between 32 and 256 then raise exception 'invalid_invitation'; end if;
-  select jsonb_build_object('name',v.name,'category',v.category,'duration_minutes',v.duration_minutes,'address',v.address)
+  select jsonb_build_object('name',v.name,'category',v.category,'duration_minutes',coalesce(i.duration_minutes,least(v.duration_minutes,coalesce((private.setting('max_session_minutes'))::int,180))),'address',v.address)
   into result from private.venue_invites i join private.venues v on v.id=i.venue_id
   where i.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and i.revoked_at is null and i.expires_at>now() and v.active;
   if result is null then raise exception 'invalid_invitation'; end if;
@@ -1086,11 +1087,11 @@ CREATE OR REPLACE FUNCTION public.admin_audit(p_limit integer DEFAULT 100)
  SET search_path TO ''
 AS $function$ select private.admin_audit(p_limit) $function$;
 
-CREATE OR REPLACE FUNCTION public.admin_create_invite(p_venue uuid, p_days integer DEFAULT 30)
+CREATE OR REPLACE FUNCTION public.admin_create_invite(p_venue uuid, p_days integer DEFAULT 30, p_minutes integer DEFAULT NULL::integer)
  RETURNS jsonb
  LANGUAGE sql
  SET search_path TO ''
-AS $function$ select private.admin_create_invite(p_venue,p_days) $function$;
+AS $function$ select private.admin_create_invite(p_venue,p_days,p_minutes) $function$;
 
 CREATE OR REPLACE FUNCTION public.admin_decide_pro(p_user uuid, p_approve boolean, p_decision text DEFAULT NULL::text)
  RETURNS void
@@ -1418,7 +1419,7 @@ AS $function$ select private.venue_update(p_hours,p_contact,p_duration) $functio
 revoke all on all functions in schema private from public, anon, authenticated;
 revoke all on all functions in schema public from public, anon;
 grant execute on function private.admin_audit(p_limit integer DEFAULT 100) to authenticated;
-grant execute on function private.admin_create_invite(p_venue uuid, p_days integer DEFAULT 30) to authenticated;
+grant execute on function private.admin_create_invite(p_venue uuid, p_days integer DEFAULT 30, p_minutes integer DEFAULT NULL::integer) to authenticated;
 grant execute on function private.admin_decide_pro(p_user uuid, p_approve boolean, p_decision text DEFAULT NULL::text) to authenticated;
 grant execute on function private.admin_decide_report(p_id uuid, p_status text, p_decision text, p_suspend boolean DEFAULT false) to authenticated;
 grant execute on function private.admin_decide_venue(p_id uuid, p_approve boolean, p_decision text DEFAULT NULL::text) to authenticated;
@@ -1473,7 +1474,7 @@ grant execute on function private.venue_room() to authenticated;
 grant execute on function private.venue_talents() to authenticated;
 grant execute on function private.venue_update(p_hours text, p_contact text, p_duration integer) to authenticated;
 grant execute on function public.admin_audit(p_limit integer DEFAULT 100) to authenticated, service_role;
-grant execute on function public.admin_create_invite(p_venue uuid, p_days integer DEFAULT 30) to authenticated, service_role;
+grant execute on function public.admin_create_invite(p_venue uuid, p_days integer DEFAULT 30, p_minutes integer DEFAULT NULL::integer) to authenticated, service_role;
 grant execute on function public.admin_decide_pro(p_user uuid, p_approve boolean, p_decision text DEFAULT NULL::text) to authenticated, service_role;
 grant execute on function public.admin_decide_report(p_id uuid, p_status text, p_decision text, p_suspend boolean DEFAULT false) to authenticated, service_role;
 grant execute on function public.admin_decide_venue(p_id uuid, p_approve boolean, p_decision text DEFAULT NULL::text) to authenticated, service_role;
