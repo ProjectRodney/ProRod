@@ -693,7 +693,7 @@ AS $function$
 declare uid uuid := auth.uid(); claims jsonb := coalesce(auth.jwt(), '{}'::jsonb);
 begin
   if uid is null or coalesce(claims->'app_metadata'->>'prod_admin','') <> 'true' then raise exception 'admin_required' using errcode='42501'; end if;
-  if coalesce(claims->>'aal','') <> 'aal2' then raise exception 'mfa_required' using errcode='42501'; end if;
+  if coalesce(private.setting('admin_two_step'),'true'::jsonb) <> 'false'::jsonb and coalesce(claims->>'aal','') <> 'aal2' then raise exception 'mfa_required' using errcode='42501'; end if;
   return uid;
 end $function$;
 
@@ -1224,6 +1224,13 @@ CREATE OR REPLACE FUNCTION public.delete_account()
  SET search_path TO ''
 AS $function$ select private.delete_account() $function$;
 
+CREATE OR REPLACE FUNCTION public.admin_two_step_required()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$ select coalesce(private.setting('admin_two_step'),'true'::jsonb) <> 'false'::jsonb $function$;
+
 CREATE OR REPLACE FUNCTION public.is_admin()
  RETURNS boolean
  LANGUAGE sql
@@ -1490,6 +1497,7 @@ grant execute on function public.close_conversation(p_id uuid) to authenticated,
 grant execute on function public.conversation_messages(p_id uuid) to authenticated, service_role;
 grant execute on function public.delete_account() to authenticated, service_role;
 grant execute on function public.is_admin() to authenticated, service_role;
+grant execute on function public.admin_two_step_required() to authenticated;
 grant execute on function public.join_venue(p_token text) to authenticated, service_role;
 grant execute on function public.leave_venue() to authenticated, service_role;
 grant execute on function public.meeting_answer(p_conversation uuid, p_yes boolean) to authenticated, service_role;

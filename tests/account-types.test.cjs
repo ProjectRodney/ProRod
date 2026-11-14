@@ -56,7 +56,8 @@ test('chat only while both are checked in, refusals hold across visits, administ
   assert.ok(fn.includes("if not private.co_present_in(conv,uid) then raise exception 'visit_over'"),'send_message requires co-presence');
   assert.ok(fn.split('FUNCTION private.meeting_answer')[1].includes("raise exception 'visit_over'"),'meeting needs co-presence');
   assert.ok(fn.includes("(i.session_id=mine.id or i.status<>'accepted')) then raise exception 'introduction_exists'"),'refusals hold across visits');
-  assert.ok(fn.split('FUNCTION private.require_admin')[1].includes("coalesce(claims->>'aal','') <> 'aal2' then raise exception 'mfa_required'"),'aal2 always');
+  assert.ok(fn.split('FUNCTION private.require_admin')[1].includes("coalesce(private.setting('admin_two_step'),'true'::jsonb) <> 'false'::jsonb and coalesce(claims->>'aal','') <> 'aal2' then raise exception 'mfa_required'"),'two-step required unless the operator switched it off; a missing setting means required');
+  assert.ok(admin.includes("twoStep=await rpc('admin_two_step_required')!==false;}catch{twoStep=true;}"),'portal asks for two-step when the server cannot be asked');
   for(const needle of ["visit_over:[","t.live===false","mfa.challengeAndVerify","mfa.enroll({factorType:'totp'","getAuthenticatorAssuranceLevel","function mfaView","data-language","function localize","const EN=["])assert.ok((source+admin).includes(needle),needle);
   assert.ok(fs.readFileSync('public/admin.html','utf8').includes('data-language="en"'));
   assert.equal((fn.match(/CREATE OR REPLACE FUNCTION/g)||[]).length>100,true,'full function export present');

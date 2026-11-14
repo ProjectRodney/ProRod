@@ -39,7 +39,7 @@ qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le
   toute écriture passe par des fonctions `private.*` SECURITY DEFINER exposées par des
   wrappers `public.*`. Ne jamais autoriser depuis des métadonnées modifiables par l'utilisateur.
 - Administration : `admin.html` (bundle `src/admin.js`), rôle = claim Auth `app_metadata.prod_admin = true`
-  posé par l'opérateur dans Supabase (jamais `user_metadata`) ; validation en deux étapes obligatoire (le portail l’enrôle à la première connexion) ; journal
+  posé par l'opérateur dans Supabase (jamais `user_metadata`) ; validation en deux étapes exigée par défaut, réglage serveur `admin_two_step` (`db/2026-11-14-admin-two-step-switch.sql` ; la désactiver est une décision de l’exploitant, la CNIL recommande de la garder pour des données sensibles) (le portail l’enrôle à la première connexion) ; journal
   `private.admin_actions`. Invitations (QR) depuis le portail, ou `db/create-invite.sql` en secours.
 - E-mails Auth : le service intégré de Supabase n'envoie qu'aux membres de l'organisation ;
   configurer le SMTP Brevo du projet + Site URL + redirections avant tout test avec le client.
