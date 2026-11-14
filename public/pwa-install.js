@@ -3,7 +3,8 @@
 (function () {
   var fr = (document.documentElement.lang || 'fr').startsWith('fr');
   var T = function (en, f) { return fr ? f : en; };
-  var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  // Inside the iPhone app (its browser signs as UPZONEApp) there is nothing to install.
+  var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || /UPZONEApp/.test(navigator.userAgent);
   var ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
   var deferred = null;
   window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; render(); });

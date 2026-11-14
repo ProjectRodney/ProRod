@@ -29,6 +29,7 @@ qui touche aux comptes (Supabase, GitHub, Brevo, hébergement) ; toi, tu fais le
   `demo.html` + `app.js` = démo fictive de consentement, clairement étiquetée, pas un backend.
   Le produit s'affiche « UPZONE » (`src/brand.js`). Icône originale : `design/upzone-icon.svg` → PNG dans `public/assets/` (192, 512, 1024, apple-touch 180) ; pastille rouge du nombre de non-lus sur l’icône via l’API Badging (iPhone 16.4+ installé avec notifications autorisées, Chrome/Edge ordinateur ; pas Android), jamais de contenu.
 - `npm ci`, `npm run build`, `npm test` (node:test). Build : copie `public/` → `dist/`.
+- `mobile/` : coquille iPhone (Expo SDK 58, `react-native-webview`) qui ouvre l’application web, première étape pour TestFlight ; identité dans `mobile/identity.json` (à remplir par l’exploitant, jamais devinée), build par le workflow manuel `.github/workflows/ios-build.yml` (secret `EXPO_TOKEN`). Pas prête pour l’App Store (règles 4.2, 3.1.1, 1.2 : voir `mobile/README.md`). Non déployée avec le site.
 - `src/public-config.js` : URL et clé publiable Supabase, `siteUrl` = adresse publique de l'app
   (sert aux liens des e-mails de confirmation et de récupération). Jamais de clé secrète ici.
 

@@ -1,0 +1,39 @@
+name: iPhone build (Expo)
+# Started by hand only (Actions → iPhone build (Expo) → Run workflow). Never runs on a push.
+# Needs: the repository secret EXPO_TOKEN (an Expo access token), the four values in mobile/identity.json,
+# and one first build made from a computer with `eas build -p ios`, where the Apple account is signed in once
+# so that Expo holds the signing credentials.
+on:
+  workflow_dispatch:
+    inputs:
+      submit:
+        description: Send the build to TestFlight when it is ready
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check the app identity is filled in
+        run: |
+          node -e "const i=require('./identity.json');const m=['owner','slug','easProjectId','iosBundleIdentifier'].filter(k=>!i[k]);if(m.length){console.error('mobile/identity.json is missing: '+m.join(', '));process.exit(1)}"
+      - name: Check the Expo token is present
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: test -n "$EXPO_TOKEN" || { echo "The repository secret EXPO_TOKEN is not set."; exit 1; }
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - name: Build for iPhone
+        run: eas build --platform ios --profile production --non-interactive --no-wait ${{ inputs.submit && '--auto-submit' || '' }}
