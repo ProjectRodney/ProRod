@@ -69,3 +69,11 @@ test('administration page: separate bundle, admin role from app_metadata only, n
   for(const needle of ["rpc('is_admin')","rpc('admin_create_invite'","rpc('admin_decide_report'","rpc('admin_restrict'","rpc('admin_audit'"])assert.ok(source.includes(needle),needle);
   assert.doesNotMatch(source,/user_metadata|birth_date|email_confirmed/,'no client-side role or private data');
 });
+
+test('an address is confirmed by the link or by the code from the email, and only then signed in',()=>{
+  const fs=require('node:fs');const app=fs.readFileSync('src/account.js','utf8');
+  assert.ok(app.includes("client.auth.verifyOtp({email:confirmEmail,token:String(values.emailCode||'').trim(),type:'email'})"),'the code is checked by the server, never in the app');
+  assert.ok(app.includes("if(result.error.code==='email_not_confirmed'){setConfirmEmail(values.email)"),'an unconfirmed address is led to the code screen, not signed in');
+  assert.ok(fs.readFileSync('supabase/templates/confirm-signup.html','utf8').includes('{{ .Token }}'),'the email carries the code');
+  for(const f of ['confirm-signup.html','reset-password.html'])assert.doesNotMatch(fs.readFileSync('supabase/templates/'+f,'utf8'),/anziak/i);
+});

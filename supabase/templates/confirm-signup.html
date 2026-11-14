@@ -1,10 +1,15 @@
-<!-- UPZONE: Supabase → Authentication → Emails → Templates → "Confirm signup". Subject: UPZONE · Confirmez votre adresse / Confirm your address -->
-<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#292b24;background:#fffdf3">
-  <p style="font-size:22px;font-weight:bold;margin:0 0 16px">UPZONE</p>
-  <p style="font-size:16px;margin:0 0 8px"><strong>Confirmez votre adresse e-mail</strong></p>
-  <p style="font-size:15px;line-height:1.5;margin:0 0 20px">Bienvenue ! Appuyez sur le bouton ci-dessous pour confirmer votre adresse et terminer votre inscription.</p>
-  <p style="margin:0 0 24px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#f2cd55;color:#292b24;text-decoration:none;font-weight:bold;padding:14px 22px;border-radius:12px">Confirmer mon adresse / Confirm my address</a></p>
-  <p style="font-size:16px;margin:0 0 8px"><strong>Confirm your email address</strong></p>
-  <p style="font-size:15px;line-height:1.5;margin:0 0 20px">Welcome! Tap the button above to confirm your address and finish signing up.</p>
-  <p style="font-size:13px;line-height:1.5;color:#6b6c62;margin:0">Vous n’avez pas créé de compte UPZONE ? Ignorez simplement cet e-mail. / Didn’t create an UPZONE account? Just ignore this email.</p>
+<!-- UPZONE: Supabase → Authentication → Emails → Templates → "Confirm signup". Subject: UPZONE · Confirme ton adresse / Confirm your address -->
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:28px 24px;color:#1c1530;background:#fffadd">
+  <p style="font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:bold;letter-spacing:1px;color:#e20066;margin:0 0 20px">UPZONE</p>
+  <p style="font-size:18px;margin:0 0 8px;color:#5005b0"><strong>Confirme ton adresse e-mail</strong></p>
+  <p style="font-size:15px;line-height:1.5;margin:0 0 20px">Bienvenue ! Appuie sur le bouton pour confirmer ton adresse et terminer ton inscription.</p>
+  <p style="margin:0 0 24px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#fffc00;color:#111111;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 24px;border-radius:14px">Confirmer mon adresse</a></p>
+  <p style="font-size:15px;line-height:1.5;margin:0 0 6px">Le bouton ne marche pas ? Tape ce code dans l’application :</p>
+  <p style="font-size:32px;font-weight:bold;letter-spacing:5px;color:#5005b0;margin:0 0 24px">{{ .Token }}</p>
+  <p style="font-size:18px;margin:0 0 8px;color:#5005b0"><strong>Confirm your email address</strong></p>
+  <p style="font-size:15px;line-height:1.5;margin:0 0 20px">Welcome! Tap the button to confirm your address and finish signing up.</p>
+  <p style="margin:0 0 24px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#fffc00;color:#111111;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 24px;border-radius:14px">Confirm my address</a></p>
+  <p style="font-size:15px;line-height:1.5;margin:0 0 6px">Button not working? Type this code in the app:</p>
+  <p style="font-size:32px;font-weight:bold;letter-spacing:5px;color:#5005b0;margin:0 0 24px">{{ .Token }}</p>
+  <p style="font-size:13px;line-height:1.5;color:#6a6480;margin:0">Tu n’as pas créé de compte UPZONE ? Ignore simplement cet e-mail. / Didn’t create an UPZONE account? Just ignore this email.</p>
 </div>

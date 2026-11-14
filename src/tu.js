@@ -3,6 +3,11 @@
 // the « tu » version of each sentence that addresses the reader. A sentence missing here is shown unchanged.
 // Sentences that speak to two people at once (« vous dites oui tous les deux ») stay in the plural on purpose.
 export const TU = {
+'Confirmez votre adresse':'Confirme ton adresse',
+'Il est dans les spams ? Le bouton de l’e-mail y est souvent bloqué. Le code écrit dans l’e-mail fonctionne quand même : tapez-le ici.':'Il est dans les spams ? Le bouton de l’e-mail y est souvent bloqué. Le code écrit dans l’e-mail fonctionne quand même : tape-le ici.',
+'Vous pouvez aussi appuyer sur le bouton de l’e-mail, puis revenir ici pour vous connecter.':'Tu peux aussi appuyer sur le bouton de l’e-mail, puis revenir ici pour te connecter.',
+'Ce code est incorrect ou a expiré. Vérifiez-le, ou renvoyez l’e-mail.':'Ce code est incorrect ou a expiré. Vérifie-le, ou renvoie l’e-mail.',
+'E-mail renvoyé. Regardez dans votre boîte de réception et dans les spams.':'E-mail renvoyé. Regarde dans ta boîte de réception et dans les spams.',
 'Cette adresse e-mail semble incomplète (exemple : nom@yahoo.fr). Vérifiez-la.':'Cette adresse e-mail semble incomplète (exemple : nom@yahoo.fr). Vérifie-la.',
 'Ce lien e-mail a expiré ou a déjà été utilisé. Connectez-vous ci-dessous, ou demandez un nouveau lien avec « Mot de passe oublié ? » ou « Renvoyer la confirmation ».':'Ce lien e-mail a expiré ou a déjà été utilisé. Connecte-toi ci-dessous, ou demande un nouveau lien avec « Mot de passe oublié ? » ou « Renvoyer la confirmation ».',
 'Ce lien e-mail n’a pas pu être utilisé. Demandez-en un nouveau ci-dessous.':'Ce lien e-mail n’a pas pu être utilisé. Demandes-en un nouveau ci-dessous.',
@@ -99,7 +104,6 @@ export const TU = {
 'Votre espace, à votre rythme.':'Ton espace, à ton rythme.',
 'Votre espace UPZONE':'Ton espace UPZONE',
 'Choisissez un nouveau mot de passe':'Choisis un nouveau mot de passe',
-'Demande acceptée. Consultez votre e-mail pour confirmer, puis revenez vous connecter.':'Demande acceptée. Consulte ton e-mail pour confirmer, puis reviens te connecter.',
 'Cochez la case de consentement pour utiliser « Qui souhaitez-vous voir ? », ou laissez « Tout le monde ».':'Coche la case de consentement pour utiliser « Qui souhaites-tu voir ? », ou laisse « Tout le monde ».',
 'Votre bonjour est envoyé. L’autre personne décide de répondre ou non.':'Ton bonjour est envoyé. L’autre personne décide de répondre ou non.',
 'Merci. Votre signalement a été envoyé. Cette personne ne peut plus vous écrire ni se présenter à vous.':'Merci. Ton signalement a été envoyé. Cette personne ne peut plus t’écrire ni te dire bonjour.',
