@@ -16,7 +16,7 @@ it is not ready for the App Store as it is (see « Before the App Store »).
 ## To build
 1. Fill in `identity.json`: `owner` and `slug` (the Expo account and project), `easProjectId` (shown on the Expo project page),
    `iosBundleIdentifier` (chosen by the operator; permanent once a build is uploaded to Apple).
-2. First build, once, from a computer: `npm ci`, then `npx eas-cli build -p ios`. It asks to sign in to Expo and to the
+2. First build, once, from a computer: `npm ci`, then `npx eas-cli@latest build -p ios`. It asks to sign in to Expo and to the
    Apple developer account, and creates the signing credentials.
 3. Later builds: GitHub → Actions → « iPhone build (Expo) » → Run workflow. Needs the repository secret `EXPO_TOKEN`.
 
