@@ -101,4 +101,9 @@ form[data-form=venue-invite] select,form[data-form=venue-invite] .button{flex:1 
 
 .settings-heading .account-id{margin:4px 0 0;font-size:13px;overflow-wrap:anywhere}
 
-.account-card details.pro-entry>summary{color:#5005b0;font-size:16px;font-weight:750}
+.account-card details.pro-entry{border-top:0;padding-top:6px}
+.account-card details.pro-entry>summary{list-style:none;display:flex;align-items:center;justify-content:center;min-height:52px;padding:13px 18px;border-radius:15px;background:#5005b0;color:#fffadd;font-size:16px;font-weight:750;cursor:pointer;box-shadow:0 2px 10px #5005b033}
+.account-card details.pro-entry>summary::-webkit-details-marker{display:none}
+.account-card details.pro-entry>summary::after{content:"→";margin-left:10px}
+.account-card details.pro-entry[open]>summary::after{content:"↓"}
+.account-card details.pro-entry[open]>summary{margin-bottom:12px}

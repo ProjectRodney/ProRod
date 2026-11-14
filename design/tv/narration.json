@@ -1,11 +1,26 @@
 [
- {"show":"Bienvenue sur UPZONE. Ici, tu peux faire connaissance avec les personnes présentes dans ce lieu, simplement, et à ton rythme. Voici comment ça marche."},
- {"show":"Première étape. Ouvre l'appareil photo de ton téléphone, et vise le QR code du lieu. UPZONE s'ouvre tout de suite. Tu n'as aucune application à télécharger."},
- {"show":"Ensuite, crée ton compte, avec ton adresse e-mail et un mot de passe. UPZONE est réservé aux adultes."},
- {"show":"Tu reçois aussitôt un e-mail, avec un code. Tape ce code dans l'application pour confirmer ton adresse. Si tu ne vois rien, regarde dans tes spams."},
- {"show":"Complète ensuite ton profil : une photo, ton prénom, ton âge, et quelques mots sur toi. Ta date de naissance reste privée."},
- {"show":"Te voilà dans le lieu. Au début, les profils sont floutés : tu vois seulement une tranche d'âge et un département. Prends ton pass pour découvrir qui est là. Tu ne vois que les personnes présentes ici, en ce moment."},
- {"show":"Quelqu'un te plaît ? Dis-lui bonjour. Tu as droit à un seul bonjour par personne. Elle répond si elle le souhaite, et la discussion commence dès qu'elle accepte."},
- {"show":"Sur UPZONE, le respect passe avant tout. Personne n'est obligé de répondre. Un refus est définitif : on n'insiste pas. Et tu peux bloquer ou signaler quelqu'un à tout moment."},
- {"show":"À toi de jouer. Scanne le QR code du lieu pour commencer."}
+ {
+  "show": "Bienvenue sur UPZONE. Ici, tu peux faire connaissance avec les personnes présentes dans ce lieu, simplement, et à ton rythme. Voici comment ça marche."
+ },
+ {
+  "show": "Première étape. Ouvre l'appareil photo de ton téléphone, et vise le QR code du lieu. UPZONE s'ouvre tout de suite. Tu n'as aucune application à télécharger."
+ },
+ {
+  "show": "Ensuite, crée ton compte, avec ton adresse e-mail et un mot de passe. UPZONE est réservé aux adultes."
+ },
+ {
+  "show": "Tu reçois aussitôt un e-mail, avec un code. Tape ce code dans l'application pour confirmer ton adresse. Si tu ne vois rien, regarde dans tes spams."
+ },
+ {
+  "show": "Complète ensuite ton profil : une photo, ton prénom, ton âge, et quelques mots sur toi. Ta date de naissance reste privée."
+ },
+ {
+  "show": "Te voilà dans le lieu. Au début, les profils sont floutés : tu vois seulement une tranche d'âge et un département. Prends ton pass pour découvrir qui est là. Tu ne vois que les personnes présentes ici, en ce moment."
+ },
+ {
+  "show": "Tu as envie de faire connaissance avec quelqu'un ? Dis-lui bonjour. Tu as droit à un seul bonjour par personne. Elle répond si elle le souhaite, et la discussion commence dès qu'elle accepte."
+ },
+ {
+  "show": "Sur UPZONE, le respect passe avant tout. Personne n'est obligé de répondre. Un refus est définitif : on n'insiste pas. Et tu peux bloquer ou signaler quelqu'un à tout moment."
+ }
 ]

@@ -52,6 +52,7 @@ p.tip{display:inline-block;margin-top:40px;font-size:38px;font-weight:700;backgr
 .center h1{margin-top:36px}
 .rules{display:grid;gap:26px;margin-top:50px}
 .rule{display:flex;align-items:center;gap:30px;background:#fff;border:3px solid #eadfb0;border-radius:30px;padding:28px 40px;font-size:46px;font-weight:700;text-align:left;width:1240px}
+.credit{position:absolute;right:60px;bottom:40px;font-size:22px;color:#6a6480}
 .rule b{flex:none;width:84px;height:84px;border-radius:42px;background:#5005b0;color:#fff;display:flex;align-items:center;justify-content:center;font-size:44px}
 </style></head><body><div class="stage">
 <div class="brand" id="brand"><img src="../../public/assets/upzone-icon-512.png" alt=""><b>UPZONE</b></div>
@@ -82,7 +83,7 @@ p.tip{display:inline-block;margin-top:40px;font-size:38px;font-weight:700;backgr
 <section class="scene" data-d="8"><div class="center"><h1 class="a" data-at="0.3">Ici, le <em>respect</em> d’abord</h1><div class="rules">
   <div class="rule a" data-at="1.2"><b>1</b>Personne n’est obligé de répondre.</div>
   <div class="rule a" data-at="2.4"><b>2</b>Un refus, c’est définitif. On n’insiste pas.</div>
-  <div class="rule a" data-at="3.6"><b>3</b>Tu peux bloquer ou signaler quelqu’un à tout moment.</div></div></div></section>
+  <div class="rule a" data-at="3.6"><b>3</b>Tu peux bloquer ou signaler quelqu’un à tout moment.</div></div></div><p class="credit a" data-at="4.4">Voix : base SIWIS, Université d’Édimbourg, licence CC BY 4.0</p></section>
 
 <section class="scene" data-d="6"><div class="center"><img class="a" data-at="0.2" src="../../public/assets/upzone-icon-512.png" alt=""><h1 class="a" data-at="0.6">À toi de jouer.</h1><p class="sub a" data-at="1.4" style="max-width:1300px;font-size:60px">Scanne le <b>QR code du lieu</b> pour commencer.</p></div></section>
 
@@ -98,7 +99,8 @@ const finder=(r,c)=>{for(const [R,C] of [[0,0],[0,14],[14,0]]){const y=r-R,x=c-C
 for(let r=0;r<21;r++)for(let c=0;c<21;c++){const f=finder(r,c);const on=f===null?rnd()>.52:f===1;qr.insertAdjacentHTML('beforeend',`<i class="${on?'':'o'}"></i>`);}
 // Scene lengths can be given in the address (?d=11.7,12.4,…) so the pictures follow a narration; the steps inside a scene stretch with it.
 const over=(new URLSearchParams(location.search).get('d')||'').split(',').map(Number);
-const scenes=[...document.querySelectorAll('.scene')];let acc=0;const T=scenes.map((s,i)=>{const base=Number(s.dataset.d);const d=over[i]>0?over[i]:base;const o={s,start:acc,d,k:d/base};acc+=d;return o;});
+const keep=Number(new URLSearchParams(location.search).get('n'))||99; // ?n=8 stops before the closing screen
+const scenes=[...document.querySelectorAll('.scene')].slice(0,keep);let acc=0;const T=scenes.map((s,i)=>{const base=Number(s.dataset.d);const d=over[i]>0?over[i]:base;const o={s,start:acc,d,k:d/base};acc+=d;return o;});
 window.TOTAL=acc;const dots=document.getElementById('dots');for(let i=1;i<=6;i++)dots.insertAdjacentHTML('beforeend','<i></i>');
 const ease=x=>x<0?0:x>1?1:1-Math.pow(1-x,3);
 window.show=function(t){t=((t%acc)+acc)%acc;for(const {s,start,d,k} of T){const lt=t-start;const on=lt>=0&&lt<d;const fade=Math.min(ease(lt/0.5),ease((d-lt)/0.5));s.style.opacity=on?fade:0;s.style.visibility=on?'visible':'hidden';if(!on)continue;
