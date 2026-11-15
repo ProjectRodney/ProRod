@@ -43,7 +43,7 @@ test('the service worker always revalidates the app shell, so a release shows on
 test('each release stamps the published service worker, and the app reloads itself once when the new version takes over',()=>{
   const b=fs.readFileSync('scripts/build.cjs','utf8'),s=fs.readFileSync('src/account.js','utf8');
   assert.match(b,/prorod-shell-v\$\{v\}-\$\{h\.digest\('hex'\)\.slice\(0,10\)\}/);
-  assert.match(s,/addEventListener\('controllerchange',\(\)=>\{if\(!hadController\|\|reloaded\|\|typing\(\)\)return;reloaded=true;location\.reload\(\);\}\)/);
+  assert.match(s,/addEventListener\('controllerchange',\(\)=>\{if\(!hadController\|\|reloaded\|\|typing\(\)\|\|pendingPhoto\|\|document\.querySelector\('form\[data-form="profile"\]'\)\)return;reloaded=true;location\.reload\(\);\}\)/);
   assert.match(s,/reg\.update\(\)/);
   if(fs.existsSync('dist/sw.js'))assert.match(fs.readFileSync('dist/sw.js','utf8'),/prorod-shell-v\d+-[0-9a-f]{10}'/);
 });

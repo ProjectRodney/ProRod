@@ -77,3 +77,13 @@ test('an address is confirmed by the link or by the code from the email, and onl
   assert.ok(fs.readFileSync('supabase/templates/confirm-signup.html','utf8').includes('{{ .Token }}'),'the email carries the code');
   for(const f of ['confirm-signup.html','reset-password.html'])assert.doesNotMatch(fs.readFileSync('supabase/templates/'+f,'utf8'),/anziak/i);
 });
+
+test('a profile photo is accepted whatever its size or declared format; only an unreadable file is refused, with its own message',()=>{
+  const fs=require('node:fs');const app=fs.readFileSync('src/account.js','utf8');
+  const prep=app.split('async function prepareImage(file){')[1].split('let lastPhotoBlob')[0];
+  assert.doesNotMatch(prep,/file\.type/,'the declared type no longer decides');
+  assert.doesNotMatch(prep,/12\*1024\*1024/,'no 12 MB limit: the photo is reduced on the phone anyway');
+  assert.ok(prep.includes('decodeViaImg(file)'),'second way of reading the photo');
+  assert.ok(app.includes("photo_unreadable:['This photo could not be read."),'a clear message when a file cannot be read');
+  assert.ok(app.includes("typing()||pendingPhoto||document.querySelector('form[data-form=\"profile\"]')"),'no self-reload while a profile is being filled in');
+});

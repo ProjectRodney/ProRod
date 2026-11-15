@@ -3,6 +3,7 @@
 // the « tu » version of each sentence that addresses the reader. A sentence missing here is shown unchanged.
 // Sentences that speak to two people at once (« vous dites oui tous les deux ») stay in the plural on purpose.
 export const TU = {
+'Cette photo n’a pas pu être lue. Essayez-en une autre, ou une capture d’écran de la photo.':'Cette photo n’a pas pu être lue. Essaies-en une autre, ou une capture d’écran de la photo.',
 'Confirmez votre adresse':'Confirme ton adresse',
 'Il est dans les spams ? Le bouton de l’e-mail y est souvent bloqué. Le code écrit dans l’e-mail fonctionne quand même : tapez-le ici.':'Il est dans les spams ? Le bouton de l’e-mail y est souvent bloqué. Le code écrit dans l’e-mail fonctionne quand même : tape-le ici.',
 'Vous pouvez aussi appuyer sur le bouton de l’e-mail, puis revenir ici pour vous connecter.':'Tu peux aussi appuyer sur le bouton de l’e-mail, puis revenir ici pour te connecter.',
