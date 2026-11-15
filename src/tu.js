@@ -36,7 +36,7 @@ export const TU = {
 'Votre demande…':'Ta demande…',
 'Comment vous joindre (facultatif)':'Comment te joindre (facultatif)',
 'Vous pouvez voir les personnes présentes, dire bonjour et discuter dans ce lieu.':'Tu peux voir les personnes présentes, dire bonjour et discuter dans ce lieu.',
-'Une heure avec UPZONE : qu’en pensez-vous ?':'Une heure avec UPZONE : qu’en penses-tu ?',
+'UPZONE : qu’en pensez-vous ?':'UPZONE : qu’en penses-tu ?',
 'Deux minutes. Vos réponses vont à l’équipe.':'Deux minutes. Tes réponses vont à l’équipe.',
 'Que changeriez-vous en premier ?':'Que changerais-tu en premier ?',
 'Département où vous habitez':'Département où tu habites',

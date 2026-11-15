@@ -34,7 +34,7 @@ test('payments are simulated only: a neutral pass rule, no amounts, no gender, c
   assert.doesNotMatch(fs.readFileSync('src/public-config.js','utf8'),/sb_secret_|service_role|api-key/);
 });
 test('feedback appears after one hour of real use, can be postponed at most a few times, and is sent through the server only',()=>{
-  for(const needle of ['function feedbackDialog','function maybeFeedback','usedMs()<60*60*1000','prorod-feedback-reminders','data-action="feedback-later"',"rpc('submit_feedback'",'name="score"','name="bug"'])assert.ok(source.includes(needle),needle);
+  for(const needle of ['function feedbackDialog','function maybeFeedback','usedMs()<20*60*1000',"!!localStorage.getItem(VISITED_KEY)&&!live()","view!=='home'||typing()||document.querySelector('dialog[open]')",'prorod-feedback-reminders','data-action="feedback-later"',"rpc('submit_feedback'",'name="score"','name="bug"'])assert.ok(source.includes(needle),needle);
   assert.doesNotMatch(source,/mailto:|brevo|api\.brevo\.com/i,'no e-mail sending from the client');
   assert.ok(migration.includes("vault.decrypted_secrets where name='brevo_api_key'"),'key read from the Vault only');
   assert.ok(admin.includes("admin_feedback"),'admin tab');
