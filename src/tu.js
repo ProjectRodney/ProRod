@@ -3,6 +3,8 @@
 // the « tu » version of each sentence that addresses the reader. A sentence missing here is shown unchanged.
 // Sentences that speak to two people at once (« vous dites oui tous les deux ») stay in the plural on purpose.
 export const TU = {
+'Ces comptes restent connectés sur ce téléphone pour passer de l’un à l’autre sans mot de passe. À faire seulement sur votre propre téléphone.':'Ces comptes restent connectés sur ce téléphone pour passer de l’un à l’autre sans mot de passe. À faire seulement sur ton propre téléphone.',
+'Ce compte doit se reconnecter sur ce téléphone : saisissez son e-mail et son mot de passe.':'Ce compte doit se reconnecter sur ce téléphone : saisis son e-mail et son mot de passe.',
 'Être prévenu·e quand un professionnel (DJ, photographe, coach…) est présent dans le même lieu que vous. C’est de la publicité pour son activité : c’est désactivé tant que vous ne l’activez pas. 5 alertes par jour au maximum ; jamais de nom sur l’écran verrouillé.':'Être prévenu·e quand un professionnel (DJ, photographe, coach…) est présent dans le même lieu que toi. C’est de la publicité pour son activité : c’est désactivé tant que tu ne l’actives pas. 5 alertes par jour au maximum ; jamais de nom sur l’écran verrouillé.',
 'Alertes talents désactivées. Vous n’en recevrez plus de nouvelles.':'Alertes talents désactivées. Tu n’en recevras plus de nouvelles.',
 'Cochez la case pour activer les alertes talents.':'Coche la case pour activer les alertes talents.',
