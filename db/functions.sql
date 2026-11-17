@@ -741,6 +741,11 @@ begin
   return uid;
 end $function$;
 
+CREATE OR REPLACE FUNCTION private.is_pro(p_user uuid) returns boolean language sql stable security definer set search_path to '' as $function$
+  select exists(select 1 from public.profiles p where p.user_id=p_user and p.account_type='pro')
+$function$;
+revoke all on function private.is_pro(uuid) from public, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION private.require_person()
  RETURNS uuid
  LANGUAGE plpgsql
@@ -768,6 +773,8 @@ begin
     update public.introductions set status='declined', responded_at=now() where id=row.id;
     return jsonb_build_object('status','declined');
   end if;
+  if private.is_pro(uid) then raise exception 'pro_account_dating'; end if;
+  if private.is_pro(row.sender_id) then raise exception 'pro_conversation_closed'; end if;
   if p_reply is null or char_length(btrim(p_reply)) not between 1 and 2000 then raise exception 'reply_required'; end if;
   update public.introductions set status='accepted', responded_at=now() where id=row.id;
   insert into public.conversations(introduction_id,venue_id,a_id,b_id) values(row.id,row.venue_id,row.sender_id,uid) returning * into conv;
@@ -920,6 +927,8 @@ create or replace function private.send_introduction(p_to uuid, p_message text) 
 declare uid uuid := private.require_member(); mine public.venue_sessions; theirs public.venue_sessions; row public.introductions;
 begin
   if p_to is null or p_to=uid then raise exception 'invalid_recipient'; end if;
+  if private.is_pro(uid) then raise exception 'pro_account_dating'; end if;
+  if private.is_pro(p_to) then raise exception 'not_co_present'; end if;
   if p_message is null or char_length(btrim(p_message)) not between 1 and 500 then raise exception 'message_length'; end if;
   mine := private.live_session(uid); if mine.id is null then raise exception 'no_live_session'; end if;
   if not private.venue_unlocked(uid, mine.venue_id) then raise exception 'pass_required'; end if;
@@ -949,6 +958,8 @@ begin
   if not found then raise exception 'conversation_unavailable'; end if;
   if conv.closed_at is not null then raise exception 'conversation_closed'; end if;
   other := case when conv.a_id=uid then conv.b_id else conv.a_id end;
+  if private.is_pro(uid) then raise exception 'pro_account_dating'; end if;
+  if private.is_pro(other) then raise exception 'pro_conversation_closed'; end if;
   if private.blocked_between(uid,other) then raise exception 'conversation_unavailable'; end if;
   if exists(select 1 from private.account_restrictions r where r.user_id=other and r.suspended) then raise exception 'conversation_unavailable'; end if;
   if not private.co_present_in(conv,uid) then raise exception 'visit_over'; end if;
@@ -971,6 +982,7 @@ begin
   select account_type into existing from public.profiles where user_id=uid;
   if found then
     if (existing='venue') <> (p_type='venue') then raise exception 'type_locked'; end if;
+    if existing='pro' and p_type<>'pro' then raise exception 'pro_locked'; end if;
     update public.profiles set account_type=p_type, updated_at=now() where user_id=uid;
   end if;
   insert into private.account_choices(user_id,account_type) values(uid,p_type) on conflict(user_id) do update set account_type=excluded.account_type;
@@ -1072,6 +1084,7 @@ create or replace function private.venue_members()
  language plpgsql stable security definer set search_path to '' as $function$
 declare uid uuid := private.require_person(); mine public.venue_sessions; wants text; open boolean;
 begin
+  if private.is_pro(uid) then raise exception 'pro_account_dating'; end if;
   mine := private.live_session(uid);
   if mine.id is null then raise exception 'no_live_session'; end if;
   select p.interested_in into wants from public.profiles p where p.user_id=uid;
@@ -1085,7 +1098,7 @@ begin
            case when not open then p.avatar_blur end
     from public.venue_sessions s join public.profiles p on p.user_id=s.user_id
     where s.venue_id=mine.venue_id and s.ended_at is null and s.expires_at>now() and s.user_id<>uid
-      and p.account_type<>'venue' and private.profile_complete(p)
+      and p.account_type='personal' and private.profile_complete(p)
       and not private.blocked_between(uid, s.user_id)
       and not exists(select 1 from private.account_restrictions r where r.user_id=s.user_id and r.suspended)
       and (wants is null or wants='everyone' or (wants='women' and p.gender='woman') or (wants='men' and p.gender='man'))

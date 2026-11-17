@@ -576,7 +576,8 @@ do $$ declare room jsonb; begin
   room := public.venue_room();
   if (room->>'present')::int<>2 or jsonb_array_length(room->'announcements')<>1 then raise exception 'TEST: room %', room; end if;
   if jsonb_array_length(public.venue_talents())<>0 then raise exception 'TEST: unapproved talent listed'; end if;
-  if (select count(*) from public.venue_members())<>1 then raise exception 'TEST: members count'; end if;
+  -- Since 17 Nov 2026 (db/2026-11-17-pro-accounts.sql) a professional account is never in the meeting list.
+  if (select count(*) from public.venue_members())<>0 then raise exception 'TEST: pro listed among members'; end if;
   begin perform public.send_enquiry('00000000-0000-4000-8000-000000000001','Bonjour',null); raise exception 'TEST: enquiry to unapproved pro'; exception when others then if sqlerrm<>'not_co_present' then raise; end if; end;
 end $$;
 -- Admin approves the pro sheet; subscription is still required to appear (simulated later from the app).
