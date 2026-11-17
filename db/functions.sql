@@ -1060,10 +1060,10 @@ begin
   update public.venue_announcements set expires_at=now() where id=p_id and venue_id=vid;
 end $function$;
 
--- Updated 13 November 2026 (blurred preview): db/2026-11-13-blurred-preview.sql.
+-- Updated 17 November 2026 (blurred preview inline, no file name, no id): db/2026-11-17-blur-without-id.sql.
 create or replace function private.venue_members()
  returns table(user_id uuid, display_name text, age integer, bio text, avatar_path text, since timestamp with time zone, height_cm smallint,
-               department text, age_band text, veiled boolean, blur_path text)
+               department text, age_band text, veiled boolean, blur_path text, blur_data text)
  language plpgsql stable security definer set search_path to '' as $function$
 declare uid uuid := private.require_person(); mine public.venue_sessions; wants text; open boolean;
 begin
@@ -1076,7 +1076,8 @@ begin
            case when open then date_part('year', age(p.birth_date))::integer end, case when open then p.bio end,
            case when open then p.avatar_path end, case when open then s.started_at end, case when open then p.height_cm end,
            p.department, private.age_band(p.birth_date), not open,
-           case when not open then p.avatar_blur_path end
+           null::text,
+           case when not open then p.avatar_blur end
     from public.venue_sessions s join public.profiles p on p.user_id=s.user_id
     where s.venue_id=mine.venue_id and s.ended_at is null and s.expires_at>now() and s.user_id<>uid
       and p.account_type<>'venue' and private.profile_complete(p)
@@ -1457,7 +1458,7 @@ CREATE OR REPLACE FUNCTION public.venue_delete_announcement(p_id uuid)
 AS $function$ select private.venue_delete_announcement(p_id) $function$;
 
 CREATE OR REPLACE FUNCTION public.venue_members()
- RETURNS TABLE(user_id uuid, display_name text, age integer, bio text, avatar_path text, since timestamp with time zone, height_cm smallint, department text, age_band text, veiled boolean, blur_path text)
+ RETURNS TABLE(user_id uuid, display_name text, age integer, bio text, avatar_path text, since timestamp with time zone, height_cm smallint, department text, age_band text, veiled boolean, blur_path text, blur_data text)
  LANGUAGE sql
  SET search_path TO ''
 AS $function$ select * from private.venue_members() $function$;
@@ -1874,15 +1875,30 @@ $function$;
 revoke all on function private.photo_visible(uuid,uuid) from public, anon, authenticated;
 grant execute on function private.photo_visible(uuid,uuid) to authenticated;
 
--- Blurred preview before the pass, 13 November 2026 (db/2026-11-13-blurred-preview.sql; storage policy avatars_blur_select).
+-- Blurred preview before the pass: 13 November 2026, stored inline since 17 November 2026 (db/2026-11-17-blur-without-id.sql;
+-- storage policy avatars_blur_select removed).
+create or replace function private.set_avatar_blur_data(p_data text) returns jsonb
+ language plpgsql security definer set search_path = '' as $$
+declare uid uuid := private.require_person();
+begin
+  if p_data is not null and (char_length(p_data) > 6000 or p_data !~ '^data:image/jpeg;base64,[A-Za-z0-9+/]+={0,2}$') then
+    raise exception 'photo_invalid';
+  end if;
+  update public.profiles set avatar_blur=p_data, avatar_blur_path=null, updated_at=now() where user_id=uid;
+  return jsonb_build_object('avatar_blur', p_data is not null);
+end $$;
+create or replace function public.set_avatar_blur_data(p_data text) returns jsonb language sql set search_path = '' as $$ select private.set_avatar_blur_data(p_data) $$;
+revoke all on function private.set_avatar_blur_data(text), public.set_avatar_blur_data(text) from public, anon;
+grant execute on function private.set_avatar_blur_data(text) to authenticated;
+grant execute on function public.set_avatar_blur_data(text) to authenticated, service_role;
+
+-- The old file-based call stays callable by phones that still run the previous version, but stores nothing.
 create or replace function private.set_avatar_blur(p_path text) returns jsonb
  language plpgsql security definer set search_path = '' as $$
 declare uid uuid := private.require_person();
 begin
-  if p_path is not null and (p_path !~ ('^u/' || uid::text || '/blur-[A-Za-z0-9._-]+$')
-     or not exists(select 1 from storage.objects where bucket_id='avatars' and name=p_path)) then raise exception 'photo_missing'; end if;
-  update public.profiles set avatar_blur_path=p_path, updated_at=now() where user_id=uid;
-  return jsonb_build_object('avatar_blur_path',p_path);
+  update public.profiles set avatar_blur_path=null where user_id=uid and avatar_blur_path is not null;
+  return jsonb_build_object('avatar_blur_path', null);
 end $$;
 create or replace function public.set_avatar_blur(p_path text) returns jsonb language sql set search_path = '' as $$ select private.set_avatar_blur(p_path) $$;
 revoke all on function private.set_avatar_blur(text), public.set_avatar_blur(text) from public, anon;
