@@ -38,3 +38,7 @@ test('gender choices remain optional, bilingual, private and editable',()=>{
  }
  assert.equal((source.match(/rpc\('save_member_profile'/g)||[]).length,2);
 });
+test('the profile screen opens the settings once (gear at the top), not twice',()=>{
+  const i=source.indexOf('function profileHubView(');const f=source.slice(i,source.indexOf('\nfunction ',i+1));
+  assert.equal(f.split('data-view="prefs"').length-1,1);
+});
