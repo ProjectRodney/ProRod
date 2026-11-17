@@ -152,15 +152,22 @@ test('a passkey the server no longer recognises gets a clear message and a way i
   const s=fs.readFileSync('src/account.js','utf8');
   assert.match(s,/code==='webauthn_verification_failed'[\s\S]{0,200}Sign in with your email below, then add a new passkey/);
 });
-test('blurred preview before the pass: a separate tiny file, the real photo never sent to someone without a pass',()=>{
-  const db=fs.readFileSync('db/2026-11-13-blurred-preview.sql','utf8'),s=fs.readFileSync('src/account.js','utf8');
+test('blurred preview before the pass: a tiny picture sent inline, never a file name carrying the member id (17 Nov)',()=>{
+  const db=fs.readFileSync('db/2026-11-17-blur-without-id.sql','utf8'),s=fs.readFileSync('src/account.js','utf8'),v=fs.readFileSync('db/verify-veiled-venue.sql','utf8');
   const vm=db.slice(db.indexOf('create or replace function private.venue_members()'),db.indexOf('end $function$;',db.indexOf('create or replace function private.venue_members()')));
   assert.match(vm,/case when open then p\.avatar_path end/,'real photo path only once unlocked');
-  assert.match(vm,/case when not open then p\.avatar_blur_path end/,'blurred path only while veiled');
-  assert.match(db,/p_path !~ \('\^u\/' \|\| uid::text \|\| '\/blur-\[A-Za-z0-9\._-\]\+\$'\)/,'only the member’s own blur- file is accepted');
-  assert.match(db,/storage\.filename\(name\) like 'blur-%'[\s\S]{0,120}private\.co_present\(/,'storage: blurred files only, for people in the same venue');
+  assert.match(vm,/null::text,\s*case when not open then p\.avatar_blur end/,'no blur file path ever; the inline preview only while veiled');
+  assert.doesNotMatch(vm,/avatar_blur_path/,'the id-bearing file path is never returned');
+  assert.match(db,/drop policy if exists avatars_blur_select on storage\.objects;/,'old blur files are no longer readable by others');
+  assert.match(db,/update public\.profiles set avatar_blur_path=null where avatar_blur_path is not null;/);
+  assert.match(db,/avatar_blur ~ '\^data:image\/jpeg;base64,\[A-Za-z0-9\+\/\]\+=\{0,2\}\$'/,'JPEG data only, checked by the database');
+  assert.match(db,/char_length\(avatar_blur\) <= 6000/);
+  assert.match(db,/revoke all on function private\.set_avatar_blur_data\(text\), public\.set_avatar_blur_data\(text\) from public, anon;/);
+  assert.match(v,/TEST: veiled row carries a path or an id/);
+  assert.match(v,/TEST: an old blurred file \(named with a member id\) is readable by another member/);
   assert.match(s,/canvas\.width=canvas\.height=20;/,'the blurred copy is 20 pixels wide');
-  assert.match(s,/const file=m\.veiled\?m\.blur_path:m\.avatar_path;/);
+  assert.match(s,/rpc\('set_avatar_blur_data',\{p_data:data\}\)/);
+  assert.match(s,/if\(m\.veiled&&\/\^data:image\\\/jpeg;base64,/,'the app only shows a JPEG data preview for veiled rows');
 });
 test('a person without a readable photo shows their initial in lists, never a broken image',()=>{
   const s=fs.readFileSync('src/account.js','utf8');
