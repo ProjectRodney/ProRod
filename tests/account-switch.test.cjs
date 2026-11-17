@@ -42,7 +42,7 @@ test('a refused sign-in drops that account and reopens the previous one',async()
   await vm.runInContext('switchTo("perso")',c);
   assert.ok(calls.some(x=>x[0]==='set'&&x[1]==='RT-me'),'back to the account that was open');
   assert.equal(store.get('upzone-accounts'),undefined,'neither account left waiting');
-  assert.ok(calls.some(x=>x[0]==='session'&&x[1]==='upzone-switch-failed'));
+  assert.ok(calls.some(x=>x[0]==='session'&&x[1]==='upzone-switch-failed'&&x[2]==='readd'),'the open account stays open and is told to add the other one again');
   assert.deepEqual(calls.at(-1),['go','./account.html']);
 });
 
