@@ -1014,6 +1014,11 @@ begin
   if not found or row.status<>'approved' then raise exception 'pro_not_approved'; end if;
   update public.pro_profiles set subscription_until=greatest(coalesce(subscription_until,now()),now())+interval '30 days', updated_at=now() where user_id=uid returning * into row;
   insert into public.passes(user_id,venue_id,kind,simulated,amount_cents,expires_at) values(uid,null,'talent_subscription',true,0,row.subscription_until);
+  begin
+    perform private.announce_talent(uid, private.live_session(uid));
+  exception when others then
+    raise warning 'talent alert skipped: %', sqlerrm;
+  end;
   return jsonb_build_object('subscription_until',row.subscription_until,'simulated',true);
 end $function$;
 
@@ -1145,6 +1150,92 @@ begin
   if vid is null then raise exception 'venue_required'; end if;
   if p_duration is null or p_duration not between 15 and 180 then raise exception 'invalid_duration'; end if;
   update private.venues set hours=nullif(btrim(p_hours),''), contact=nullif(btrim(p_contact),''), duration_minutes=p_duration where id=vid;
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.set_talent_alerts(p_on boolean, p_consent boolean)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person();
+begin
+  if p_on is distinct from true then
+    update public.profiles set talent_alerts_at=null, updated_at=now() where user_id=uid;
+    return jsonb_build_object('talent_alerts',false);
+  end if;
+  if p_consent is distinct from true then raise exception 'talent_alerts_consent_required'; end if;
+  update public.profiles set talent_alerts_at=coalesce(talent_alerts_at,now()), updated_at=now() where user_id=uid;
+  return jsonb_build_object('talent_alerts',true);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.talent_listed(p_pro uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select exists(select 1 from public.profiles p join public.pro_profiles t on t.user_id=p.user_id
+    where p.user_id=p_pro and p.account_type='pro' and t.status='approved' and t.subscription_until is not null and t.subscription_until>now()
+      and private.profile_complete(p)
+      and not exists(select 1 from private.account_restrictions r where r.user_id=p_pro and r.suspended))
+$function$;
+
+CREATE OR REPLACE FUNCTION private.send_talent_alert(p_to uuid, p_to_session uuid, p_pro uuid, p_venue text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare me public.profiles; t public.pro_profiles; k text := md5('talent:'||p_pro::text||':'||p_to_session::text);
+begin
+  if p_to is null or p_to=p_pro then return false; end if;
+  select * into me from public.profiles where user_id=p_to;
+  if not found or me.talent_alerts_at is null or me.account_type='venue' or not private.profile_complete(me) then return false; end if;
+  if exists(select 1 from private.account_restrictions r where r.user_id=p_to and r.suspended) then return false; end if;
+  if private.blocked_between(p_to,p_pro) then return false; end if;
+  -- One alert per professional per visit (read or not), five per person per 24 hours.
+  if exists(select 1 from public.notifications n where n.user_id=p_to and n.kind='talent_here' and n.payload->>'key'=k) then return false; end if;
+  if (select count(*) from public.notifications n where n.user_id=p_to and n.kind='talent_here' and n.created_at>now()-interval '24 hours')>=5 then return false; end if;
+  select * into t from public.pro_profiles where user_id=p_pro;
+  perform private.notify(p_to,'talent_here',jsonb_build_object('business',t.business_name,'category',t.category,'venue',p_venue),k);
+  return true;
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.announce_talent(p_pro uuid, p_session venue_sessions)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare s record; n integer := 0;
+begin
+  if p_session.id is null or not private.talent_listed(p_pro) then return 0; end if;
+  for s in select v.id, v.user_id from public.venue_sessions v
+    where v.venue_id=p_session.venue_id and v.ended_at is null and v.expires_at>now() and v.user_id<>p_pro loop
+    if private.send_talent_alert(s.user_id, s.id, p_pro, p_session.venue_name) then n := n+1; end if;
+  end loop;
+  return n;
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.talent_alerts_on_visit()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare t record;
+begin
+  begin
+    perform private.announce_talent(new.user_id, new);
+    for t in select v.user_id from public.venue_sessions v
+      where v.venue_id=new.venue_id and v.ended_at is null and v.expires_at>now() and v.user_id<>new.user_id loop
+      if private.talent_listed(t.user_id) then perform private.send_talent_alert(new.user_id, new.id, t.user_id, new.venue_name); end if;
+    end loop;
+  exception when others then
+    raise warning 'talent alert skipped: %', sqlerrm;
+  end;
+  return new;
 end $function$;
 
 CREATE OR REPLACE FUNCTION public.admin_audit(p_limit integer DEFAULT 100)
@@ -1490,6 +1581,12 @@ AS $function$ select private.venue_update(p_hours,p_contact,p_duration) $functio
 -- Privileges (as exported). Private helpers not listed are reachable only from other SECURITY DEFINER functions.
 revoke all on all functions in schema private from public, anon, authenticated;
 revoke all on all functions in schema public from public, anon;
+CREATE OR REPLACE FUNCTION public.set_talent_alerts(p_on boolean, p_consent boolean)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.set_talent_alerts(p_on,p_consent) $function$;
+
 grant execute on function private.admin_audit(p_limit integer DEFAULT 100) to authenticated;
 grant execute on function private.admin_create_invite(p_venue uuid, p_days integer DEFAULT 30, p_minutes integer DEFAULT NULL::integer) to authenticated;
 grant execute on function private.admin_decide_pro(p_user uuid, p_approve boolean, p_decision text DEFAULT NULL::text) to authenticated;
@@ -1904,3 +2001,5 @@ create or replace function public.set_avatar_blur(p_path text) returns jsonb lan
 revoke all on function private.set_avatar_blur(text), public.set_avatar_blur(text) from public, anon;
 grant execute on function private.set_avatar_blur(text) to authenticated;
 grant execute on function public.set_avatar_blur(text) to authenticated, service_role;
+grant execute on function private.set_talent_alerts(p_on boolean, p_consent boolean) to authenticated;
+grant execute on function public.set_talent_alerts(p_on boolean, p_consent boolean) to authenticated, service_role;
