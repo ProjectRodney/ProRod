@@ -3,6 +3,12 @@
 // the « tu » version of each sentence that addresses the reader. A sentence missing here is shown unchanged.
 // Sentences that speak to two people at once (« vous dites oui tous les deux ») stay in the plural on purpose.
 export const TU = {
+'Une photo claire de vous suffit. Une version floutée est créée sur votre téléphone pour l’aperçu avant le pass.':'Une photo claire de toi suffit. Une version floutée est créée sur ton téléphone pour l’aperçu avant le pass.',
+'Visible sur votre profil.':'Visible sur ton profil.',
+'Vous vous connectez avec':'Tu te connectes avec',
+'Une photo floutée, votre département et votre tranche d’âge. Ni votre prénom, ni votre vraie photo, ni votre bio.':'Une photo floutée, ton département et ta tranche d’âge. Ni ton prénom, ni ta vraie photo, ni ta bio.',
+'Vos pass apparaîtront ici. Pour l’instant ils sont simulés : rien n’est débité.':'Tes pass apparaîtront ici. Pour l’instant ils sont simulés : rien n’est débité.',
+'À propos de vous':'À propos de toi',
 'Vous revoilà à':'Te revoilà à',
 'Vous êtes entré·e pour cette visite. Bonne soirée !':'Tu es entré·e pour cette visite. Bonne soirée !',
 'VOTRE PASS':'TON PASS',
