@@ -19,6 +19,7 @@ const TEXT: Record<string, [string, string]> = {
   account_restricted: ["Information importante sur le compte.", "Important information about the account."],
   account_warned: ["Avertissement : merci de rester respectueux·se.", "Warning: please stay respectful."],
   account_reinstated: ["Information importante sur le compte.", "Important information about the account."],
+  talent_here: ["Un talent est présent dans le lieu.", "A talent is at the venue."],
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 function sameSecret(a: string, b: string) {

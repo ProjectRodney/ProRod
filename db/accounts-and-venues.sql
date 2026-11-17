@@ -360,3 +360,10 @@ alter table public.conversations add column meeting_a boolean, add column meetin
 -- no client grants), private.save_push_subscription / delete_push_subscription / push_status (own devices only, https only,
 -- 10 per member), private.unread_total(uid), trigger push_after_notification on public.notifications → pg_net → Edge Function
 -- send-push (secret push_hook_secret in the Vault = PUSH_HOOK_SECRET). The push carries the kind, language and unread count only.
+
+-- Talent alerts (17 November 2026, db/2026-11-17-talent-alerts.sql): profiles.talent_alerts_at (null = off, default; date of the
+-- member's explicit consent = on), private.set_talent_alerts(p_on, p_consent) (consent required to turn on, off erases the date),
+-- notification kind talent_here, trigger talent_alerts_after_visit on public.venue_sessions (after insert) and
+-- subscribe_talent_simulated → private.announce_talent / send_talent_alert: only people present in the same venue who turned it on,
+-- one alert per professional per visit, 5 per person per 24 h, never across a block or to/from a suspended account,
+-- no professional id in the alert. Checks: db/verify-talent-alerts.sql.
