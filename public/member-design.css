@@ -229,3 +229,4 @@ fieldset.chip-choice legend{font-size:14px;font-weight:600;margin-bottom:8px;pad
 .tiles.venue-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .venue-tiles .tile{min-width:0;padding:12px}.venue-tiles .tile span{font-size:12px;line-height:1.3}
 .pref-account>span.place-pin{flex:none}
+.hub-actions.single{grid-template-columns:1fr}
