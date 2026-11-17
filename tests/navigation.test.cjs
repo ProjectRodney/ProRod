@@ -21,3 +21,11 @@ test('in the home-screen app, a swipe from the left edge goes back and from the 
   assert.match(app,/if\(side==='back'\)history\.back\(\);else history\.forward\(\);/);
   assert.match(app,/if\(Math\.abs\(dy\)>Math\.abs\(dx\)&&Math\.abs\(dy\)>10\)\{edge=null;/,'scrolling up and down is not a swipe');
 });
+test('on the three main screens, a sideways slide moves between « Le lieu », « Messages » and « Profil »',()=>{
+  assert.match(app,/const TAB_SCREENS=\{home:0,messages:1,settings:2\};/);
+  const f=app.slice(app.indexOf("document.addEventListener('touchstart',e=>{tabSwipe=null;"),app.indexOf("document.addEventListener('touchcancel',()=>{tabSwipe=null;"));
+  assert.match(f,/if\(t\.clientX<=28\|\|t\.clientX>=w-28\)return;/,'the screen edges stay for the back gesture');
+  assert.match(f,/closest\('input,textarea,select,video/,'never while typing or scanning');
+  assert.match(f,/Math\.abs\(dx\)<70/,'only a clear slide');
+  assert.match(f,/document\.querySelectorAll\('nav\.member-nav button'\)\[next\]\?\.click\(\)/,'same as tapping the bottom menu');
+});
