@@ -3,6 +3,13 @@
 // the « tu » version of each sentence that addresses the reader. A sentence missing here is shown unchanged.
 // Sentences that speak to two people at once (« vous dites oui tous les deux ») stay in the plural on purpose.
 export const TU = {
+'Vous revoilà à':'Te revoilà à',
+'Vous êtes entré·e pour cette visite. Bonne soirée !':'Tu es entré·e pour cette visite. Bonne soirée !',
+'VOTRE PASS':'TON PASS',
+'Visible par vous seul.':'Visible par toi seul.',
+'Retiré de vos lieux.':'Retiré de tes lieux.',
+'Effacer toute votre liste de lieux ? Vos visites ne sont pas supprimées, seulement retirées de cette liste.':'Effacer toute ta liste de lieux ? Tes visites ne sont pas supprimées, seulement retirées de cette liste.',
+'Pour entrer, il faut scanner le QR code affiché sur place. C’est ce qui prouve que vous êtes bien là, pour la sécurité de tout le monde.':'Pour entrer, il faut scanner le QR code affiché sur place. C’est ce qui prouve que tu es bien là, pour la sécurité de tout le monde.',
 'Compte professionnel : vous n’apparaissez pas dans la liste des rencontres et ne pouvez pas commencer de conversation personnelle d’ici. Vos clients vous trouvent dans « Talents ici ». Pour faire des rencontres, passez sur votre compte personnel.':'Compte professionnel : tu n’apparais pas dans la liste des rencontres et ne peux pas commencer de conversation personnelle d’ici. Tes clients te trouvent dans « Talents ici ». Pour faire des rencontres, passe sur ton compte personnel.',
 'Compte professionnel : les conversations de rencontre se font depuis votre compte personnel. Les anciennes conversations restent lisibles ici.':'Compte professionnel : les conversations de rencontre se font depuis ton compte personnel. Les anciennes conversations restent lisibles ici.',
 'C’est réservé aux comptes personnels : un compte professionnel sert à l’activité professionnelle. Passez sur votre compte personnel (Profil → « Passer à … »).':'C’est réservé aux comptes personnels : un compte professionnel sert à l’activité professionnelle. Passe sur ton compte personnel (Profil → « Passer à … »).',

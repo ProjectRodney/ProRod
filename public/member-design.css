@@ -107,3 +107,27 @@ form[data-form=venue-invite] select,form[data-form=venue-invite] .button{flex:1 
 .account-card details.pro-entry>summary::after{content:"→";margin-left:10px}
 .account-card details.pro-entry[open]>summary::after{content:"↓"}
 .account-card details.pro-entry[open]>summary{margin-bottom:12px}
+/* « Mes lieux » (17 Nov 2026): the member's own places under the scanner, a place card, and the « welcome back » screen. */
+.places-head{display:flex;align-items:baseline;justify-content:space-between;margin-top:24px}
+.places-head h3{margin:0;font-size:13px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#5005b0}
+.place-row{display:flex;align-items:center;gap:12px;width:100%;margin-top:10px;padding:12px 14px;background:#fdf2ba;border:1.5px solid #fff;border-radius:20px;color:#111;text-align:left;font:inherit;cursor:pointer}
+.place-row>span:not(.place-pin){flex:1;min-width:0}.place-row b{display:block;font-size:16px}.place-row small{color:#3d3a2c;font-size:13px}
+.place-row>i{font-style:normal;font-size:22px;color:#3d3a2c}.place-row.closed{opacity:.55}
+.place-pin{width:46px;height:46px;flex:none;border-radius:15px;background:#fffc00;display:inline-flex;align-items:center;justify-content:center;color:#111}
+.place-pin.off{background:#f3ecc9}.place-pin svg{width:24px;height:24px}
+.places-foot{margin-top:12px;font-size:12px}
+.place-card{background:#fdf2ba;border:1.5px solid #fff;border-radius:30px;padding:20px;box-shadow:0 2px 10px #5a4a0026;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;margin-top:8px}
+.place-card h2{margin:0!important;font-family:"Playfair Display",Georgia,serif;font-weight:900}.place-card .quiet{margin:2px 0 0}
+.place-stats{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.place-stats span{background:#fffadd;border:1.5px solid #fff;border-radius:16px;padding:10px 12px;font-size:12px;color:#3d3a2c}
+.place-stats b{display:block;font-size:22px;color:#111}
+.bubble.announce small{display:block;font-size:11px;font-weight:800;letter-spacing:.05em;color:#5005b0}
+.place-why{background:#5005b0;color:#fffadd;border-radius:18px;padding:14px 16px;font-size:14px;line-height:1.45;margin:14px 0}
+.link.danger{color:#c9382a;font-weight:700}.center-link{display:block;margin:6px auto 0}
+.back-hero{text-align:center;padding-top:6px}.back-hero h2{font-family:"Playfair Display",Georgia,serif;font-weight:900;margin:16px 0 8px!important}
+.place-badge{display:inline-flex;align-items:center;gap:6px;background:#fffc00;color:#111;font-size:12px;font-weight:700;padding:7px 12px;border-radius:999px;box-shadow:0 2px 10px #5a4a0026}
+.place-badge i{width:8px;height:8px;border-radius:4px;background:#5005b0}
+.pass-offer{background:#5005b0;color:#fffadd;border-radius:26px;padding:20px;margin:22px 0 12px;box-shadow:0 2px 10px #5a4a0026}
+.pass-offer small{color:#fffc00;font-size:12px;font-weight:800;letter-spacing:.06em}.account-card .pass-offer h3{margin:6px 0 0;font-size:20px;color:#fffadd}
+.pass-offer p{color:#f3ecc9;font-size:14px}
+.account-card .scanner{max-height:46vh;object-fit:cover}
