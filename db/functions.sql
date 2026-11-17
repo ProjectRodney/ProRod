@@ -1251,6 +1251,57 @@ begin
   return new;
 end $function$;
 
+CREATE OR REPLACE FUNCTION private.my_places()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person();
+begin
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'venue', x.venue_id, 'name', v.name, 'category', v.category, 'open', v.active,
+      'visits', x.visits, 'last_visit', x.last_visit,
+      'announcement', case when v.active then (select a.body from public.venue_announcements a
+        where a.venue_id=x.venue_id and a.expires_at>now() order by a.created_at desc limit 1) end
+    ) order by x.last_visit desc)
+    from (select s.venue_id, count(*)::int as visits, max(s.started_at) as last_visit
+          from public.venue_sessions s
+          where s.user_id=uid and s.history_hidden_at is null and s.started_at>now()-interval '90 days'
+          group by s.venue_id) x
+    join private.venues v on v.id=x.venue_id
+    where v.category<>'event'), '[]'::jsonb);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.hide_place(p_venue uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person(); n int;
+begin
+  if p_venue is null then raise exception 'invalid_place'; end if;
+  update public.venue_sessions set history_hidden_at=now()
+   where user_id=uid and venue_id=p_venue and history_hidden_at is null;
+  get diagnostics n = row_count;
+  return jsonb_build_object('hidden', n);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.clear_places()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person(); n int;
+begin
+  update public.venue_sessions set history_hidden_at=now() where user_id=uid and history_hidden_at is null;
+  get diagnostics n = row_count;
+  return jsonb_build_object('hidden', n);
+end $function$;
+
 CREATE OR REPLACE FUNCTION public.admin_audit(p_limit integer DEFAULT 100)
  RETURNS jsonb
  LANGUAGE sql
@@ -1599,6 +1650,25 @@ CREATE OR REPLACE FUNCTION public.set_talent_alerts(p_on boolean, p_consent bool
  LANGUAGE sql
  SET search_path TO ''
 AS $function$ select private.set_talent_alerts(p_on,p_consent) $function$;
+CREATE OR REPLACE FUNCTION public.my_places()
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$ select private.my_places() $function$;
+
+CREATE OR REPLACE FUNCTION public.hide_place(p_venue uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.hide_place(p_venue) $function$;
+
+CREATE OR REPLACE FUNCTION public.clear_places()
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.clear_places() $function$;
+
 
 grant execute on function private.admin_audit(p_limit integer DEFAULT 100) to authenticated;
 grant execute on function private.admin_create_invite(p_venue uuid, p_days integer DEFAULT 30, p_minutes integer DEFAULT NULL::integer) to authenticated;
@@ -2016,3 +2086,9 @@ grant execute on function private.set_avatar_blur(text) to authenticated;
 grant execute on function public.set_avatar_blur(text) to authenticated, service_role;
 grant execute on function private.set_talent_alerts(p_on boolean, p_consent boolean) to authenticated;
 grant execute on function public.set_talent_alerts(p_on boolean, p_consent boolean) to authenticated, service_role;
+grant execute on function private.my_places() to authenticated;
+grant execute on function private.hide_place(p_venue uuid) to authenticated;
+grant execute on function private.clear_places() to authenticated;
+grant execute on function public.my_places() to authenticated, service_role;
+grant execute on function public.hide_place(p_venue uuid) to authenticated, service_role;
+grant execute on function public.clear_places() to authenticated, service_role;

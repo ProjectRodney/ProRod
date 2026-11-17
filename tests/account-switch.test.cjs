@@ -56,8 +56,9 @@ test('adding an account keeps the open one and goes to the sign-in screen withou
 });
 
 test('the switch is offered on the profile screen, the event screens and the sign-in screens; the open account is never kept twice',()=>{
-  assert.match(source,/<\/p><\/div><\/div>\$\{switchRow\(\)\}/);
-  assert.equal(source.split('${switchRow()}<button data-action="signout"').length-1,2);
+  const body=n=>{const i=source.indexOf('function '+n+'(');return source.slice(i,source.indexOf('\nfunction ',i+1));};
+  assert.ok(body('prefsView').includes('${switchRow()}'),'profile settings');
+  assert.ok(body('venueSettingsView').includes('${switchRow()}'),'event settings');
   assert.match(source,/mode==='landing'\)return savedRow\(\)\+landingView\(\)/);
   assert.match(source,/mode==='signin'\?savedRow\(\):''/);
   assert.match(source,/if\(savedAccounts\(\)\.some\(a=>a\.id===user\.id\)\)storeAccounts\(savedAccounts\(\)\.filter\(a=>a\.id!==user\.id\)\);/);

@@ -367,3 +367,8 @@ alter table public.conversations add column meeting_a boolean, add column meetin
 -- subscribe_talent_simulated → private.announce_talent / send_talent_alert: only people present in the same venue who turned it on,
 -- one alert per professional per visit, 5 per person per 24 h, never across a block or to/from a suspended account,
 -- no professional id in the alert. Checks: db/verify-talent-alerts.sql.
+
+-- « Mes lieux » (17 November 2026, db/2026-11-17-my-places.sql): public.venue_sessions.history_hidden_at (the member hid
+-- the place from their list; the visit itself is kept), private.my_places() (own visits of the last 90 days, one-off
+-- events excluded, venue open flag, current announcement), hide_place(venue), clear_places(). Entering still needs the
+-- QR code (join_venue unchanged). Checks: db/verify-my-places.sql.
