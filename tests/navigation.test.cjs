@@ -29,3 +29,12 @@ test('on the three main screens, a sideways slide moves between « Le lieu », �
   assert.match(f,/Math\.abs\(dx\)<70/,'only a clear slide');
   assert.match(f,/document\.querySelectorAll\('nav\.member-nav button'\)\[next\]\?\.click\(\)/,'same as tapping the bottom menu');
 });
+test('Face ID after sign-out: offered on the welcome screen and in the e-mail autofill',()=>{
+  assert.match(app,/autocomplete="\$\{mode==='signin'\?'username webauthn':'email'\}"/,'sign-in e-mail field offers passkeys in the autofill');
+  assert.match(app,/client\.auth\.signInWithPasskey\(\{options:\{mediation:'conditional',signal:ac\.signal\}\}\)/);
+  assert.match(app,/if\(action==='passkey-signin'\)\{stopPasskeyAutofill\(\);/,'one WebAuthn request at a time');
+  assert.match(app,/if\(!user&&mode==='signin'\)passkeyAutofill\(\);else stopPasskeyAutofill\(\);/);
+  assert.match(app,/passkeyReady\(\)&&passkeyOnPhone\(\)\?`<button class="button wide passkey-quick" data-action="passkey-signin">/);
+  const mark=app.slice(app.indexOf('const markPasskeyPhone'),app.indexOf('\n',app.indexOf('const markPasskeyPhone')));
+  assert.match(mark,/setItem\(PASSKEY_PHONE,'1'\)/,'only a flag is kept on the phone, never an account or a key');
+});
