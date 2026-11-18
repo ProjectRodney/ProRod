@@ -205,7 +205,7 @@ test('texts: French by default, no wording about a typed venue code or a test, E
 });
 test('French: « tu » for personal accounts and visitors, « vous » for professional and event accounts',()=>{
   const s=fs.readFileSync('src/account.js','utf8'),t=fs.readFileSync('src/tu.js','utf8');
-  assert.match(s,/const formal=\(\)=>\{const t=profile\?\.account_type\|\|accountType;return t==='pro'\|\|t==='venue';\};/);
+  assert.match(s,/const formal=\(\)=>\{const t=profile\?\.account_type\|\|accountType;return t==='pro'\|\|t==='venue'\|\|\(!user&&String\(mode\)\.startsWith\('pro-'\)\);\};/,'pro and event sign-up screens say « vous »');
   assert.match(s,/const T=\(en,fr\)=>lang!=='fr'\?en:\(formal\(\)\?fr:\(TU\[fr\]\|\|fr\)\);/);
   const pairs=[...t.matchAll(/^'((?:[^'\\]|\\.)*)':'((?:[^'\\]|\\.)*)',$/gm)];
   assert.ok(pairs.length>100,'the table covers the member screens');
