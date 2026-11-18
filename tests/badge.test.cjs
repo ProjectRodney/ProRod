@@ -97,7 +97,7 @@ test('incomplete e-mail addresses and expired e-mail links get a clear message',
   const m=s.match(/const validEmail=v=>(\/.*?\/)\.test/);assert.ok(m);const re=eval(m[1]);
   for(const ok of ['name@yahoo.fr','a.b@mail.example.com'])assert.ok(re.test(ok),ok);
   for(const bad of ['name@yahoo.','name@yahoo','name@.fr','na me@yahoo.fr'])assert.ok(!re.test(bad),bad);
-  assert.match(s,/case 'auth':\{values\.email=String\(values\.email\|\|''\)\.trim\(\);if\(!validEmail\(values\.email\)\)/);assert.match(s,/if\(!validEmail\(email\.value\)\)/);
+  assert.match(s,/case 'auth':\{stopPasskeyAutofill\(\);values\.email=String\(values\.email\|\|''\)\.trim\(\);if\(!validEmail\(values\.email\)\)/);assert.match(s,/if\(!validEmail\(email\.value\)\)/);
   assert.match(s,/otp_expired/);assert.ok((s.match(/showLinkError\(\)/g)||[]).length>=3,'link message shown on every signed-out path');assert.match(s,/validation_failed:\[/);
 });
 test('« who would you like to see »: optional, explicit consent, private, filters only the viewer\'s own venue list on the server',()=>{
