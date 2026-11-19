@@ -3,6 +3,9 @@
 // the « tu » version of each sentence that addresses the reader. A sentence missing here is shown unchanged.
 // Sentences that speak to two people at once (« vous dites oui tous les deux ») stay in the plural on purpose.
 export const TU = {
+'Ce compte est protégé par une application d’authentification. Saisissez son code à 6 chiffres pour continuer.':'Ce compte est protégé par une application d’authentification. Saisis son code à 6 chiffres pour continuer.',
+'Ce code est incorrect ou a expiré. Essayez le suivant.':'Ce code est incorrect ou a expiré. Essaie le suivant.',
+'Les clés d’accès ne fonctionnent que sur l’adresse de l’application. Ouvrez https://upzoneapp.fr et réessayez.':'Les clés d’accès ne fonctionnent que sur l’adresse de l’application. Ouvre https://upzoneapp.fr et réessaie.',
 'Elle aide l’équipe à valider votre lieu et les visiteurs à vous reconnaître.':'Elle aide l’équipe à valider ton lieu et les visiteurs à te reconnaître.',
 'Choisissez une fois : un compte professionnel reste professionnel, un compte événement reste événement.':'Choisis une fois : un compte professionnel reste professionnel, un compte événement reste événement.',
 'DJ, photographe, barbier, artiste, coach… Une fiche vue par les personnes du même lieu, qui vous envoient des demandes.':'DJ, photographe, barbier, artiste, coach… Une fiche vue par les personnes du même lieu, qui t’envoient des demandes.',

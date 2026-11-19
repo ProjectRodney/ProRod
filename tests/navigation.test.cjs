@@ -38,3 +38,14 @@ test('Face ID after sign-out: offered on the welcome screen and in the e-mail au
   const mark=app.slice(app.indexOf('const markPasskeyPhone'),app.indexOf('\n',app.indexOf('const markPasskeyPhone')));
   assert.match(mark,/setItem\(PASSKEY_PHONE,'1'\)/,'only a flag is kept on the phone, never an account or a key');
 });
+test('the former github.io address sends the phone to the app’s own address, keeping its link',()=>{
+  assert.match(app,/location\.hostname\.endsWith\('\.github\.io'\)&&location\.origin!==home\.origin\?new URL\('\.\/account\.html'\+location\.search\+location\.hash,home\)\.href:''/);
+  assert.match(app,/if\(movedTo\)location\.replace\(movedTo\);/);
+});
+test('passkey changes on an account with two-step verification ask for the authenticator code, then resume',()=>{
+  assert.match(app,/const needsCode=e=>\/insufficient_aal\//);
+  assert.match(app,/if\(needsCode\(error\)\)\{pkPending=\{kind:'register'\};render\(\);/);
+  assert.match(app,/client\.auth\.mfa\.challengeAndVerify\(\{factorId:totp\.id,code:String\(values\.totp\|\|''\)\.trim\(\)\}\)/);
+  assert.match(app,/if\(p\?\.kind==='delete'\)await passkeyDeleteNow\(p\.id\);else await passkeyRegisterNow\(\);/);
+  assert.match(app,/data-form="passkey-code"/);
+});
