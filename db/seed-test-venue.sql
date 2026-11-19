@@ -5,7 +5,7 @@
 --
 -- The QR code's token is NEVER stored here (public repository): DZOFT generates it, keeps it out of Git and
 -- replaces REPLACE_WITH_TOKEN_HASH below by sha256(token) in hexadecimal. The QR code encodes
--- https://projectrodney.github.io/ProRod/account.html?venue=<token>.
+-- https://upzoneapp.fr/account.html?venue=<token>.
 --
 -- The fictional people are marked « (test) » in their name and « [Profil de test] » in their bio, have no password
 -- (nobody can sign in as them), use the reserved domain example.invalid, and have no photo (the app shows their
