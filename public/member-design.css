@@ -237,3 +237,4 @@ fieldset.chip-choice legend{font-size:14px;font-weight:600;margin-bottom:8px;pad
 .cat-choice{min-height:56px;text-align:left;border:1px solid #ddd4b2;border-radius:14px;background:#fff;padding:10px 12px;font:inherit;font-size:14px;line-height:1.3;color:#252821;cursor:pointer}
 .cat-choice[aria-pressed=true]{background:#ffec9a;border:2px solid #5005b0;font-weight:700}
 .intent-chip{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff5ce;border-radius:14px;padding:6px 12px;margin:10px 0 4px;font-size:14px}
+.pk-code{background:#fffadd;border:1.5px solid #5005b0;border-radius:16px;padding:12px 14px;margin-top:10px}
