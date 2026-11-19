@@ -5,7 +5,7 @@ import Constants from 'expo-constants';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
-const APP_URL = Constants.expoConfig?.extra?.appUrl || 'https://projectrodney.github.io/ProRod/account.html';
+const APP_URL = Constants.expoConfig?.extra?.appUrl || 'https://upzoneapp.fr/account.html';
 const APP_HOST = new URL(APP_URL).host;
 // Pages that stay inside the app: UPZONE itself and its sign-in service. Everything else opens in the browser.
 const inside = (url) => {
