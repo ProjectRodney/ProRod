@@ -238,3 +238,8 @@ fieldset.chip-choice legend{font-size:14px;font-weight:600;margin-bottom:8px;pad
 .cat-choice[aria-pressed=true]{background:#ffec9a;border:2px solid #5005b0;font-weight:700}
 .intent-chip{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff5ce;border-radius:14px;padding:6px 12px;margin:10px 0 4px;font-size:14px}
 .pk-code{background:#fffadd;border:1.5px solid #5005b0;border-radius:16px;padding:12px 14px;margin-top:10px}
+
+/* Forgotten password screens (20 Nov 2026) */
+.reset-steps p{margin:0 0 6px}.reset-steps p:last-child{margin:0}
+.reset-done{text-align:center}.reset-check{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:#5005B0;color:#fff;font-size:34px;font-weight:800;margin:6px auto 10px}
+form[data-form="password"] small{display:block;margin:-4px 0 10px;color:#5d5a4c}
