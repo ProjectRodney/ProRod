@@ -27,7 +27,7 @@ test('an account protected by an authenticator app is asked for its code before 
   assert.ok(s.includes("&&!values.totp){pwNeedsCode=true;pwDraft=String(values.password||'');render();"),'a refusal shows the code field and keeps what was typed');
 });
 test('a confirmation screen follows, and the new password needs 12 characters',()=>{
-  assert.match(s,/recovery=false;pwNeedsCode=null;setResetEmail\(null\);passwordDone=true;/);
+  assert.match(s,/setRecovery\(false\);pwNeedsCode=null;setResetEmail\(null\);passwordDone=true;/);
   assert.match(s,/root\.innerHTML=recovery&&user\?newPasswordView\(\):passwordDone&&user\?passwordDoneView\(\)/);
   const v=s.slice(s.indexOf('function newPasswordView'),s.indexOf('function passwordDoneView'));
   assert.match(v,/required minlength="12" autocomplete="new-password"/);
@@ -40,4 +40,11 @@ test('the e-mail language follows the member\'s language: one flag in the accoun
   assert.match(s,/client\.auth\.updateUser\(\{data:\{mail_en:want\}\}\)/);
   assert.match(s,/data:\{mail_en:lang==='en',/,'set at sign-up too');
   assert.doesNotMatch(s,/mail_en[^;]{0,120}(is_admin|prod_admin|approved|require_)/,'mail_en only chooses a language');
+});
+test('reloading the page while choosing a new password does not sign the member in without one',()=>{
+  assert.match(s,/function setRecovery\(on\)\{recovery=!!on;try\{on\?localStorage\.setItem\('upzone-recovery',String\(Date\.now\(\)\)\):localStorage\.removeItem\('upzone-recovery'\);/);
+  assert.match(s,/else if\(t&&Date\.now\(\)-t<3600000\)recovery=true;/,'the new-password screen comes back after a reload, for one hour');
+  assert.match(s,/setResetEmail\(null\);setRecovery\(true\);pwNeedsCode=null;/,'set when the e-mail code is accepted');
+  assert.match(s,/if\(action==='recovery-cancel'\)\{setRecovery\(false\);pwNeedsCode=null;await client\.auth\.signOut\(\);/,'cancelling signs out');
+  assert.match(s,/if\(event==='SIGNED_OUT'\)\{setRecovery\(false\);/);
 });
