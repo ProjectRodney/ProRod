@@ -25,3 +25,8 @@ test('account deletion: a public page explains how, and the app also removes the
   assert.match(app,/client\.storage\.from\('avatars'\)\.list\(dir,\{limit:100\}\)/);
   assert.ok(html.includes('./supprimer-mon-compte.html'));
 });
+test('child safety standards: a public page names UPZONE, the rules, in-app reporting and a contact (Google Play, dating apps)',()=>{
+  const page=fs.readFileSync('public/protection-des-mineurs.html','utf8');
+  for(const s of ['Protection des mineurs sur UPZONE','Child safety standards on UPZONE','child sexual abuse and exploitation (CSAE)','child sexual abuse material (CSAM)','Signaler depuis l’application','Reporting from inside the app','119','internet-signalement.gouv.fr'])assert.ok(page.includes(s),s);
+  assert.ok(fs.readFileSync('public/cgu.html','utf8').includes('./protection-des-mineurs.html'));
+});

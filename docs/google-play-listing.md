@@ -11,6 +11,7 @@ legal name and address, the support e-mail until the operator has chosen it.
 ## Links to give
 - Privacy policy: https://upzoneapp.fr/confidentialite.html
 - Account deletion: https://upzoneapp.fr/supprimer-mon-compte.html
+- Child safety standards: https://upzoneapp.fr/protection-des-mineurs.html
 - Website: https://upzoneapp.fr/
 - Support e-mail: to be chosen by the operator (it is shown publicly on Google Play).
 
@@ -82,9 +83,12 @@ Before the public release: remove the « phase de test / passes are simulated »
 
 **Graphics**
 - Icon 512 × 512: `public/assets/upzone-icon-512.png`.
-- Feature graphic 1024 × 500: to make (logo on the cream background with « Un même lieu. De nouvelles rencontres. »).
-- Phone screenshots (2 minimum, 4 to 6 advised), taken on a real phone with test accounts only, no real person:
-  the welcome screen, « Le lieu » during a visit, the veiled list of people, a conversation, « Profil », « Mes lieux ».
+- Feature graphic 1024 × 500: `design/google-play/feature-graphic-1024x500.png`.
+- Phone screenshots, 1080 × 1920, in `design/google-play/` (`screenshot-1-scan.png` to `screenshot-4-profil.png`):
+  the scan screen, « Le lieu » during a visit, the veiled list of people, « Profil ». They are taken from the real
+  app with invented data only (the venue, the member « Camille » and the silhouettes are fictional, no real person).
+  Retake them if the screens change. Alt texts: « Écran pour scanner le QR code du lieu », « Le lieu pendant une
+  visite, avec le temps restant », « Personnes présentes, voilées avant le pass », « Profil du membre ».
 
 **Category**: Application → `Rencontres` (Dating). Tags: leave Google's suggestions that fit.
 
@@ -144,8 +148,10 @@ identity document.
 - Adults only, stated in the listing and enforced at sign-up (date of birth).
 - User-generated content: in-app reporting, blocking, and moderation with a way to remove users. All exist.
 - Child safety standards: Google asks social and dating apps for published standards against child sexual abuse and
-  exploitation, an in-app way to report, and a contact person. The terms of use forbid minors and the app has
-  reporting; the operator still has to name the contact and publish the standards page if the console asks for it.
+  exploitation, an in-app way to report, action on child sexual abuse material, compliance with child safety laws and
+  a named contact person (Play Console Help, « Child Safety Standards policy »; it applies to every Dating app, adults
+  only or not). The standards page is the link above; the operator still has to read it (it states what the operator
+  commits to do), fill in the contact address, and name the contact person in Play Console.
 - Account deletion link: the page above.
 
 ## Closed test (Tests fermés)
