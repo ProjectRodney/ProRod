@@ -18,7 +18,7 @@ function readInvite(){try{const v=JSON.parse(localStorage.getItem(INVITE_KEY)||'
 function keepInvite(t){try{localStorage.setItem(INVITE_KEY,JSON.stringify({t,at:Date.now()}));}catch{}sessionStorage.setItem(INVITE_KEY,t);}
 function dropInvite(){try{localStorage.removeItem(INVITE_KEY);}catch{}sessionStorage.removeItem(INVITE_KEY);}
 let invite=readInvite();
-const entryMode=new URL(location.href).searchParams.get('start');if(['signup','signin'].includes(entryMode))mode=entryMode;
+const entryMode=new URL(location.href).searchParams.get('start');if(['signup','signin','pro-kind'].includes(entryMode))mode=entryMode;
 const incoming=new URL(location.href).searchParams.get('venue');
 if(incoming&&/^[A-Za-z0-9_-]{32,256}$/.test(incoming)){invite=incoming;keepInvite(invite);const url=new URL(location.href);url.searchParams.delete('venue');history.replaceState(null,'',url);}
 // Browsers accept addresses like « name@yahoo. »; the server refuses them. Same rule here, with a clear message.
