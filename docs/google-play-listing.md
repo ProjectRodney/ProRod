@@ -107,7 +107,9 @@ Create a test venue and a long-lived QR link for the review. Keep the credential
 offered). Answer truthfully:
 - Users can interact and exchange messages: yes.
 - Users can share user-generated content (profile photo, text): yes; reporting and blocking exist: yes; moderation: yes.
-- Shares the user's precise location with other users: no (presence comes from the QR code scanned, not from GPS).
+- Shares the user's current and precise location with other users: **yes** (answer given on 20 November 2026). The app
+  never uses GPS, but people in a venue learn that the member is in that same venue right now, which is what the
+  question asks.
 - Violence, sexual content, drugs, gambling, profanity provided by the app itself: no.
 - Digital purchases: no for now (passes are simulated).
 
@@ -135,7 +137,7 @@ offered). Answer truthfully:
 | App activity · App interactions | venue visits (place, start, end) | required to use a venue | « Mes lieux », safety |
 | Device or other IDs | notification subscription of the phone | optional | only if notifications are turned on; removed at sign-out |
 
-- Not collected: precise or approximate device location, contacts, calendar, financial info (payments are simulated),
+- Not collected: approximate location, contacts, calendar, financial info (payments are simulated),
   health, audio, files, web browsing, advertising ID.
 - If Google asks about « Advertising or marketing »: the optional « Alertes talents » tell a member, who turned them on,
   that a professional is in the venue. No data is given to advertisers. Declare it only if the form's wording covers
@@ -158,3 +160,35 @@ identity document.
 - 12 testers at least, opted in for 14 days in a row, before « Demander à publier en production ».
 - Each tester needs a Google account and an Android phone, and must accept the invitation link and install the app.
 - Keep a short note of what testers reported and what was fixed: Google asks about it in the production request.
+
+## What was declared in Play Console on 20 November 2026
+Filled in by DZOFT with the operator's account; the operator answers for these declarations and should re-read them.
+- Ads: no. To review the day professionals really pay to be listed (paid promotion inside the app).
+- Advertising ID: no (the shell contains no advertising or analytics component).
+- Content rating (category « Social ou Communication »): social, used for dating **yes**, public nudity no, public
+  graphic violence no, precise location shared **yes**, digital purchases **no** (simulated; change when payments are
+  real), blocking yes, reporting yes, conversation moderation yes (requires someone who really reviews reports),
+  limited to invited friends no. Result: 18+ (PEGI 18, USK 18, ESRB 17+, Korea 19+).
+- Target audience: 18 and over only; access limited for users Google identifies as minors.
+- Data safety: collected, never shared; encrypted in transit; account creation by e-mail and password (plus other
+  methods: e-mail code, passkey); both deletion links point to the deletion page. Data types: exact location (the venue
+  visited), name, e-mail address, user ID, sexual orientation (optional), other info, in-app messages (optional), photos,
+  app interactions, other user-generated content (optional). Purposes: app functionality, plus account management for
+  identity data and fraud prevention / security for messages, visits, content and user ID; « advertising or marketing »
+  also ticked for exact location because of the opt-in talent alerts. « Device or other IDs » not declared: web
+  notifications do not work inside the Android shell; declare it if notifications are added to the app.
+- Government, financial features, health: none.
+- Child safety standards: the link above, the developer account's address as contact, both conditions ticked (in-app
+  reporting; compliance with child safety laws and reporting to the authorities, which is the operator's commitment).
+- Store listing: category « Rencontres »; icon, feature graphic and four screenshots labelled as created or modified
+  with AI.
+- Closed test « Alpha »: version 1.0.0 (4), tester list by e-mail, managed publishing on. Countries were set to all
+  regions; narrow to France before production.
+
+## iPhone (App Store)
+- Screenshots 1290 × 2796 in `design/app-store/` (same four screens, invented data only). They show the button
+  « Obtenir mon pass (simulation) »: fine for TestFlight, to retake before an App Store submission, where Apple does not
+  accept « simulated payments » wording (see `mobile/README.md`).
+- App Store Connect asks whether the operator is a « trader » under the EU Digital Services Act: the operator's own
+  declaration (address, phone and e-mail then shown publicly). Same answer as on Google Play.
+- Builds are sent to TestFlight from the workflow « iPhone build (Expo) » (options « submit » or « submit_latest »).
