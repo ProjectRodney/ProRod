@@ -41,5 +41,8 @@ module.exports = () => optionalScreen({
     permissions: ['android.permission.CAMERA'],
     blockedPermissions: ['android.permission.RECORD_AUDIO', 'android.permission.READ_EXTERNAL_STORAGE', 'android.permission.WRITE_EXTERNAL_STORAGE'],
   },
-  extra: { appUrl: id.appUrl, eas: id.easProjectId ? { projectId: id.easProjectId } : undefined },
+  // Reminders of the closed test: planned on the phone, in the app's purple. See App.js.
+  plugins: [['expo-notifications', { color: '#5005b0', defaultChannel: 'rappels' }]],
+  // Last day of the test reminders (closed test opened on 20 November 2026; a margin for testers who join late).
+  extra: { testRemindersUntil: '2026-12-12', appUrl: id.appUrl, eas: id.easProjectId ? { projectId: id.easProjectId } : undefined },
 });

@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
+import * as Notifications from 'expo-notifications';
 
 const APP_URL = Constants.expoConfig?.extra?.appUrl || 'https://upzoneapp.fr/account.html';
 const APP_HOST = new URL(APP_URL).host;
@@ -18,6 +19,43 @@ const inside = (url) => {
     return false;
   }
 };
+
+// Reminders during the Google Play closed test (20 Nov 2026): Google asks that testers really use the app for 14 days.
+// Until the date in app.config.js (`testRemindersUntil`), the Android app plans two reminders a day, at 12:30 and 19:30.
+// They are planned on the phone itself: nothing is sent to a server and no identifier of the phone is collected.
+// Opening the app cancels the reminders of that day (the tester has done their part) and plans the following days.
+// After the date, everything is cancelled and the app never asks for the permission again for this purpose.
+const REMIND_UNTIL = Constants.expoConfig?.extra?.testRemindersUntil || '';
+const REMIND_AT = [[12, 30], [19, 30]];
+const REMIND_TEXT = [
+  'Merci de tester UPZONE ! Ouvre l’appli aujourd’hui et dis-nous ce que tu en penses.',
+  'Un petit tour sur UPZONE ce soir ? Chaque essai nous aide avant la sortie.',
+];
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({ shouldShowBanner: false, shouldShowList: false, shouldPlaySound: false, shouldSetBadge: false }),
+});
+async function planTestReminders() {
+  if (Platform.OS !== 'android') return;
+  const end = REMIND_UNTIL ? new Date(REMIND_UNTIL + 'T23:59:59') : null;
+  await Notifications.cancelAllScheduledNotificationsAsync();
+  if (!end || isNaN(end) || Date.now() > end.getTime()) return;
+  let perm = await Notifications.getPermissionsAsync();
+  if (!perm.granted && perm.canAskAgain) perm = await Notifications.requestPermissionsAsync();
+  if (!perm.granted) return;
+  await Notifications.setNotificationChannelAsync('rappels', { name: 'Rappels du test', importance: Notifications.AndroidImportance.DEFAULT });
+  const day = new Date(); day.setHours(0, 0, 0, 0);
+  for (let n = 1; n <= 30; n += 1) {
+    const d = new Date(day); d.setDate(d.getDate() + n);
+    if (d.getTime() > end.getTime()) break;
+    for (let i = 0; i < REMIND_AT.length; i += 1) {
+      const at = new Date(d); at.setHours(REMIND_AT[i][0], REMIND_AT[i][1], 0, 0);
+      await Notifications.scheduleNotificationAsync({
+        content: { title: 'UPZONE', body: REMIND_TEXT[i] },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: 'rappels' },
+      });
+    }
+  }
+}
 
 export default function App() {
   const web = useRef(null);
@@ -39,6 +77,7 @@ export default function App() {
     });
     return () => sub.remove();
   }, []);
+  useEffect(() => { planTestReminders().catch(() => {}); }, []);
   const retry = () => { setFailed(false); setLoading(true); web.current?.reload(); };
 
   return (
