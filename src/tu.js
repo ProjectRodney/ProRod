@@ -3,6 +3,14 @@
 // the « tu » version of each sentence that addresses the reader. A sentence missing here is shown unchanged.
 // Sentences that speak to two people at once (« vous dites oui tous les deux ») stay in the plural on purpose.
 export const TU = {
+'Saisissez l’adresse e-mail de votre compte. Nous vous envoyons un e-mail pour choisir un nouveau mot de passe.':'Saisis l’adresse e-mail de ton compte. Nous t’envoyons un e-mail pour choisir un nouveau mot de passe.',
+'Consultez vos e-mails':'Consulte tes e-mails',
+'Ouvrez l’e-mail « UPZONE · Nouveau mot de passe ». Regardez aussi dans les spams.':'Ouvre l’e-mail « UPZONE · Nouveau mot de passe ». Regarde aussi dans les spams.',
+'Appuyez sur son bouton, ou tapez ici le code écrit dans l’e-mail.':'Appuie sur son bouton, ou tape ici le code écrit dans l’e-mail.',
+'Rien au bout de quelques minutes ? Vérifiez l’adresse, puis renvoyez l’e-mail.':'Rien au bout de quelques minutes ? Vérifie l’adresse, puis renvoie l’e-mail.',
+'Ce compte est protégé par une application d’authentification. Saisissez son code à 6 chiffres pour changer le mot de passe.':'Ce compte est protégé par une application d’authentification. Saisis son code à 6 chiffres pour changer le mot de passe.',
+'Votre nouveau mot de passe est enregistré. Utilisez-le à votre prochaine connexion.':'Ton nouveau mot de passe est enregistré. Utilise-le à ta prochaine connexion.',
+'Ce compte est protégé par la validation en deux étapes : saisissez le code à 6 chiffres de votre application d’authentification, puis enregistrez à nouveau.':'Ce compte est protégé par la validation en deux étapes : saisis le code à 6 chiffres de ton application d’authentification, puis enregistre à nouveau.',
 'Ce compte est protégé par une application d’authentification. Saisissez son code à 6 chiffres pour continuer.':'Ce compte est protégé par une application d’authentification. Saisis son code à 6 chiffres pour continuer.',
 'Ce code est incorrect ou a expiré. Essayez le suivant.':'Ce code est incorrect ou a expiré. Essaie le suivant.',
 'Les clés d’accès ne fonctionnent que sur l’adresse de l’application. Ouvrez https://upzoneapp.fr et réessayez.':'Les clés d’accès ne fonctionnent que sur l’adresse de l’application. Ouvre https://upzoneapp.fr et réessaie.',
