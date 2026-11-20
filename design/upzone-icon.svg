@@ -4,12 +4,13 @@
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#FFE500"/>
-      <stop offset="0.4" stop-color="#FFEE09"/>
-      <stop offset="0.5" stop-color="#FEF119"/>
-      <stop offset="0.6" stop-color="#FDF239"/>
-      <stop offset="0.7" stop-color="#FCF46B"/>
-      <stop offset="0.8" stop-color="#FBF6A1"/>
-      <stop offset="0.9" stop-color="#FBFAD7"/>
+      <stop offset="0.32" stop-color="#FFEE09"/>
+      <stop offset="0.42" stop-color="#FEF119"/>
+      <stop offset="0.52" stop-color="#FDF239"/>
+      <stop offset="0.62" stop-color="#FCF46B"/>
+      <stop offset="0.72" stop-color="#FBF6A1"/>
+      <stop offset="0.82" stop-color="#FBFAD7"/>
+      <stop offset="0.92" stop-color="#FFFFFF"/>
       <stop offset="1" stop-color="#FFFFFF"/>
     </linearGradient>
     <path id="bubble" d="M 467.9 678 L 330 770 L 346.2 611.8 A 240 205 0 1 1 467.9 678 Z"/>
