@@ -35,6 +35,11 @@ it is not ready for the App Store as it is (see « Before the App Store »).
   phone's back button goes to the previous screen. Only the camera permission is requested.
 - To build: GitHub → Actions → « Android build (Expo) » → Run workflow (needs the repository secret `EXPO_TOKEN`). The
   `.aab` file appears on expo.dev → Builds; download it and upload it in Google Play Console → Tests → Test interne.
-- Not checked on a real Android phone yet. Notifications do not work inside the shell (same as iPhone).
+- Installed on a real Android phone through the closed test on 20 November 2026. Notifications from the web app do not
+  work inside the shell (same as iPhone).
+- Reminders of the closed test (20 November 2026): until `testRemindersUntil` (`app.config.js`), the Android app plans two
+  reminders a day (12:30 and 19:30) on the phone itself with `expo-notifications`. No server, no push token, no data
+  collected. Opening the app cancels that day's reminders. To stop them earlier, put a past date and build again; after
+  the date the app cancels them by itself. Remove the feature (or keep the date in the past) for the public release.
 - Before production on Google Play: the store listing, the content rating and target audience (18+), the data safety
   form, a public account-deletion page, and Google Play Billing for the pass once payments are real.

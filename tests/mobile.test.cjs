@@ -23,3 +23,14 @@ test('iPhone: the build can be sent to TestFlight from GitHub (App Store Connect
   assert.match(wf,/if: \$\{\{ inputs\.submit_latest \}\}\n\s+run: eas submit --platform ios --profile production --latest --non-interactive --no-wait/);
   assert.match(wf,/if: \$\{\{ !inputs\.submit_latest \}\}\n\s+run: eas build --platform ios/);
 });
+test('Android closed test: two reminders a day planned on the phone, ending on a set date, nothing sent to a server',()=>{
+  const app=fs.readFileSync('mobile/App.js','utf8'),cfg=fs.readFileSync('mobile/app.config.js','utf8');
+  assert.match(cfg,/extra: \{ testRemindersUntil: '\d{4}-\d{2}-\d{2}', appUrl:/,'the last day is written in the configuration');
+  assert.match(app,/const REMIND_AT = \[\[12, 30\], \[19, 30\]\];/);
+  assert.match(app,/if \(Platform\.OS !== 'android'\) return;/,'Android only');
+  assert.match(app,/await Notifications\.cancelAllScheduledNotificationsAsync\(\);\n\s+if \(!end \|\| isNaN\(end\) \|\| Date\.now\(\) > end\.getTime\(\)\) return;/,'after the date everything is cancelled and nothing is asked');
+  assert.match(app,/for \(let n = 1; n <= 30; n \+= 1\)/,'from tomorrow: opening the app today cancels today\'s reminders');
+  assert.match(app,/if \(!perm\.granted\) return;/,'nothing without the tester\'s permission');
+  assert.doesNotMatch(app,/getExpoPushTokenAsync|getDevicePushTokenAsync/,'no push token: the phone is never identified');
+  assert.doesNotMatch(app,/fetch\(|XMLHttpRequest/,'the shell itself sends nothing');
+});
