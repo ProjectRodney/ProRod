@@ -47,3 +47,9 @@ test('each release stamps the published service worker, and the app reloads itse
   assert.match(s,/reg\.update\(\)/);
   if(fs.existsSync('dist/sw.js'))assert.match(fs.readFileSync('dist/sw.js','utf8'),/prorod-shell-v\d+-[0-9a-f]{10}'/);
 });
+test('the install banner really disappears when it is closed or not needed (20 Nov: « hidden » lost against display:flex)',()=>{
+  const css=fs.readFileSync('public/install.css','utf8'),js=fs.readFileSync('public/pwa-install.js','utf8');
+  assert.match(css,/\.install-banner\[hidden\]\{display:none\}/);
+  assert.match(js,/localStorage\.setItem\('prorod-install-dismissed', String\(Date\.now\(\)\)\); \} catch \(_\) \{\} node\.hidden = true;/);
+  assert.match(js,/if \(standalone\) \{ node\.hidden = true; return; \}/,'never shown in the installed app');
+});
