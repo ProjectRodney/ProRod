@@ -16,7 +16,7 @@ test('the remembered choice is checked and only used for the account that made i
 });
 test('the choice only preselects: the type goes through set_account_type, approval stays with the team',()=>{
   assert.match(src,/if\(!accountType\)\{const it=intentFor\(user\);if\(it\)\{try\{const t=it\.kind==='event'\?'venue':'pro';await rpc\('set_account_type',\{p_type:t\}\)/);
-  assert.match(src,/options:\{emailRedirectTo:redirect,\.\.\.\(proSignup\?\{data:\{signup_intent:\{kind:proIntent\.kind,cat:proIntent\.cat,name:proIntent\.name\}\}\}:\{\}\)\}/);
+  assert.match(src,/options:\{emailRedirectTo:redirect,data:\{mail_en:lang==='en',\.\.\.\(proSignup\?\{signup_intent:\{kind:proIntent\.kind,cat:proIntent\.cat,name:proIntent\.name\}\}:\{\}\)\}\}/);
   assert.doesNotMatch(src,/user_metadata\?\.signup_intent[^;]*(is_admin|prod_admin|approved)/);
 });
 test('welcome button opens the three steps; « vous » on these screens; radios keep their choice when the screen redraws',()=>{

@@ -6,7 +6,7 @@ export const TU = {
 'Saisissez l’adresse e-mail de votre compte. Nous vous envoyons un e-mail pour choisir un nouveau mot de passe.':'Saisis l’adresse e-mail de ton compte. Nous t’envoyons un e-mail pour choisir un nouveau mot de passe.',
 'Consultez vos e-mails':'Consulte tes e-mails',
 'Ouvrez l’e-mail « UPZONE · Nouveau mot de passe ». Regardez aussi dans les spams.':'Ouvre l’e-mail « UPZONE · Nouveau mot de passe ». Regarde aussi dans les spams.',
-'Appuyez sur son bouton, ou tapez ici le code écrit dans l’e-mail.':'Appuie sur son bouton, ou tape ici le code écrit dans l’e-mail.',
+'Tapez ici le code écrit dans l’e-mail.':'Tape ici le code écrit dans l’e-mail.',
 'Rien au bout de quelques minutes ? Vérifiez l’adresse, puis renvoyez l’e-mail.':'Rien au bout de quelques minutes ? Vérifie l’adresse, puis renvoie l’e-mail.',
 'Ce compte est protégé par une application d’authentification. Saisissez son code à 6 chiffres pour changer le mot de passe.':'Ce compte est protégé par une application d’authentification. Saisis son code à 6 chiffres pour changer le mot de passe.',
 'Votre nouveau mot de passe est enregistré. Utilisez-le à votre prochaine connexion.':'Ton nouveau mot de passe est enregistré. Utilise-le à ta prochaine connexion.',

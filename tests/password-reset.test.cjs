@@ -14,8 +14,11 @@ test('the answer does not say whether an account exists for the address',()=>{
 });
 test('the code written in the e-mail opens the new-password screen without leaving the app',()=>{
   assert.match(s,/case 'reset-code':\{const \{error\}=await client\.auth\.verifyOtp\(\{email:resetEmail,token:String\(values\.resetCode\|\|''\)\.trim\(\),type:'recovery'\}\)/);
-  assert.equal((mail.match(/\{\{ \.Token \}\}/g)||[]).length,2,'the e-mail shows the code in French and in English');
-  assert.match(mail,/\{\{ \.ConfirmationURL \}\}/);
+  assert.equal((mail.match(/\{\{ \.Token \}\}/g)||[]).length,2,'one code per language branch');
+  assert.match(mail,/\{\{ if \.Data\.mail_en \}\}[\s\S]*Your code[\s\S]*\{\{ else \}\}[\s\S]*Ton code[\s\S]*\{\{ end \}\}/,'English only for accounts set to English, French otherwise');
+  assert.doesNotMatch(mail,/ConfirmationURL/,'no button: a single code (client request, 20 Nov)');
+  assert.match(s,/localStorage\.setItem\('upzone-reset-email',JSON\.stringify\(\{email:v,at:Date\.now\(\)\}\)\)/,'the screen survives closing the app to read the e-mail');
+  assert.match(s,/Date\.now\(\)-r\.at<3600000/,'for one hour only');
 });
 test('an account protected by an authenticator app is asked for its code before the password changes',()=>{
   assert.match(s,/getAuthenticatorAssuranceLevel\(\)\.then\(\(\{data\}\)=>\{if\(data&&data\.nextLevel==='aal2'&&data\.currentLevel!=='aal2'&&recovery\)\{pwNeedsCode=true;/);
@@ -31,4 +34,10 @@ test('a confirmation screen follows, and the new password needs 12 characters',(
 });
 test('personal accounts read the new screens with « tu »',()=>{
   for(const t of ['Consulte tes e-mails','Saisis l’adresse e-mail de ton compte','Ton nouveau mot de passe est enregistré'])assert.ok(tu.includes(t),t);
+});
+test('the e-mail language follows the member\'s language: one flag in the account metadata, never an authorisation',()=>{
+  assert.match(s,/function syncMailLang\(\)\{if\(!user\)return;const want=lang==='en';if\(!!user\.user_metadata\?\.mail_en===want\)return;/);
+  assert.match(s,/client\.auth\.updateUser\(\{data:\{mail_en:want\}\}\)/);
+  assert.match(s,/data:\{mail_en:lang==='en',/,'set at sign-up too');
+  assert.doesNotMatch(s,/mail_en[^;]{0,120}(is_admin|prod_admin|approved|require_)/,'mail_en only chooses a language');
 });
