@@ -14,8 +14,10 @@ test('the answer does not say whether an account exists for the address',()=>{
 });
 test('the code written in the e-mail opens the new-password screen without leaving the app',()=>{
   assert.match(s,/case 'reset-code':\{const \{error\}=await client\.auth\.verifyOtp\(\{email:resetEmail,token:String\(values\.resetCode\|\|''\)\.trim\(\),type:'recovery'\}\)/);
-  assert.equal((mail.match(/\{\{ \.Token \}\}/g)||[]).length,2,'the e-mail shows the code in French and in English');
-  assert.match(mail,/\{\{ \.ConfirmationURL \}\}/);
+  assert.equal((mail.match(/\{\{ \.Token \}\}/g)||[]).length,1,'the e-mail shows one code');
+  assert.doesNotMatch(mail,/ConfirmationURL/,'no button: a single code (client request, 20 Nov)');
+  assert.match(s,/localStorage\.setItem\('upzone-reset-email',JSON\.stringify\(\{email:v,at:Date\.now\(\)\}\)\)/,'the screen survives closing the app to read the e-mail');
+  assert.match(s,/Date\.now\(\)-r\.at<3600000/,'for one hour only');
 });
 test('an account protected by an authenticator app is asked for its code before the password changes',()=>{
   assert.match(s,/getAuthenticatorAssuranceLevel\(\)\.then\(\(\{data\}\)=>\{if\(data&&data\.nextLevel==='aal2'&&data\.currentLevel!=='aal2'&&recovery\)\{pwNeedsCode=true;/);
