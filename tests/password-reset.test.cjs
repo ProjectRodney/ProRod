@@ -23,6 +23,7 @@ test('the code written in the e-mail opens the new-password screen without leavi
 test('an account protected by an authenticator app is asked for its code before the password changes',()=>{
   assert.match(s,/getAuthenticatorAssuranceLevel\(\)\.then\(\(\{data\}\)=>\{if\(data&&data\.nextLevel==='aal2'&&data\.currentLevel!=='aal2'&&recovery\)\{pwNeedsCode=true;/);
   assert.match(s,/case 'password':\{if\(values\.totp\)\{[\s\S]{0,400}challengeAndVerify\(\{factorId:totp\.id,code:String\(values\.totp\)\.trim\(\)\}\)/);
+  assert.ok(s.includes("if(!totp){pwNeedsCode=false;}else{const {error:ce}=await client.auth.mfa.challengeAndVerify("),'if the authenticator was removed meanwhile, the password is saved without a code instead of blocking');
   assert.ok(s.includes("if(/insufficient_aal|aal2/i.test("),'the refusal is recognised');
   assert.ok(s.includes("&&!values.totp){pwNeedsCode=true;pwDraft=String(values.password||'');render();"),'a refusal shows the code field and keeps what was typed');
 });
