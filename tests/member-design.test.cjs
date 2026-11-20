@@ -42,3 +42,10 @@ test('the profile screen opens the settings once (gear at the top), not twice',(
   const i=source.indexOf('function profileHubView(');const f=source.slice(i,source.indexOf('\nfunction ',i+1));
   assert.equal(f.split('data-view="prefs"').length-1,1);
 });
+test('top right corner: the member\'s photo opens their profile; the language is chosen in the settings (20 Nov)',()=>{
+  const s=fs.readFileSync('src/account.js','utf8');
+  assert.match(s,/function headerNav\(\)\{if\(user&&accountType&&complete\(profile\)&&!recovery&&!passwordDone\)\{/,'only for a signed-in member with a finished profile');
+  assert.match(s,/class="head-me" data-view="\$\{venueAcc\?'venue-settings':'settings'\}"/);
+  assert.match(s,/return `<button type="button" data-language="fr" aria-pressed="\$\{lang==='fr'\}">FR<\/button><button type="button" data-language="en"/,'a visitor without an account keeps FR / EN');
+  assert.match(s,/<h3 class="pref-title">\$\{T\('Language','Langue'\)\}<\/h3>\$\{langChips\(\)\}/,'the language is in « Réglages »');
+});
