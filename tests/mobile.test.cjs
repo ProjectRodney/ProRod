@@ -10,3 +10,10 @@ test('the Android shell uses the package chosen in Google Play and asks for the 
   assert.match(wf,/workflow_dispatch/);assert.doesNotMatch(wf,/\n\s+push:/,'never on a push');assert.match(wf,/eas build --platform android/);
   assert.match(fs.readFileSync('mobile/App.js','utf8'),/hardwareBackPress/);
 });
+test('Android: the upright-only screen is declared optional, so Google Play does not hide the app from tablets (20 Nov)',()=>{
+  const cfg=fs.readFileSync('mobile/app.config.js','utf8');
+  assert.match(cfg,/withAndroidManifest/);
+  assert.match(cfg,/'android\.hardware\.screen\.portrait', 'android\.hardware\.screen\.landscape'/);
+  assert.match(cfg,/'android:required': 'false'/);
+  assert.match(cfg,/module\.exports = \(\) => optionalScreen\(\{/);
+});

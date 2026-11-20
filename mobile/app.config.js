@@ -2,8 +2,20 @@
 // The identity values live in identity.json. They are not secrets, but they are permanent once a build
 // is uploaded to Apple or Google, so they are filled in once, by the operator, and never guessed.
 const id = require('./identity.json');
+const { withAndroidManifest } = require('expo/config-plugins');
 
-module.exports = () => ({
+// The app is shown upright only. Android reads that as « needs a portrait screen » and Google Play then hides the app
+// from devices that do not declare one (some tablets, Chromebooks). Marking both orientations as optional keeps the
+// app installable everywhere; it still opens upright.
+const optionalScreen = config => withAndroidManifest(config, cfg => {
+  const manifest = cfg.modResults.manifest;
+  const names = ['android.hardware.screen.portrait', 'android.hardware.screen.landscape'];
+  manifest['uses-feature'] = (manifest['uses-feature'] || []).filter(f => !names.includes(f.$['android:name']))
+    .concat(names.map(name => ({ $: { 'android:name': name, 'android:required': 'false' } })));
+  return cfg;
+});
+
+module.exports = () => optionalScreen({
   name: 'UPZONE',
   slug: id.slug || 'upzone',
   owner: id.owner || undefined,
