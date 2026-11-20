@@ -30,7 +30,7 @@ test('product name comes from src/brand.js and no former working name remains', 
 
 test('the URL is an installer: welcome page with install button, app banner, manifest and iOS metadata',()=>{
   const index=fs.readFileSync('public/index.html','utf8'), account=fs.readFileSync('public/account.html','utf8'), helper=fs.readFileSync('public/pwa-install.js','utf8');
-  assert.equal(index,account,'the site address opens the app itself: one welcome screen (index.html is copied from account.html by the build)');assert.match(fs.readFileSync('scripts/build.cjs','utf8'),/fs\.copyFileSync\('public\/account\.html','public\/index\.html'\)/);assert.match(index,/rel="manifest"/);assert.match(index,/apple-mobile-web-app-capable/);
+  assert.match(index,/href="\.\/account\.html\?start=signup"/);assert.match(index,/<script src="\.\/landing\.js"><\/script>/);assert.match(index,/rel="manifest"/);assert.match(index,/apple-mobile-web-app-capable/);
   assert.match(account,/data-install="banner"/);assert.match(account,/pwa-install\.js/);
   new vm.Script(helper);assert.match(helper,/beforeinstallprompt/);assert.match(helper,/Sur l’écran d’accueil/);assert.doesNotMatch(helper,/getUserMedia/);
   const manifest=JSON.parse(fs.readFileSync('public/manifest.webmanifest','utf8'));assert.equal(manifest.display,'standalone');assert.equal(manifest.short_name,'UPZONE');
