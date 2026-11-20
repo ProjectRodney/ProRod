@@ -25,3 +25,14 @@ it is not ready for the App Store as it is (see « Before the App Store »).
 - Guideline 3.1.1: the pass must use Apple's in-app purchase.
 - Guideline 1.2: filtering of objectionable content and a published contact address, besides reporting and blocking.
 - No « simulated payments » wording.
+
+## Android (Google Play)
+- Package name: `androidPackage` in `identity.json` (`fr.upzoneapp.app`, chosen in Google Play Console on 20 November 2026;
+  permanent).
+- Same shell as the iPhone: opens the web app full screen, camera allowed for the QR scanner and the profile photo, the
+  phone's back button goes to the previous screen. Only the camera permission is requested.
+- To build: GitHub → Actions → « Android build (Expo) » → Run workflow (needs the repository secret `EXPO_TOKEN`). The
+  `.aab` file appears on expo.dev → Builds; download it and upload it in Google Play Console → Tests → Test interne.
+- Not checked on a real Android phone yet. Notifications do not work inside the shell (same as iPhone).
+- Before production on Google Play: the store listing, the content rating and target audience (18+), the data safety
+  form, a public account-deletion page, and Google Play Billing for the pass once payments are real.
