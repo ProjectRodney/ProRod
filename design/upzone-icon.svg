@@ -1,16 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- ANZIAK app icon, original drawing (DZOFT, 7 November 2026). Full-bleed square: the phone rounds the corners.
+  <!-- UPZONE app icon, original drawing (DZOFT, 7 November 2026; yellow held longer before the white, smaller bubble: client request, 20 November 2026). Full-bleed square: the phone rounds the corners.
        The bubble stays inside the central 80 % circle so the "maskable" crop never cuts it. -->
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFE600"/>
-      <stop offset="0.42" stop-color="#FFEE2E"/>
-      <stop offset="0.78" stop-color="#FFF8C4"/>
+      <stop offset="0" stop-color="#FFE500"/>
+      <stop offset="0.4" stop-color="#FFEE09"/>
+      <stop offset="0.5" stop-color="#FEF119"/>
+      <stop offset="0.6" stop-color="#FDF239"/>
+      <stop offset="0.7" stop-color="#FCF46B"/>
+      <stop offset="0.8" stop-color="#FBF6A1"/>
+      <stop offset="0.9" stop-color="#FBFAD7"/>
       <stop offset="1" stop-color="#FFFFFF"/>
     </linearGradient>
     <path id="bubble" d="M 467.9 678 L 330 770 L 346.2 611.8 A 240 205 0 1 1 467.9 678 Z"/>
   </defs>
   <rect width="1024" height="1024" fill="url(#bg)"/>
+  <g transform="translate(512 500) scale(0.86) translate(-512 -500)">
   <g stroke-linejoin="round" stroke-linecap="round">
     <use href="#bubble" fill="#fff" stroke="#fff" stroke-width="96"/>
     <use href="#bubble" transform="translate(16 22)" fill="#fff" stroke="#fff" stroke-width="96"/>
@@ -21,5 +26,6 @@
     <circle cx="420" cy="482" r="36"/>
     <circle cx="530" cy="482" r="36"/>
     <circle cx="640" cy="482" r="36"/>
+  </g>
   </g>
 </svg>
