@@ -17,3 +17,9 @@ test('Android: the upright-only screen is declared optional, so Google Play does
   assert.match(cfg,/'android:required': 'false'/);
   assert.match(cfg,/module\.exports = \(\) => optionalScreen\(\{/);
 });
+test('iPhone: the build can be sent to TestFlight from GitHub (App Store Connect app named, latest build without rebuilding)',()=>{
+  const eas=JSON.parse(fs.readFileSync('mobile/eas.json','utf8')),wf=fs.readFileSync('.github/workflows/ios-build.yml','utf8');
+  assert.match(eas.submit.production.ios.ascAppId,/^\d{9,11}$/);
+  assert.match(wf,/if: \$\{\{ inputs\.submit_latest \}\}\n\s+run: eas submit --platform ios --profile production --latest --non-interactive --no-wait/);
+  assert.match(wf,/if: \$\{\{ !inputs\.submit_latest \}\}\n\s+run: eas build --platform ios/);
+});
