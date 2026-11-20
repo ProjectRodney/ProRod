@@ -74,7 +74,7 @@ body[data-screen=people] .account-card h2,body[data-screen=people] .account-card
 body[data-screen=people] .people-compact .person b{font-size:14px;line-height:1.25;display:block;overflow-wrap:anywhere}
 body[data-screen=people] .people-compact .person.veiled b{font-size:16px}
 /* Blurred preview before the pass: the file is already a 20 px copy; the extra blur only smooths the pixels. */
-.pin-head img.pin-blur{filter:blur(5px);inset:-22%;width:144%;height:144%}
+.pin-head img.pin-blur{filter:blur(1.5px);inset:-22%;width:144%;height:144%}
 .avatar-letter{display:inline-flex;align-items:center;justify-content:center;background:#5005b0;color:#fffadd;font-weight:800;font-size:26px}
 /* Client request (13 Nov 2026): one frame around all the people (same width as the notice above, separate from it), no frame per person, bigger faces. */
 body[data-screen=people] .people.people-compact{background:#fffadd;border:1.5px solid #fff;border-radius:18px;padding:12px 6px 10px;gap:10px 0;margin-top:14px}
