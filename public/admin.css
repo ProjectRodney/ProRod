@@ -107,3 +107,10 @@ body.admin .button.danger{color:var(--red);border-color:#f3c4bf}
 body.admin .button.danger:hover{background:#fdecea}
 .off-list{margin:6px 0 14px}.off-list>summary{cursor:pointer;font-weight:650;color:var(--muted);padding:8px 0}
 #venue-edit{scroll-margin-top:72px}
+
+/* Going back (20 Nov 2026) */
+body.admin .link.back{display:inline-block;margin:0 0 6px;text-decoration:none;font-weight:650}
+body.admin .topbar a.link{display:block;text-decoration:none}
+body.admin header nav a.to-app{font-weight:650;white-space:nowrap}
+@media (max-width:860px){body.admin header nav a.to-app{font-size:13px}.topbar{flex-wrap:wrap}.topbar span{flex:1 0 100%}body.admin .topbar a.link{display:inline}}
+body.admin .item .link.back{margin:0 0 10px}
