@@ -45,3 +45,10 @@ test('updates over the air: tied to the builds they fit, published by hand, on t
   assert.match(wf,/eas update --channel production --environment production --message "\$UPDATE_MESSAGE" --non-interactive/);
   assert.match(wf,/UPDATE_MESSAGE: \$\{\{ inputs\.message \}\}/,'the message is passed as a variable, never pasted into the command');
 });
+test('the app tells the website which version runs, and the settings show it (to follow updates over the air)',()=>{
+  const app=fs.readFileSync('mobile/App.js','utf8'),web=fs.readFileSync('src/account.js','utf8'),inst=fs.readFileSync('public/pwa-install.js','utf8');
+  assert.match(app,/const APP_MARK = `UPZONEApp\/1\.0 \(\$\{Updates\.isEmbeddedLaunch \|\| !Updates\.updateId \? 'base' : Updates\.updateId\.slice\(0, 8\)\}\)`;/);
+  assert.match(app,/applicationNameForUserAgent=\{APP_MARK\}/);
+  assert.match(inst,/\/UPZONEApp\/\.test\(navigator\.userAgent\)/,'the install banner still recognises the app');
+  assert.match(web,/function appVersionLine\(\)\{const m=\/UPZONEApp\\\/\(\[\\d\.\]\+\)\(\?: \\\(\(\[\^\)\]\+\)\\\)\)\?\/\.exec\(navigator\.userAgent\|\|''\);if\(!m\)return '';/,'nothing is shown in a browser');
+});

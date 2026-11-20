@@ -5,9 +5,13 @@ import Constants from 'expo-constants';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import * as Notifications from 'expo-notifications';
+import * as Updates from 'expo-updates';
 
 const APP_URL = Constants.expoConfig?.extra?.appUrl || 'https://upzoneapp.fr/account.html';
 const APP_HOST = new URL(APP_URL).host;
+// How the app signs itself to the website: « UPZONEApp/1.0 (base) » as built, « UPZONEApp/1.0 (1a2b3c4d) » once an update
+// received over the air is in use. The website shows it at the bottom of the settings, to know what a tester is running.
+const APP_MARK = `UPZONEApp/1.0 (${Updates.isEmbeddedLaunch || !Updates.updateId ? 'base' : Updates.updateId.slice(0, 8)})`;
 // Pages that stay inside the app: UPZONE itself and its sign-in service. Everything else opens in the browser.
 const inside = (url) => {
   try {
@@ -90,7 +94,7 @@ export default function App() {
           style={[styles.web, failed && styles.hidden]}
           originWhitelist={['https://*']}
           onShouldStartLoadWithRequest={onNavigate}
-          applicationNameForUserAgent="UPZONEApp/1.0"
+          applicationNameForUserAgent={APP_MARK}
           allowsInlineMediaPlayback
           mediaPlaybackRequiresUserAction={false}
           mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"

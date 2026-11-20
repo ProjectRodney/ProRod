@@ -10,7 +10,7 @@ test('profile editing and settings keep each editable profile, recovery, export,
   const line=pre=>{const i=source.indexOf(pre);assert.ok(i>=0,pre);return source.slice(i,source.indexOf('\n',i));};
   const helpers=['const GEAR','const PEN','const ageBand','const deptName','const heightText','const subHead','const DEPTS'].map(line).join('\n');
   for(const pro of [false,true]){
-    const c=context({photoPreview:'',isPro:()=>pro,pinPhoto:()=>'<span class="pin"></span>',when:()=>'1/1',proData:pro?{status:'approved',enquiries:[]}:null,switchRow:()=>'<div class="account-switch"></div>',langChips:()=>'<div class="lang-choice"></div>',talentAlertsBlock:()=>'<h3>Talent alerts</h3>'});
+    const c=context({photoPreview:'',isPro:()=>pro,pinPhoto:()=>'<span class="pin"></span>',when:()=>'1/1',proData:pro?{status:'approved',enquiries:[]}:null,switchRow:()=>'<div class="account-switch"></div>',appVersionLine:()=>'',langChips:()=>'<div class="lang-choice"></div>',talentAlertsBlock:()=>'<h3>Talent alerts</h3>'});
     vm.runInContext(helpers+'\n'+['genderField','interestField','departmentField','heightField','editView','prefsView','profileHubView'].map(extract).join('\n'),c);
     const h=vm.runInContext('editView()+prefsView()',c);
     for(const attr of ['data-form="settings"','data-form="link-phone"','data-action="export"','data-action="delete"','data-action="signout"','data-action="push-on"','data-action="passkey-register"'])assert.equal(h.split(attr).length-1,1,attr+(pro?' (pro)':''));
