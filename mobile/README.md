@@ -37,6 +37,12 @@ it is not ready for the App Store as it is (see « Before the App Store »).
   `.aab` file appears on expo.dev → Builds; download it and upload it in Google Play Console → Tests → Test interne.
 - Installed on a real Android phone through the closed test on 20 November 2026. Notifications from the web app do not
   work inside the shell (same as iPhone).
+- Updates over the air (20 November 2026): the app contains `expo-updates`. GitHub → Actions → « App update over the air
+  (Expo) » → Run workflow sends the current script of the shell (`App.js` and its settings) to the phones that have a build
+  made from this version or later: no build, no store upload. The app fetches it at launch and uses it at the next launch.
+  It cannot add a native part or a permission; those still need a build and the store. Each update is tied to the builds
+  it fits (`runtimeVersion: fingerprint`), so after a native change the older builds simply stop receiving updates.
+  The website itself never needs any of this: the shell loads it live.
 - Reminders of the closed test (20 November 2026): until `testRemindersUntil` (`app.config.js`), the Android app plans two
   reminders a day (12:30 and 19:30) on the phone itself with `expo-notifications`. No server, no push token, no data
   collected. Opening the app cancels that day's reminders. To stop them earlier, put a past date and build again; after

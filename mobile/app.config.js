@@ -41,6 +41,12 @@ module.exports = () => optionalScreen({
     permissions: ['android.permission.CAMERA'],
     blockedPermissions: ['android.permission.RECORD_AUDIO', 'android.permission.READ_EXTERNAL_STORAGE', 'android.permission.WRITE_EXTERNAL_STORAGE'],
   },
+  // Updates over the air (20 Nov 2026): the app checks at launch for a newer version of its own script on Expo's update
+  // service and uses it at the next launch. Only the script can change this way; a new native part or permission still
+  // needs a build and the store. « fingerprint » ties each update to the builds whose native parts it was made for, so
+  // an update can never reach an app it does not fit.
+  runtimeVersion: { policy: 'fingerprint' },
+  updates: id.easProjectId ? { url: `https://u.expo.dev/${id.easProjectId}`, checkAutomatically: 'ON_LOAD', fallbackToCacheTimeout: 0 } : undefined,
   // Reminders of the closed test: planned on the phone, in the app's purple. See App.js.
   plugins: [['expo-notifications', { color: '#5005b0', defaultChannel: 'rappels' }]],
   // Last day of the test reminders (closed test opened on 20 November 2026; a margin for testers who join late).

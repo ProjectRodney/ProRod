@@ -34,3 +34,14 @@ test('Android closed test: two reminders a day planned on the phone, ending on a
   assert.doesNotMatch(app,/getExpoPushTokenAsync|getDevicePushTokenAsync/,'no push token: the phone is never identified');
   assert.doesNotMatch(app,/fetch\(|XMLHttpRequest/,'the shell itself sends nothing');
 });
+test('updates over the air: tied to the builds they fit, published by hand, on the production channel',()=>{
+  const cfg=fs.readFileSync('mobile/app.config.js','utf8'),eas=JSON.parse(fs.readFileSync('mobile/eas.json','utf8')),wf=fs.readFileSync('.github/workflows/mobile-update.yml','utf8'),pkg=JSON.parse(fs.readFileSync('mobile/package.json','utf8'));
+  assert.ok(pkg.dependencies['expo-updates'],'the update mechanism is part of the app');
+  assert.match(cfg,/runtimeVersion: \{ policy: 'fingerprint' \}/,'an update never reaches a build whose native parts differ');
+  assert.match(cfg,/url: `https:\/\/u\.expo\.dev\/\$\{id\.easProjectId\}`/);
+  assert.equal(eas.build.production.channel,'production');
+  assert.match(wf,/on:\n  workflow_dispatch:/,'by hand only');
+  assert.doesNotMatch(wf,/\n  push:|\n  schedule:/);
+  assert.match(wf,/eas update --channel production --environment production --message "\$UPDATE_MESSAGE" --non-interactive/);
+  assert.match(wf,/UPDATE_MESSAGE: \$\{\{ inputs\.message \}\}/,'the message is passed as a variable, never pasted into the command');
+});

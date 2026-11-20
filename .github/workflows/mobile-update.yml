@@ -1,0 +1,42 @@
+name: App update over the air (Expo)
+# Started by hand only (Actions → App update over the air (Expo) → Run workflow). Never runs on a push.
+# Sends the current script of the mobile shell (mobile/App.js and its settings) to the phones that already have a build
+# made with the update mechanism. No store upload, no build. It cannot add a native part or a permission: those need
+# « Android build (Expo) » / « iPhone build (Expo) » and the stores.
+# Needs: the repository secret EXPO_TOKEN and the values in mobile/identity.json.
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: What this update changes (shown on expo.dev)
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check the app identity is filled in
+        run: |
+          node -e "const i=require('./identity.json');const m=['owner','slug','easProjectId'].filter(k=>!i[k]);if(m.length){console.error('mobile/identity.json is missing: '+m.join(', '));process.exit(1)}"
+      - name: Check the Expo token is present
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: test -n "$EXPO_TOKEN" || { echo "The repository secret EXPO_TOKEN is not set."; exit 1; }
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - name: Publish the update
+        env:
+          UPDATE_MESSAGE: ${{ inputs.message }}
+        run: eas update --channel production --environment production --message "$UPDATE_MESSAGE" --non-interactive
