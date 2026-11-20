@@ -18,3 +18,10 @@ test('known phones, the installed app and links meant for the app go straight to
   assert.equal(run({standalone:true}),'./account.html','installed app');
   assert.equal(run({search:'?landing=1',store:{'prorod-auth':'{}'}}),null,'?landing=1 shows the page');
 });
+test('account deletion: a public page explains how, and the app also removes the photo files',()=>{
+  const page=fs.readFileSync('public/supprimer-mon-compte.html','utf8');
+  for(const s of ['Supprimer mon compte UPZONE','Delete my UPZONE account','Ce qui est supprimé','What is deleted','Ce qui peut être conservé','What may be kept','./account.html?start=signin'])assert.ok(page.includes(s),s);
+  assert.match(app,/await pushDisable\(true\);await removeMyPhotos\(\);await rpc\('delete_account'\);/);
+  assert.match(app,/client\.storage\.from\('avatars'\)\.list\(dir,\{limit:100\}\)/);
+  assert.ok(html.includes('./supprimer-mon-compte.html'));
+});

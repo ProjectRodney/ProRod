@@ -9,7 +9,7 @@ test('app icon badge shows only a count, from the in-app unread total; permissio
 });
 test('push notifications: generic text only, private subscriptions, removed at sign-out and account deletion',()=>{
   const s=fs.readFileSync('src/account.js','utf8'),sw=fs.readFileSync('public/sw.js','utf8'),fn=fs.readFileSync('supabase/functions/send-push/index.ts','utf8'),db=fs.readFileSync('db/2026-11-07-push-notifications.sql','utf8');
-  assert.match(s,/action==='signout'\)\{await pushDisable\(true\);/);assert.match(s,/await pushDisable\(true\);await rpc\('delete_account'\)/);
+  assert.match(s,/action==='signout'\)\{await pushDisable\(true\);/);assert.match(s,/await pushDisable\(true\);await removeMyPhotos\(\);await rpc\('delete_account'\)/);
   assert.match(s,/userVisibleOnly:true,applicationServerKey:keyBytes\(config\.vapidPublicKey\)/);
   assert.doesNotMatch(sw,/my_inbox|my_notifications|supabase|localStorage|indexedDB/,'no private data or API calls in the service worker');
   assert.match(sw,/target\.startsWith\(self\.registration\.scope\)/,'notification click only opens app pages');
