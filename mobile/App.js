@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, BackHandler, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -29,6 +29,16 @@ export default function App() {
     Linking.openURL(request.url).catch(() => {});
     return false;
   }, []);
+  // Android: the phone's back button goes to the previous screen of UPZONE; on the first screen it leaves the app.
+  const canGoBack = useRef(false);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return undefined;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (canGoBack.current && web.current) { web.current.goBack(); return true; }
+      return false;
+    });
+    return () => sub.remove();
+  }, []);
   const retry = () => { setFailed(false); setLoading(true); web.current?.reload(); };
 
   return (
@@ -49,6 +59,7 @@ export default function App() {
           allowsBackForwardNavigationGestures
           pullToRefreshEnabled
           setSupportMultipleWindows={false}
+          onNavigationStateChange={(state) => { canGoBack.current = state.canGoBack; }}
           onLoadEnd={() => setLoading(false)}
           onError={() => { setLoading(false); setFailed(true); }}
           onHttpError={(e) => { if (e.nativeEvent.statusCode >= 500) setFailed(true); }}

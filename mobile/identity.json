@@ -3,5 +3,6 @@
   "slug": "maforce75",
   "easProjectId": "1f8976c9-e607-4915-976c-91234fde3771",
   "iosBundleIdentifier": "com.upzone.app",
+  "androidPackage": "fr.upzoneapp.app",
   "appUrl": "https://upzoneapp.fr/account.html"
 }

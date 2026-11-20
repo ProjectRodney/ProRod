@@ -1,0 +1,39 @@
+name: Android build (Expo)
+# Started by hand only (Actions → Android build (Expo) → Run workflow). Never runs on a push.
+# Needs: the repository secret EXPO_TOKEN (an Expo access token) and the values in mobile/identity.json.
+# Produces an .aab file on expo.dev (Builds), to upload by hand in Google Play Console → Tests → Test interne.
+# Expo creates and keeps the upload key on the first build; Google Play signs the published app (Play App Signing).
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: Optional note for this build
+        type: string
+        default: ''
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check the app identity is filled in
+        run: |
+          node -e "const i=require('./identity.json');const m=['owner','slug','easProjectId','androidPackage'].filter(k=>!i[k]);if(m.length){console.error('mobile/identity.json is missing: '+m.join(', '));process.exit(1)}"
+      - name: Check the Expo token is present
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: test -n "$EXPO_TOKEN" || { echo "The repository secret EXPO_TOKEN is not set."; exit 1; }
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - name: Build for Android
+        run: eas build --platform android --profile production --non-interactive --no-wait

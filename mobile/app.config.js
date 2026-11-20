@@ -1,6 +1,6 @@
-// UPZONE for iPhone: a native shell around the web app (first step, for TestFlight).
-// The four identity values live in identity.json. They are not secrets, but they are permanent once a build
-// is uploaded to Apple, so they are filled in once, by the operator, and never guessed.
+// UPZONE for iPhone and Android: a native shell around the web app (first step: TestFlight and Google Play testing).
+// The identity values live in identity.json. They are not secrets, but they are permanent once a build
+// is uploaded to Apple or Google, so they are filled in once, by the operator, and never guessed.
 const id = require('./identity.json');
 
 module.exports = () => ({
@@ -21,6 +21,13 @@ module.exports = () => ({
       NSPhotoLibraryUsageDescription: 'UPZONE accède à tes photos seulement quand tu choisis une photo de profil.',
       CFBundleDevelopmentRegion: 'fr',
     },
+  },
+  android: {
+    package: id.androidPackage || undefined,
+    adaptiveIcon: { foregroundImage: './assets/icon.png', backgroundColor: '#fffc00' },
+    // Camera: the venue QR scanner and the profile photo. Nothing else is requested.
+    permissions: ['android.permission.CAMERA'],
+    blockedPermissions: ['android.permission.RECORD_AUDIO', 'android.permission.READ_EXTERNAL_STORAGE', 'android.permission.WRITE_EXTERNAL_STORAGE'],
   },
   extra: { appUrl: id.appUrl, eas: id.easProjectId ? { projectId: id.easProjectId } : undefined },
 });
