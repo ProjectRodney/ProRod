@@ -19,6 +19,8 @@ it is not ready for the App Store as it is (see « Before the App Store »).
 2. First build, once, from a computer: `npm ci`, then `npx eas-cli@latest build -p ios`. It asks to sign in to Expo and to the
    Apple developer account, and creates the signing credentials.
 3. Later builds: GitHub → Actions → « iPhone build (Expo) » → Run workflow. Needs the repository secret `EXPO_TOKEN`.
+   Tick « submit » to send the new build to TestFlight when it is ready, or « submit_latest » to send the latest finished
+   build without building again. The App Store Connect app is named in `eas.json` (`ascAppId`, the app's Apple ID, not a secret).
 
 ## Before the App Store
 - App Store Review Guideline 4.2: more than a repackaged website (native notifications, scanner, sign-in).

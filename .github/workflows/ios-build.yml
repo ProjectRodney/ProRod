@@ -10,6 +10,10 @@ on:
         description: Send the build to TestFlight when it is ready
         type: boolean
         default: false
+      submit_latest:
+        description: Do not build - send the latest finished iPhone build to TestFlight
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -35,5 +39,9 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
       - run: npm ci
+      - name: Send the latest finished build to TestFlight
+        if: ${{ inputs.submit_latest }}
+        run: eas submit --platform ios --profile production --latest --non-interactive --no-wait
       - name: Build for iPhone
+        if: ${{ !inputs.submit_latest }}
         run: eas build --platform ios --profile production --non-interactive --no-wait ${{ inputs.submit && '--auto-submit' || '' }}
