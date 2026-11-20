@@ -94,7 +94,7 @@ export const TU = {
 '18 ans minimum. Les autres membres voient votre âge, jamais votre date de naissance. Non modifiable après enregistrement.':'18 ans minimum. Les autres membres voient ton âge, jamais ta date de naissance. Non modifiable après enregistrement.',
 'Quelques mots sur vous':'Quelques mots sur toi',
 'Ce que vous aimez, ce qui vous amène…':'Ce que tu aimes, ce qui t’amène…',
-'Dans un lieu, les membres qui ont un pass pour ce lieu voient votre profil. Les autres voient seulement une version très floutée de votre photo, votre département et une tranche d’âge (ex. 26-30).':'Dans un lieu, les membres qui ont un pass pour ce lieu voient ton profil. Les autres voient seulement une version très floutée de ta photo, ton département et une tranche d’âge (ex. 26-30).',
+'Dans un lieu, les membres qui ont un pass pour ce lieu voient votre profil. Les autres voient seulement une petite version floutée de votre photo, votre département et une tranche d’âge (ex. 26-30).':'Dans un lieu, les membres qui ont un pass pour ce lieu voient ton profil. Les autres voient seulement une petite version floutée de ta photo, ton département et une tranche d’âge (ex. 26-30).',
 'Personne n’est obligé de répondre. Respectez les refus. Le harcèlement et l’usurpation d’identité sont interdits.':'Personne n’est obligé de répondre. Respecte les refus. Le harcèlement et l’usurpation d’identité sont interdits.',
 'VOTRE LIEU, VOTRE RYTHME':'TON LIEU, TON RYTHME',
 'VOTRE ESPACE':'TON ESPACE',

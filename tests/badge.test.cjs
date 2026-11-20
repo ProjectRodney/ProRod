@@ -165,7 +165,10 @@ test('blurred preview before the pass: a tiny picture sent inline, never a file 
   assert.match(db,/revoke all on function private\.set_avatar_blur_data\(text\), public\.set_avatar_blur_data\(text\) from public, anon;/);
   assert.match(v,/TEST: veiled row carries a path or an id/);
   assert.match(v,/TEST: an old blurred file \(named with a member id\) is readable by another member/);
-  assert.match(s,/canvas\.width=canvas\.height=20;/,'the blurred copy is 20 pixels wide');
+  assert.match(s,/const BLUR_SIDE=36;/,'the blurred copy is 36 pixels wide (20 Nov: a silhouette can be made out)');
+  assert.match(s,/canvas\.width=canvas\.height=BLUR_SIDE;/);
+  assert.match(s,/BLUR_SIDE,BLUR_SIDE\);bitmap\.close\?\.\(\);softenPixels\(ctx,BLUR_SIDE\);/,'the blur is applied to the stored pixels, not only on screen');
+  assert.match(s,/if\(profile\.avatar_blur&&await previewSide\(profile\.avatar_blur\)===BLUR_SIDE\)return;/,'a preview made at the old size is renewed when the member opens the app');
   assert.match(s,/rpc\('set_avatar_blur_data',\{p_data:data\}\)/);
   assert.match(s,/if\(m\.veiled&&\/\^data:image\\\/jpeg;base64,/,'the app only shows a JPEG data preview for veiled rows');
 });
