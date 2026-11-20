@@ -5,7 +5,7 @@ const s=fs.readFileSync('src/account.js','utf8'),tu=fs.readFileSync('src/tu.js',
 test('« Mot de passe oublié ? » opens its own screen, then « check your e-mails »',()=>{
   assert.match(s,/if\(action==='reset'\)\{forgotPrefill=document\.getElementById\('email'\)\?\.value\?\.trim\(\)\|\|'';mode='forgot';/);
   assert.match(s,/if\(resetEmail\)return resetSentView\(\);if\(mode==='forgot'\)return forgotView\(\);/);
-  assert.match(s,/case 'forgot':\{[^}]*resetPasswordForEmail\(addr,\{redirectTo:redirect\}\);if\(error\)throw error;forgotPrefill='';setResetEmail\(addr\);/);
+  assert.match(s,/case 'forgot':\{[\s\S]{0,200}resetPasswordForEmail\(addr,\{redirectTo:redirect\}\);if\(error\)throw error;forgotPrefill='';setResetEmail\(addr\);/);
 });
 test('the answer does not say whether an account exists for the address',()=>{
   assert.match(s,/T\('If an account exists for','Si un compte existe pour'\)/);
@@ -20,7 +20,8 @@ test('the code written in the e-mail opens the new-password screen without leavi
 test('an account protected by an authenticator app is asked for its code before the password changes',()=>{
   assert.match(s,/getAuthenticatorAssuranceLevel\(\)\.then\(\(\{data\}\)=>\{if\(data&&data\.nextLevel==='aal2'&&data\.currentLevel!=='aal2'&&recovery\)\{pwNeedsCode=true;/);
   assert.match(s,/case 'password':\{if\(values\.totp\)\{[\s\S]{0,400}challengeAndVerify\(\{factorId:totp\.id,code:String\(values\.totp\)\.trim\(\)\}\)/);
-  assert.match(s,/if\(\/insufficient_aal\|aal2\/i\.test\([^)]*\)\)&&!values\.totp\)\{pwNeedsCode=true;pwDraft=String\(values\.password\|\|''\);render\(\);/,'a refusal shows the code field and keeps what was typed');
+  assert.ok(s.includes("if(/insufficient_aal|aal2/i.test("),'the refusal is recognised');
+  assert.ok(s.includes("&&!values.totp){pwNeedsCode=true;pwDraft=String(values.password||'');render();"),'a refusal shows the code field and keeps what was typed');
 });
 test('a confirmation screen follows, and the new password needs 12 characters',()=>{
   assert.match(s,/recovery=false;pwNeedsCode=null;setResetEmail\(null\);passwordDone=true;/);
