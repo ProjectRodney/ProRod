@@ -55,7 +55,7 @@ test('typed form values survive a redraw (refused save, language switch, counts 
   const s=fs.readFileSync('src/account.js','utf8');
   assert.match(s,/function render\(\)\{const drafts=snapshotForms\(\);/);assert.match(s,/;restoreForms\(drafts\);/);
   assert.match(s,/\['password','file','hidden','submit'\]\.includes\(el\.type\)/);
-  assert.match(s,/form\.querySelector\('#photo'\)\?\.files\?\.\[0\]\|\|pendingPhoto/);
+  assert.match(s,/const file=pendingPhoto\|\|form\.querySelector\('#photo'\)\?\.files\?\.\[0\]/);
   assert.match(s,/&&!typing\(\)\)render\(\)/);
   for(const k of ['rules_required','unsupported_language','name_length'])assert.ok(s.includes(k+':['),k);
 });
