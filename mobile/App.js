@@ -46,8 +46,11 @@ async function planTestReminders() {
   // The channel comes first: since Android 13 the phone only shows the « allow notifications » question once the app has
   // a notification channel (Expo documentation). Asking before creating it showed nothing, so no reminder was ever planned.
   await Notifications.setNotificationChannelAsync('rappels', { name: 'Rappels du test', importance: Notifications.AndroidImportance.DEFAULT });
+  // Ask whenever notifications are not allowed yet, as Expo's own example does. The earlier version also required
+  // « canAskAgain », which some Android phones report as false before the question has ever been shown: the app then
+  // never asked. If the person has really refused for good, Android simply shows nothing and the answer stays « no ».
   let perm = await Notifications.getPermissionsAsync();
-  if (!perm.granted && perm.canAskAgain) perm = await Notifications.requestPermissionsAsync();
+  if (!perm.granted) perm = await Notifications.requestPermissionsAsync();
   if (!perm.granted) return;
   const day = new Date(); day.setHours(0, 0, 0, 0);
   for (let n = 1; n <= 30; n += 1) {
