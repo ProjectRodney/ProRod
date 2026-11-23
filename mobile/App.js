@@ -43,10 +43,12 @@ async function planTestReminders() {
   const end = REMIND_UNTIL ? new Date(REMIND_UNTIL + 'T23:59:59') : null;
   await Notifications.cancelAllScheduledNotificationsAsync();
   if (!end || isNaN(end) || Date.now() > end.getTime()) return;
+  // The channel comes first: since Android 13 the phone only shows the « allow notifications » question once the app has
+  // a notification channel (Expo documentation). Asking before creating it showed nothing, so no reminder was ever planned.
+  await Notifications.setNotificationChannelAsync('rappels', { name: 'Rappels du test', importance: Notifications.AndroidImportance.DEFAULT });
   let perm = await Notifications.getPermissionsAsync();
   if (!perm.granted && perm.canAskAgain) perm = await Notifications.requestPermissionsAsync();
   if (!perm.granted) return;
-  await Notifications.setNotificationChannelAsync('rappels', { name: 'Rappels du test', importance: Notifications.AndroidImportance.DEFAULT });
   const day = new Date(); day.setHours(0, 0, 0, 0);
   for (let n = 1; n <= 30; n += 1) {
     const d = new Date(day); d.setDate(d.getDate() + n);
