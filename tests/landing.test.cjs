@@ -30,3 +30,11 @@ test('child safety standards: a public page names UPZONE, the rules, in-app repo
   for(const s of ['Protection des mineurs sur UPZONE','Child safety standards on UPZONE','child sexual abuse and exploitation (CSAE)','child sexual abuse material (CSAM)','Signaler depuis l’application','Reporting from inside the app','119','internet-signalement.gouv.fr'])assert.ok(page.includes(s),s);
   assert.ok(fs.readFileSync('public/cgu.html','utf8').includes('./protection-des-mineurs.html'));
 });
+
+test('a phone that already has a session does not show the visitor page while the session is checked',()=>{
+  const fs=require('node:fs');
+  const app=fs.readFileSync('src/account.js','utf8'),css=fs.readFileSync('public/member-design.css','utf8');
+  assert.match(app,/try\{if\(localStorage\.getItem\('prorod-auth'\)\)document\.documentElement\.classList\.add\('booting-member'\);\}catch\{\}/,'only when a session is stored on the phone');
+  assert.match(app,/function render\(\)\{document\.documentElement\.classList\.remove\('booting-member'\);/,'the first real screen shows everything again');
+  assert.match(css,/html\.booting-member body>header nav,html\.booting-member \.account-intro\{display:none\}/,'no FR \/ EN buttons, no visitor welcome text meanwhile');
+});
