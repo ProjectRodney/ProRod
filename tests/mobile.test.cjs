@@ -24,25 +24,19 @@ test('iPhone: the build can be sent to TestFlight from GitHub (App Store Connect
   assert.match(wf,/if: \$\{\{ !inputs\.submit_latest \}\}\n\s+run: eas build --platform ios/);
 });
 test('Android closed test: two reminders a day planned on the phone, ending on a set date, nothing sent to a server',()=>{
-  const app=fs.readFileSync('mobile/App.js','utf8'),cfg=fs.readFileSync('mobile/app.config.js','utf8');
+  // How the reminders behave is run for real, with a pretend phone, in tests/reminders.test.cjs. Here: what must never be there.
+  const app=fs.readFileSync('mobile/App.js','utf8'),rem=fs.readFileSync('mobile/reminders.js','utf8'),cfg=fs.readFileSync('mobile/app.config.js','utf8');
   assert.match(cfg,/extra: \{ testRemindersUntil: '\d{4}-\d{2}-\d{2}', appUrl:/,'the last day is written in the configuration');
-  assert.match(app,/const REMIND_AT = \[\[12, 30\], \[19, 30\]\];/);
-  assert.match(app,/if \(Platform\.OS !== 'android'\) \{ d\.push\(`os=\$\{Platform\.OS\}`\); notifDiag = d\.join\(' '\); return \{ allowed: true \}; \}/,'Android only: nothing is asked or planned on iPhone');
-  assert.match(app,/await Notifications\.cancelAllScheduledNotificationsAsync\(\);\n\s+if \(!end \|\| isNaN\(end\) \|\| Date\.now\(\) > end\.getTime\(\)\) \{ d\.push\('until=over'\); notifDiag = d\.join\(' '\); return \{ allowed: true \}; \}/,'after the date everything is cancelled, nothing is asked and no invitation is shown');
-  assert.match(app,/for \(let n = 1; n <= 30; n \+= 1\)/,'from tomorrow: opening the app today cancels today\'s reminders');
-  // Android 13+: the phone asks « allow notifications? » only once a channel exists, so the channel is created first.
-  assert.ok(app.indexOf("setNotificationChannelAsync('rappels'")>0&&app.indexOf("setNotificationChannelAsync('rappels'")<app.indexOf('Notifications.requestPermissionsAsync()'),'channel before the permission question');
-  assert.match(app,/if \(!perm\.granted\) \{\n\s+const t = Date\.now\(\);\n\s+perm = await Notifications\.requestPermissionsAsync\(\);/,'asks whenever notifications are not allowed yet');
-  assert.doesNotMatch(app,/canAskAgain\) perm/,'never held back by canAskAgain');
-  // When Android shows no question, the app explains and opens the phone's settings; errors are no longer swallowed silently.
+  assert.match(rem,/const REMIND_AT = \[\[12, 30\], \[19, 30\]\];/);
+  assert.match(app,/import \{ planTestReminders \} from '\.\/reminders';/);
   assert.match(app,/if \(!r\.allowed\) inviteToAllow\(\);/);
-  assert.match(app,/Linking\.openSettings\(\)/);
-  assert.match(app,/d\.push\(`err=\$\{String\(e\?\.message \|\| e\)\.slice\(0, 90\)\}`\);/);
   assert.match(app,/window\.__upzoneNotif=\$\{JSON\.stringify\(notifDiag\)\}/);
   assert.match(fs.readFileSync('src/account.js','utf8'),/esc\(window\.__upzoneNotif\.slice\(0,200\)\)/,'the readout is escaped and bounded');
-  assert.match(app,/allowed = !!perm\.granted;\n\s+if \(allowed\) \{\n\s+let planned = 0;/,'nothing is planned without the tester\'s permission');
-  assert.doesNotMatch(app,/getExpoPushTokenAsync|getDevicePushTokenAsync/,'no push token: the phone is never identified');
-  assert.doesNotMatch(app,/fetch\(|XMLHttpRequest/,'the shell itself sends nothing');
+  for(const code of [app,rem]){
+    assert.doesNotMatch(code,/getExpoPushTokenAsync|getDevicePushTokenAsync/,'no push token: the phone is never identified');
+    assert.doesNotMatch(code,/fetch\(|XMLHttpRequest/,'the shell itself sends nothing');
+    assert.doesNotMatch(code,/\.catch\(\(\) => \{\}\); \}, \[\]\)/,'a failure while planning is never swallowed silently');
+  }
 });
 test('updates over the air: tied to the builds they fit, published by hand, on the production channel',()=>{
   const cfg=fs.readFileSync('mobile/app.config.js','utf8'),eas=JSON.parse(fs.readFileSync('mobile/eas.json','utf8')),wf=fs.readFileSync('.github/workflows/mobile-update.yml','utf8'),pkg=JSON.parse(fs.readFileSync('mobile/package.json','utf8'));
