@@ -29,7 +29,7 @@ test('Android closed test: two reminders a day planned on the phone, ending on a
   assert.match(cfg,/extra: \{ testRemindersUntil: '\d{4}-\d{2}-\d{2}', appUrl:/,'the last day is written in the configuration');
   assert.match(rem,/const REMIND_AT = \[\[12, 30\], \[19, 30\]\];/);
   assert.match(app,/import \{ notifRequest, planTestReminders \} from '\.\/reminders';/);
-  assert.match(app,/if \(!r\.allowed\) inviteToAllow\(\);/);
+  assert.match(app,/setAskNotif\(!r\.allowed\)/,'the band follows what the phone answered');
   assert.match(app,/window\.__upzoneNotif=\$\{JSON\.stringify\(notifDiag\)\}/);
   assert.match(fs.readFileSync('src/account.js','utf8'),/esc\(window\.__upzoneNotif\.slice\(0,200\)\)/,'the readout is escaped and bounded');
   for(const code of [app,rem]){
