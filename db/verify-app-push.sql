@@ -10,8 +10,6 @@ insert into public.profiles(user_id,display_name,birth_date,locale) values
 ('00000000-0000-4000-8000-000000009402','Membre B','1995-01-01','en');
 -- Where the announcement goes: a pretend address and secret, so the trigger has something to call.
 insert into private.app_settings(key,value) values('push_function_url','"https://example.invalid/send-push"') on conflict (key) do update set value=excluded.value;
-create temp table ap_calls(body jsonb) on commit drop;
-grant insert, select on ap_calls to public;
 
 -- The groups.
 do $$ begin
@@ -57,18 +55,34 @@ end $$;
 reset role;
 
 -- A notification for A is announced to A's phone, with its group; nothing is announced to B (no phone, no browser).
-insert into vault.secrets(name,secret) values('push_hook_secret','test-secret') on conflict do nothing;
-create or replace function pg_temp.last_call() returns jsonb language sql as $$ select body from net.calls order by id desc limit 1 $$;
-do $$ declare n0 bigint := (select count(*) from net.calls); b jsonb; begin
+-- The test never writes a secret: it uses the project's own push_hook_secret when there is one, and creates a throwaway
+-- one (rolled back) only when there is none. Requests are read from pg_net's queue when the SQL editor may read it;
+-- (only this test's own requests, to the address set above, are counted);
+-- otherwise the test relies on last_sent_at, which the trigger sets only after it has queued a request.
+do $$ begin
+  if not exists(select 1 from vault.decrypted_secrets where name='push_hook_secret') then perform vault.create_secret('test-secret','push_hook_secret'); end if;
+end $$;
+create or replace function pg_temp.calls() returns bigint language plpgsql as $f$
+begin return (select count(*) from net.http_request_queue where url='https://example.invalid/send-push');
+exception when insufficient_privilege or undefined_table then return null; end $f$;
+create or replace function pg_temp.last_call() returns jsonb language plpgsql as $f$
+begin return (select convert_from(body,'UTF8')::jsonb from net.http_request_queue where url='https://example.invalid/send-push' order by id desc limit 1);
+exception when insufficient_privilege or undefined_table then return null; end $f$;
+create or replace function pg_temp.unsent() returns void language sql as $f$ update public.app_devices set last_sent_at=null where user_id='00000000-0000-4000-8000-000000009401' $f$;
+create or replace function pg_temp.sent() returns boolean language sql as $f$ select exists(select 1 from public.app_devices where user_id='00000000-0000-4000-8000-000000009401' and last_sent_at is not null) $f$;
+do $$ declare n0 bigint := pg_temp.calls(); b jsonb; begin
+  perform pg_temp.unsent();
   insert into public.notifications(user_id,kind) values('00000000-0000-4000-8000-000000009401','introduction_received');
-  if (select count(*) from net.calls)<>n0+1 then raise exception 'TEST: no announcement for a member with a phone'; end if;
-  b := pg_temp.last_call();
-  if b->>'group'<>'meet' or b->>'kind'<>'introduction_received' or b->>'lang'<>'fr' then raise exception 'TEST: wrong announcement %', b; end if;
-  if b->'devices'<>'["ExponentPushToken[aaaaaaaaaaaaaaaaaaaaaa]"]'::jsonb or b->'subscriptions'<>'[]'::jsonb then raise exception 'TEST: wrong targets %', b; end if;
-  if b ? 'user_id' or b::text like '%Membre%' or b::text like '%example.invalid/ap-%' then raise exception 'TEST: the announcement carries personal data %', b; end if;
-  if (select last_sent_at from public.app_devices where user_id='00000000-0000-4000-8000-000000009401') is null then raise exception 'TEST: last_sent_at not set'; end if;
+  if not pg_temp.sent() then raise exception 'TEST: no announcement for a member with a phone'; end if;
+  if n0 is not null then
+    if pg_temp.calls()<>n0+1 then raise exception 'TEST: expected exactly one request'; end if;
+    b := pg_temp.last_call();
+    if b->>'group'<>'meet' or b->>'kind'<>'introduction_received' or b->>'lang'<>'fr' then raise exception 'TEST: wrong announcement %', b; end if;
+    if b->'devices'<>'["ExponentPushToken[aaaaaaaaaaaaaaaaaaaaaa]"]'::jsonb or b->'subscriptions'<>'[]'::jsonb then raise exception 'TEST: wrong targets %', b; end if;
+    if b ? 'user_id' or b::text like '%Membre%' or b::text like '%example.invalid/ap-%' then raise exception 'TEST: the announcement carries personal data %', b; end if;
+  end if;
   insert into public.notifications(user_id,kind) values('00000000-0000-4000-8000-000000009402','message_received');
-  if (select count(*) from net.calls)<>n0+1 then raise exception 'TEST: announcement for a member without any device'; end if;
+  if n0 is not null and pg_temp.calls()<>n0+1 then raise exception 'TEST: announcement for a member without any device'; end if;
 end $$;
 
 -- A switches « messages » off: no announcement for a message, still one for a hello, and always one for the account.
@@ -83,14 +97,16 @@ do $$ begin
   perform public.set_notification_pref('messages',false); -- twice: no error
 end $$;
 reset role;
-do $$ declare n0 bigint := (select count(*) from net.calls); begin
+do $$ declare n0 bigint := pg_temp.calls(); begin
+  perform pg_temp.unsent();
   insert into public.notifications(user_id,kind) values('00000000-0000-4000-8000-000000009401','message_received');
-  if (select count(*) from net.calls)<>n0 then raise exception 'TEST: a switched-off group was announced'; end if;
+  if pg_temp.sent() or pg_temp.calls()<>n0 then raise exception 'TEST: a switched-off group was announced'; end if;
   if (select count(*) from public.notifications where user_id='00000000-0000-4000-8000-000000009401' and kind='message_received')<>1 then raise exception 'TEST: the notification itself must still exist in the app'; end if;
   insert into public.notifications(user_id,kind) values('00000000-0000-4000-8000-000000009401','reply_received');
-  if (select count(*) from net.calls)<>n0+1 then raise exception 'TEST: another group was silenced too'; end if;
+  if not pg_temp.sent() or pg_temp.calls()<>n0+1 then raise exception 'TEST: another group was silenced too'; end if;
+  perform pg_temp.unsent();
   insert into public.notifications(user_id,kind) values('00000000-0000-4000-8000-000000009401','account_restricted');
-  if (select count(*) from net.calls)<>n0+2 or pg_temp.last_call()->>'group'<>'account' then raise exception 'TEST: account information not announced'; end if;
+  if not pg_temp.sent() or pg_temp.calls()<>n0+2 or pg_temp.last_call()->>'group'<>'account' then raise exception 'TEST: account information not announced'; end if;
 end $$;
 set local role authenticated;
 do $$ begin
@@ -124,5 +140,6 @@ do $$ begin
   delete from auth.users where id='00000000-0000-4000-8000-000000009402';
   if exists(select 1 from public.app_devices where user_id='00000000-0000-4000-8000-000000009402') or exists(select 1 from private.notification_mutes where user_id='00000000-0000-4000-8000-000000009402') then raise exception 'TEST: phones or choices survive the account'; end if;
 end $$;
-select 'PASS: app push (register, refuse, groups, switch off, move between accounts, limit, deletion)' as result;
+select 'PASS: app push (register, refuse, groups, switch off, move between accounts, limit, deletion)'
+  || case when pg_temp.calls() is null then ' — content of the request not read (pg_net queue not readable here)' else ' — content of the request checked' end as result;
 rollback;
