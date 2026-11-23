@@ -10,8 +10,6 @@ insert into public.profiles(user_id,display_name,birth_date,locale) values
 ('00000000-0000-4000-8000-000000009402','Membre B','1995-01-01','en');
 -- Where the announcement goes: a pretend address and secret, so the trigger has something to call.
 insert into private.app_settings(key,value) values('push_function_url','"https://example.invalid/send-push"') on conflict (key) do update set value=excluded.value;
-create temp table ap_calls(body jsonb) on commit drop;
-grant insert, select on ap_calls to public;
 
 -- The groups.
 do $$ begin
