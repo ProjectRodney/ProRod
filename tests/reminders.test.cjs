@@ -1,7 +1,7 @@
 // The Android test reminders, run for real with a pretend phone (23 Nov 2026). No emulator: the phone's services are
 // replaced by stand-ins whose answers each test chooses, and the app's own code (mobile/reminders.js, mobile/App.js) runs.
 const test=require('node:test'),assert=require('node:assert'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
-const {planTestReminders}=require('../mobile/reminders.js');
+const {planTestReminders,notifRequest,TEST_TEXT}=require('../mobile/reminders.js');
 const NOW=new Date('2026-11-23T11:00:00').getTime();
 
 // A pretend phone. `before` / `after`: what it answers before and after the question; `hang`: a step that never answers.
@@ -9,7 +9,7 @@ function phone({before={status:'undetermined',granted:false,canAskAgain:true},af
  const log=[],never=new Promise(()=>{});
  const step=(name,value)=>{log.push(name);if(fail===name)return Promise.reject(new Error('boom '+name));if(hang===name)return never;return Promise.resolve(value);};
  return {log,planned:[],Notifications:{
-  AndroidImportance:{DEFAULT:3},SchedulableTriggerInputTypes:{DATE:'date'},
+  AndroidImportance:{DEFAULT:3},SchedulableTriggerInputTypes:{DATE:'date',TIME_INTERVAL:'interval'},
   cancelAllScheduledNotificationsAsync:()=>step('cancel'),
   setNotificationChannelAsync:()=>step('channel'),
   getPermissionsAsync:()=>step('get',before),
@@ -88,7 +88,8 @@ function startApp({before,after,hang,appState='active'}={}){
  const seen={alerts:[],injected:[],opened:0,listeners:[]};
  const notif=Object.assign(p.Notifications,{setNotificationHandler(){}});
  const effects=[];
- const React={createElement:(type,props,...kids)=>({type,props:props||{},kids}),useRef:(v)=>({current:v}),useState:(v)=>[v,()=>{}],useCallback:(f)=>f,useEffect:(f)=>{effects.push(f);},Fragment:'frag'};
+ const webProps={};
+ const React={createElement:(type,props,...kids)=>{if(type==='W')Object.assign(webProps,props);return {type,props:props||{},kids};},useRef:(v)=>({current:v}),useState:(v)=>[v,()=>{}],useCallback:(f)=>f,useEffect:(f)=>{effects.push(f);},Fragment:'frag'};
  const webRef={current:{injectJavaScript:(js)=>seen.injected.push(js),reload(){},goBack(){}}};
  React.useRef=(v)=>(v===null?webRef:{current:v});
  const mocks={
@@ -103,7 +104,8 @@ function startApp({before,after,hang,appState='active'}={}){
  m.require=(id)=>{if(id in mocks)return mocks[id];throw new Error('unexpected import in App.js: '+id);};
  m._compile(code,file);
  const App=m.exports.default;App();effects.forEach(f=>f());
- return {seen,p,settle:()=>new Promise(r=>setTimeout(r,60))};
+ const fromPage=(data,url='https://upzoneapp.fr/account.html')=>webProps.onMessage({nativeEvent:{data:typeof data==='string'?data:JSON.stringify(data),url}});
+ return {seen,p,fromPage,settle:()=>new Promise(r=>setTimeout(r,60))};
 }
 
 test('app start, the phone refuses without a question: the app shows its own invitation, with the readout, and « Autoriser » opens the phone settings',async()=>{
@@ -132,4 +134,58 @@ test('back from the phone settings with notifications switched on: reminders are
  a.seen.listeners.forEach(f=>f('active'));await a.settle();
  assert.ok(a.p.Notifications._p.length>0,'planned after coming back');
  assert.equal(a.seen.alerts.length,1,'still one invitation only');
+});
+
+// --- UPZONE's settings screen asks the app: status, turn on, send a test ---
+const ask=(p,action,extra={})=>notifRequest({Notifications:p.Notifications,action,wait:fast,...extra});
+
+test('settings: « status » says whether notifications are allowed, without asking anything',async()=>{
+ const on=phone({before:{status:'granted',granted:true,canAskAgain:true}});
+ assert.deepEqual(await ask(on,'status'),{allowed:true});assert.ok(!on.log.includes('request'));
+ const off=phone();assert.deepEqual(await ask(off,'status'),{allowed:false});assert.ok(!off.log.includes('request'));
+});
+
+test('settings: « Envoyer un test » plans one notification five seconds later, only if notifications are allowed',async()=>{
+ const on=phone({before:{status:'granted',granted:true,canAskAgain:true}});
+ assert.deepEqual(await ask(on,'test'),{allowed:true,test:'sent'});
+ const sent=on.Notifications._p;assert.equal(sent.length,1);
+ assert.equal(sent[0].content.body,TEST_TEXT);
+ assert.deepEqual(sent[0].trigger,{type:'interval',seconds:5,channelId:'rappels'});
+ const off=phone();assert.deepEqual(await ask(off,'test'),{allowed:false,test:'blocked'});assert.equal(off.Notifications._p.length,0);
+});
+
+test('settings: « Activer » asks Android; if the answer is no or Android stays silent, the phone settings for UPZONE open',async()=>{
+ let opened=0;const open=async()=>{opened++;};
+ const yes=phone();assert.deepEqual(await ask(yes,'enable',{openSettings:open}),{allowed:true});assert.equal(opened,0);
+ const no=phone({after:{status:'denied',granted:false,canAskAgain:false}});
+ assert.deepEqual(await ask(no,'enable',{openSettings:open}),{allowed:false,opened:true});assert.equal(opened,1);
+ const silent=phone({hang:'request'});
+ assert.deepEqual(await ask(silent,'enable',{openSettings:open,isForeground:()=>true}),{allowed:false,opened:true});assert.equal(opened,2);
+});
+
+test('settings: a phone service that fails is reported in the state, never thrown',async()=>{
+ const r=await ask(phone({fail:'get'}),'status');assert.equal(r.allowed,false);assert.match(r.error,/boom get/);
+});
+
+test('app: a message from UPZONE\'s settings gets an answer in the page; anything else is ignored',async()=>{
+ const a=startApp({before:{status:'granted',granted:true,canAskAgain:true}});await a.settle();
+ a.seen.injected.length=0;
+ a.fromPage({upzone:'notif',action:'test'});await a.settle();
+ assert.ok(a.seen.injected.some(js=>js.includes('window.__upzoneNotifState={"allowed":true,"test":"sent"}')&&js.includes("dispatchEvent(new Event('upzone-notif'))")));
+ assert.ok(a.p.Notifications._p.some(x=>x.content.body===TEST_TEXT));
+ a.seen.injected.length=0;const before=a.p.Notifications._p.length;
+ a.fromPage('not json');a.fromPage({upzone:'notif',action:'delete-everything'});a.fromPage({other:1});
+ a.fromPage({upzone:'notif',action:'test'},'https://example.org/evil.html');
+ await a.settle();
+ assert.equal(a.seen.injected.length,0,'no answer to unknown requests or to a page that is not UPZONE');
+ assert.equal(a.p.Notifications._p.length,before);
+});
+
+test('website: inside the app the settings show the app\'s own notification row; in a browser nothing changes',()=>{
+ const web=fs.readFileSync(path.join(__dirname,'..','src','account.js'),'utf8'),tu=fs.readFileSync(path.join(__dirname,'..','src','tu.js'),'utf8');
+ assert.match(web,/const appNotifReady=\(\)=>\/UPZONEApp\/\.test\(navigator\.userAgent\|\|''\)&&!!window\.ReactNativeWebView&&typeof window\.__upzoneNotifState==='object'&&!!window\.__upzoneNotifState;/);
+ assert.match(web,/function pushBlock\(\)\{if\(appNotifReady\(\)\)return appNotifBlock\(\);const st=pushSupport\(\);/);
+ assert.match(web,/data-action="app-notif-test"/);assert.match(web,/data-action="app-notif-enable"/);
+ assert.match(web,/postMessage\(JSON\.stringify\(\{upzone:'notif',action\}\)\)/);
+ assert.ok(tu.includes('actives-y les notifications, puis reviens ici'));
 });

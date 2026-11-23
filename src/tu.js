@@ -58,6 +58,7 @@ export const TU = {
 'Cette photo n’a pas pu être lue. Utilisez « Choisir depuis mes fichiers », ou essayez une autre photo.':'Cette photo n’a pas pu être lue. Utilise « Choisir depuis mes fichiers », ou essaie une autre photo.',
 'Votre téléphone n’a pas laissé l’application lire cette photo. Choisissez-la plutôt depuis vos fichiers : c’est la même photo, ouverte autrement.':'Ton téléphone n’a pas laissé l’application lire cette photo. Choisis-la plutôt depuis tes fichiers : c’est la même photo, ouverte autrement.',
 'Choisissez un fichier image (une photo).':'Choisis un fichier image (une photo).',
+'Les réglages du téléphone pour UPZONE sont ouverts : activez-y les notifications, puis revenez ici.':'Les réglages du téléphone pour UPZONE sont ouverts : actives-y les notifications, puis reviens ici.',
 'Confirmez votre adresse':'Confirme ton adresse',
 'Il est dans les spams ? Le bouton de l’e-mail y est souvent bloqué. Le code écrit dans l’e-mail fonctionne quand même : tapez-le ici.':'Il est dans les spams ? Le bouton de l’e-mail y est souvent bloqué. Le code écrit dans l’e-mail fonctionne quand même : tape-le ici.',
 'Vous pouvez aussi appuyer sur le bouton de l’e-mail, puis revenir ici pour vous connecter.':'Tu peux aussi appuyer sur le bouton de l’e-mail, puis revenir ici pour te connecter.',

@@ -6,7 +6,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
-import { planTestReminders } from './reminders';
+import { notifRequest, planTestReminders } from './reminders';
 
 const APP_URL = Constants.expoConfig?.extra?.appUrl || 'https://upzoneapp.fr/account.html';
 const APP_HOST = new URL(APP_URL).host;
@@ -28,7 +28,8 @@ const inside = (url) => {
 // Test reminders: the whole decision is in reminders.js (run for real in the tests with a pretend phone).
 const REMIND_UNTIL = Constants.expoConfig?.extra?.testRemindersUntil || '';
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({ shouldShowBanner: false, shouldShowList: false, shouldPlaySound: false, shouldSetBadge: false }),
+  // Shown even while the app is open: the « Envoyer un test » button of the settings fires one five seconds later.
+  handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false }),
 });
 // What happened, in a few characters: shown in the app's settings and in the invitation below.
 let notifDiag = '';
@@ -79,12 +80,26 @@ export default function App() {
   }, []);
   // The website shows the readout at the bottom of the settings (window.__upzoneNotif).
   const tellSite = useCallback(() => { web.current?.injectJavaScript(`window.__upzoneNotif=${JSON.stringify(notifDiag)};true;`); }, []);
+  // UPZONE's settings screen talks to the app: are notifications allowed, turn them on, send a test (reminders.js).
+  // Only pages of UPZONE itself are listened to.
+  const answerSite = useCallback((action) => {
+    notifRequest({ Notifications, action, openSettings: () => Linking.openSettings(), isForeground: () => AppState.currentState === 'active' }).then((state) => {
+      web.current?.injectJavaScript(`window.__upzoneNotifState=${JSON.stringify(state)};window.dispatchEvent(new Event('upzone-notif'));true;`);
+      if (action === 'enable' && state.allowed) runReminders(tellSite).then(tellSite);
+    });
+  }, [tellSite]);
+  const onMessage = useCallback((event) => {
+    if (Platform.OS !== 'android' || !inside(event.nativeEvent.url)) return;
+    let msg = null;
+    try { msg = JSON.parse(event.nativeEvent.data); } catch { return; }
+    if (msg && msg.upzone === 'notif' && ['status', 'enable', 'test'].includes(msg.action)) answerSite(msg.action);
+  }, [answerSite]);
   useEffect(() => {
     runReminders(tellSite).then((r) => { tellSite(); if (!r.allowed) inviteToAllow(); });
     // Back from the phone's settings (or from Android's own question): plan the reminders now, without a second invitation.
-    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') runReminders(tellSite).then(tellSite); });
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') { runReminders(tellSite).then(tellSite); if (Platform.OS === 'android') answerSite('status'); } });
     return () => sub.remove();
-  }, [tellSite]);
+  }, [tellSite, answerSite]);
   const retry = () => { setFailed(false); setLoading(true); web.current?.reload(); };
 
   return (
@@ -106,7 +121,8 @@ export default function App() {
           pullToRefreshEnabled
           setSupportMultipleWindows={false}
           onNavigationStateChange={(state) => { canGoBack.current = state.canGoBack; }}
-          onLoadEnd={() => { setLoading(false); tellSite(); }}
+          onLoadEnd={() => { setLoading(false); tellSite(); if (Platform.OS === 'android') answerSite('status'); }}
+          onMessage={onMessage}
           onError={() => { setLoading(false); setFailed(true); }}
           onHttpError={(e) => { if (e.nativeEvent.statusCode >= 500) setFailed(true); }}
           onContentProcessDidTerminate={() => web.current?.reload()}
