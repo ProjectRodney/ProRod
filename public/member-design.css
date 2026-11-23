@@ -255,3 +255,5 @@ body>header nav button.head-me .pin{display:block}
 .photo-fallback p{margin:0 0 8px;font-size:.95rem;color:#5c4300}
 .photo-fallback .photo-pick{width:100%;margin:0}
 .photo-fallback .photo-code{display:block;margin-top:8px;font-size:.78rem;color:#7a6520;word-break:break-all}
+/* A known member's phone, while the session is being checked: no visitor welcome text, no FR / EN buttons. */
+html.booting-member body>header nav,html.booting-member .account-intro{display:none}
