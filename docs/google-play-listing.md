@@ -175,8 +175,10 @@ Filled in by DZOFT with the operator's account; the operator answers for these d
   visited), name, e-mail address, user ID, sexual orientation (optional), other info, in-app messages (optional), photos,
   app interactions, other user-generated content (optional). Purposes: app functionality, plus account management for
   identity data and fraud prevention / security for messages, visits, content and user ID; « advertising or marketing »
-  also ticked for exact location because of the opt-in talent alerts. « Device or other IDs » not declared: web
-  notifications do not work inside the Android shell; declare it if notifications are added to the app.
+  also ticked for exact location because of the opt-in talent alerts. « Device or other IDs » not declared on 20 November: web
+  notifications do not work inside the Android shell. **To declare before publishing a build with the push service**
+  (23 Nov 2026, `docs/app-push-setup.md`): Device or other IDs → collected, not shared, optional, purpose « app
+  functionality » (the phone's address for notifications, removed at sign-out).
 - Government, financial features, health: none.
 - Child safety standards: the link above, the developer account's address as contact, both conditions ticked (in-app
   reporting; compliance with child safety laws and reporting to the authorities, which is the operator's commitment).

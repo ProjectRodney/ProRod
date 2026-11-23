@@ -32,8 +32,10 @@ test('Android closed test: two reminders a day planned on the phone, ending on a
   assert.match(app,/setAskNotif\(!r\.allowed\)/,'the band follows what the phone answered');
   assert.match(app,/window\.__upzoneNotif=\$\{JSON\.stringify\(notifDiag\)\}/);
   assert.match(fs.readFileSync('src/account.js','utf8'),/esc\(window\.__upzoneNotif\.slice\(0,200\)\)/,'the readout is escaped and bounded');
+  // The reminders themselves stay on the phone: the file that plans them never asks for the phone's push address.
+  assert.doesNotMatch(rem.split('// What UPZONE\'s own settings screen can ask the app')[0],/getToken|PushToken/,'planning reminders identifies nothing');
+  assert.doesNotMatch(app,/getDevicePushTokenAsync/,'only Expo\'s token, never the raw device token');
   for(const code of [app,rem]){
-    assert.doesNotMatch(code,/getExpoPushTokenAsync|getDevicePushTokenAsync/,'no push token: the phone is never identified');
     assert.doesNotMatch(code,/fetch\(|XMLHttpRequest/,'the shell itself sends nothing');
     assert.doesNotMatch(code,/\.catch\(\(\) => \{\}\); \}, \[\]\)/,'a failure while planning is never swallowed silently');
   }

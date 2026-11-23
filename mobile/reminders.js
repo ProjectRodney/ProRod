@@ -74,28 +74,53 @@ async function planTestReminders({ Notifications, os, version, until, now = () =
 // (ask; if Android will not ask or the answer is no, open the phone's settings for UPZONE) and « test » (show a
 // notification in five seconds, so that anyone can see for themselves that it works). Returns a small state object.
 const TEST_TEXT = 'Test réussi : les notifications fonctionnent sur ce téléphone.';
-async function notifRequest({ Notifications, action, openSettings = async () => {}, isForeground = () => true, wait = setTimeout }) {
+// The notification categories of the app, as Android shows them in the phone's settings. The server names the category
+// of each notification it sends (db/2026-11-23-app-push.sql, private.push_group): the ids must stay the same on both sides.
+const CHANNELS = [
+  ['meet', 'Rencontres', 'HIGH'],
+  ['messages', 'Messages', 'HIGH'],
+  ['talents', 'Talents', 'DEFAULT'],
+  ['account', 'Compte', 'DEFAULT'],
+  ['rappels', 'Rappels du test', 'DEFAULT'],
+];
+async function ensureChannels(Notifications, wait) {
+  for (const [id, name, level] of CHANNELS) {
+    await within(Notifications.setNotificationChannelAsync(id, { name, importance: Notifications.AndroidImportance[level] }), STEP_LIMIT, 'channel', wait);
+  }
+}
+// When notifications are allowed, the state also carries the phone's push token (`getToken`), which the page hands to
+// the server so that UPZONE can reach this phone; a version of the app built without the push service simply has none.
+async function notifRequest({ Notifications, action, platform = 'android', getToken = null, openSettings = async () => {}, isForeground = () => true, wait = setTimeout }) {
+  const withToken = async (state) => {
+    if (!state.allowed || !getToken) return { ...state, platform };
+    try {
+      const token = await within(getToken(), STEP_LIMIT, 'token', wait);
+      return typeof token === 'string' && token ? { ...state, platform, token } : { ...state, platform, tokenError: 'empty' };
+    } catch (e) {
+      return { ...state, platform, tokenError: String((e && e.message) || e).slice(0, 90) };
+    }
+  };
   try {
-    await within(Notifications.setNotificationChannelAsync('rappels', { name: 'Rappels du test', importance: Notifications.AndroidImportance.DEFAULT }), STEP_LIMIT, 'channel', wait);
+    if (platform === 'android') await ensureChannels(Notifications, wait);
     let perm = await within(Notifications.getPermissionsAsync(), STEP_LIMIT, 'get', wait);
     if (action === 'enable' && !perm.granted) {
       const asked = Notifications.requestPermissionsAsync();
       const first = await Promise.race([asked.then((p) => ({ p })), new Promise((resolve) => wait(() => resolve({ late: true }), QUESTION_WAIT))]);
       if (first.p) perm = first.p; else if (!isForeground()) perm = await asked;
-      if (!perm.granted) { await openSettings(); return { allowed: false, opened: true }; }
+      if (!perm.granted) { await openSettings(); return { allowed: false, opened: true, platform }; }
     }
     if (action === 'test') {
-      if (!perm.granted) return { allowed: false, test: 'blocked' };
+      if (!perm.granted) return { allowed: false, test: 'blocked', platform };
       await within(Notifications.scheduleNotificationAsync({
         content: { title: 'UPZONE', body: TEST_TEXT },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 5, channelId: 'rappels' },
       }), STEP_LIMIT, 'test', wait);
-      return { allowed: true, test: 'sent' };
+      return withToken({ allowed: true, test: 'sent' });
     }
-    return { allowed: !!perm.granted };
+    return withToken({ allowed: !!perm.granted });
   } catch (e) {
-    return { allowed: false, error: String((e && e.message) || e).slice(0, 90) };
+    return { allowed: false, platform, error: String((e && e.message) || e).slice(0, 90) };
   }
 }
 
-module.exports = { planTestReminders, notifRequest, REMIND_AT, REMIND_TEXT, TEST_TEXT };
+module.exports = { planTestReminders, notifRequest, CHANNELS, REMIND_AT, REMIND_TEXT, TEST_TEXT };

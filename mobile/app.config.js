@@ -40,6 +40,10 @@ module.exports = () => optionalScreen({
     // Camera: the venue QR scanner and the profile photo. Nothing else is requested.
     permissions: ['android.permission.CAMERA'],
     blockedPermissions: ['android.permission.RECORD_AUDIO', 'android.permission.READ_EXTERNAL_STORAGE', 'android.permission.WRITE_EXTERNAL_STORAGE'],
+    // Notifications sent by UPZONE to the phone (23 Nov 2026) go through Google's push service, which needs the app's
+    // Firebase file. It is given to the build as an Expo environment variable of type « file » (GOOGLE_SERVICES_JSON),
+    // never committed: see docs/app-push-setup.md. Without it the app builds as before and receives no such notification.
+    ...(process.env.GOOGLE_SERVICES_JSON ? { googleServicesFile: process.env.GOOGLE_SERVICES_JSON } : {}),
   },
   // Updates over the air (20 Nov 2026): the app checks at launch for a newer version of its own script on Expo's update
   // service and uses it at the next launch. Only the script can change this way; a new native part or permission still
