@@ -96,9 +96,9 @@ function startApp({before,after,hang,appState='active'}={}){
  const mocks={
   'react':React,'react/jsx-runtime':{jsx:el,jsxs:el,Fragment:'frag'},
   'react-native':{ActivityIndicator:'A',AppState:{currentState:appState,addEventListener:(e,f)=>{seen.listeners.push(f);return {remove(){}};}},BackHandler:{addEventListener:()=>({remove(){}})},Linking:{openURL:()=>Promise.resolve(),openSettings:()=>{seen.opened++;return Promise.resolve();}},Platform:{OS:'android',Version:34},Pressable:'P',StyleSheet:{create:(x)=>x,absoluteFillObject:{}},Text:'T',View:'V'},
-  'expo-status-bar':{StatusBar:'S'},'expo-constants':{__esModule:true,default:{expoConfig:{extra:{testRemindersUntil:'2099-12-31',appUrl:'https://upzoneapp.fr/account.html'}}}},
+  'expo-status-bar':{StatusBar:'S'},'expo-constants':{__esModule:true,default:{expoConfig:{extra:{testRemindersUntil:'2099-12-31',appUrl:'https://upzoneapp.fr/account.html',eas:{projectId:'project-1'}}}}},
   'react-native-safe-area-context':{SafeAreaProvider:'SP',SafeAreaView:'SV'},'react-native-webview':{WebView:'W'},
-  'expo-notifications':notif,'expo-updates':{isEmbeddedLaunch:false,updateId:'01a2080f-ef01'},
+  'expo-notifications':Object.assign(notif,{getExpoPushTokenAsync:async(o)=>{seen.tokenAsked=o;return {data:'ExponentPushToken[pretendphone00000000]'};}}),'expo-updates':{isEmbeddedLaunch:false,updateId:'01a2080f-ef01'},
   './reminders':require('../mobile/reminders.js'),
  };
  const m=new Module(file);m.filename=file;m.paths=Module._nodeModulePaths(path.dirname(file));
@@ -164,26 +164,26 @@ const ask=(p,action,extra={})=>notifRequest({Notifications:p.Notifications,actio
 
 test('settings: « status » says whether notifications are allowed, without asking anything',async()=>{
  const on=phone({before:{status:'granted',granted:true,canAskAgain:true}});
- assert.deepEqual(await ask(on,'status'),{allowed:true});assert.ok(!on.log.includes('request'));
- const off=phone();assert.deepEqual(await ask(off,'status'),{allowed:false});assert.ok(!off.log.includes('request'));
+ assert.deepEqual(await ask(on,'status'),{allowed:true,platform:'android'});assert.ok(!on.log.includes('request'));
+ const off=phone();assert.deepEqual(await ask(off,'status'),{allowed:false,platform:'android'});assert.ok(!off.log.includes('request'));
 });
 
 test('settings: « Envoyer un test » plans one notification five seconds later, only if notifications are allowed',async()=>{
  const on=phone({before:{status:'granted',granted:true,canAskAgain:true}});
- assert.deepEqual(await ask(on,'test'),{allowed:true,test:'sent'});
+ assert.deepEqual(await ask(on,'test'),{allowed:true,test:'sent',platform:'android'});
  const sent=on.Notifications._p;assert.equal(sent.length,1);
  assert.equal(sent[0].content.body,TEST_TEXT);
  assert.deepEqual(sent[0].trigger,{type:'interval',seconds:5,channelId:'rappels'});
- const off=phone();assert.deepEqual(await ask(off,'test'),{allowed:false,test:'blocked'});assert.equal(off.Notifications._p.length,0);
+ const off=phone();assert.deepEqual(await ask(off,'test'),{allowed:false,test:'blocked',platform:'android'});assert.equal(off.Notifications._p.length,0);
 });
 
 test('settings: « Activer » asks Android; if the answer is no or Android stays silent, the phone settings for UPZONE open',async()=>{
  let opened=0;const open=async()=>{opened++;};
- const yes=phone();assert.deepEqual(await ask(yes,'enable',{openSettings:open}),{allowed:true});assert.equal(opened,0);
+ const yes=phone();assert.deepEqual(await ask(yes,'enable',{openSettings:open}),{allowed:true,platform:'android'});assert.equal(opened,0);
  const no=phone({after:{status:'denied',granted:false,canAskAgain:false}});
- assert.deepEqual(await ask(no,'enable',{openSettings:open}),{allowed:false,opened:true});assert.equal(opened,1);
+ assert.deepEqual(await ask(no,'enable',{openSettings:open}),{allowed:false,opened:true,platform:'android'});assert.equal(opened,1);
  const silent=phone({hang:'request'});
- assert.deepEqual(await ask(silent,'enable',{openSettings:open,isForeground:()=>true}),{allowed:false,opened:true});assert.equal(opened,2);
+ assert.deepEqual(await ask(silent,'enable',{openSettings:open,isForeground:()=>true}),{allowed:false,opened:true,platform:'android'});assert.equal(opened,2);
 });
 
 test('settings: a phone service that fails is reported in the state, never thrown',async()=>{
@@ -194,7 +194,7 @@ test('app: a message from UPZONE\'s settings gets an answer in the page; anythin
  const a=startApp({before:{status:'granted',granted:true,canAskAgain:true}});await a.settle();
  a.seen.injected.length=0;
  a.fromPage({upzone:'notif',action:'test'});await a.settle();
- assert.ok(a.seen.injected.some(js=>js.includes('window.__upzoneNotifState={"allowed":true,"test":"sent"}')&&js.includes("dispatchEvent(new Event('upzone-notif'))")));
+ assert.ok(a.seen.injected.some(js=>js.includes('window.__upzoneNotifState={"allowed":true,"test":"sent","platform":"android","token":"ExponentPushToken[pretendphone00000000]"}')&&js.includes("dispatchEvent(new Event('upzone-notif'))")));
  assert.ok(a.p.Notifications._p.some(x=>x.content.body===TEST_TEXT));
  a.seen.injected.length=0;const before=a.p.Notifications._p.length;
  a.fromPage('not json');a.fromPage({upzone:'notif',action:'delete-everything'});a.fromPage({other:1});
@@ -211,4 +211,80 @@ test('website: inside the app the settings show the app\'s own notification row;
  assert.match(web,/data-action="app-notif-test"/);assert.match(web,/data-action="app-notif-enable"/);
  assert.match(web,/postMessage\(JSON\.stringify\(\{upzone:'notif',action\}\)\)/);
  assert.ok(tu.includes('actives-y les notifications, puis reviens ici'));
+});
+
+// --- Notifications sent by UPZONE to the phone: categories, the phone's push address ---
+const {CHANNELS}=require('../mobile/reminders.js');
+
+test('the app creates the notification categories the server names, with the same ids',async()=>{
+ const p=phone({before:{status:'granted',granted:true,canAskAgain:true}});const made=[];
+ p.Notifications.setNotificationChannelAsync=(id,o)=>{made.push([id,o.name]);return Promise.resolve();};
+ await ask(p,'status');
+ assert.deepEqual(made,[['meet','Rencontres'],['messages','Messages'],['talents','Talents'],['account','Compte'],['rappels','Rappels du test']]);
+ const sql=fs.readFileSync(path.join(__dirname,'..','db','2026-11-23-app-push.sql'),'utf8'),fn=fs.readFileSync(path.join(__dirname,'..','supabase','functions','send-push','index.ts'),'utf8');
+ for(const [id] of CHANNELS.filter(c=>c[0]!=='rappels')){assert.ok(sql.includes(`'${id}'`),'the database knows the group '+id);assert.ok(fn.includes(`"${id}"`),'the server function knows the group '+id);}
+});
+
+test('when notifications are allowed the state carries the phone\'s push address; never when they are not',async()=>{
+ const on=phone({before:{status:'granted',granted:true,canAskAgain:true}});
+ assert.deepEqual(await ask(on,'status',{getToken:async()=>'ExponentPushToken[abcdefghijklmnop]'}),{allowed:true,platform:'android',token:'ExponentPushToken[abcdefghijklmnop]'});
+ let asked=0;const off=phone();
+ assert.deepEqual(await ask(off,'status',{getToken:async()=>{asked++;return 'x';}}),{allowed:false,platform:'android'});assert.equal(asked,0,'no address is asked for while notifications are off');
+});
+
+test('a version of the app built without the push service keeps working: no address, an explanation, reminders unaffected',async()=>{
+ const p=phone({before:{status:'granted',granted:true,canAskAgain:true}});
+ const r=await ask(p,'status',{getToken:async()=>{throw new Error('Default FirebaseApp is not initialized');}});
+ assert.equal(r.allowed,true);assert.equal(r.token,undefined);assert.match(r.tokenError,/FirebaseApp/);
+ const hang=await ask(p,'status',{getToken:()=>new Promise(()=>{})});
+ assert.equal(hang.allowed,true);assert.match(hang.tokenError,/timeout:token/);
+});
+
+test('iPhone: no Android categories are created, the address is still obtained',async()=>{
+ const p=phone({before:{status:'granted',granted:true,canAskAgain:true}});
+ const r=await ask(p,'status',{platform:'ios',getToken:async()=>'ExponentPushToken[iphoneiphoneiphone]'});
+ assert.deepEqual(r,{allowed:true,platform:'ios',token:'ExponentPushToken[iphoneiphoneiphone]'});assert.ok(!p.log.includes('channel'));
+});
+
+test('app: the address is asked from Expo for this project and reaches the page',async()=>{
+ const a=startApp({before:{status:'granted',granted:true,canAskAgain:true}});await a.settle();a.screen();await a.settle();
+ assert.deepEqual(a.seen.tokenAsked,{projectId:'project-1'});
+ assert.ok(a.seen.injected.some(js=>js.includes('"token":"ExponentPushToken[pretendphone00000000]"')));
+});
+
+// --- The server function: what is sent to Expo, and which phones are forgotten ---
+function serverHelpers(){
+ const src=fs.readFileSync(path.join(__dirname,'..','supabase','functions','send-push','index.ts'),'utf8');
+ const part=src.slice(src.indexOf('const EXPO_URL'),src.indexOf('const json ='));
+ const js=require('esbuild').transformSync(part.replace(/export /g,''),{loader:'ts'}).code;
+ const out={};new Function('out',js+';out.expoMessages=expoMessages;out.goneTokens=goneTokens;')(out);return out;
+}
+
+test('server: one generic message per phone, in the right category, and nothing for a token that is not one',()=>{
+ const {expoMessages}=serverHelpers();
+ const m=expoMessages(['ExponentPushToken[aaaaaaaaaaaaaaaa]','https://evil.example/x','ExpoPushToken[bbbbbbbbbbbbbbbb]',42],'messages','Nouveau message.',3,'message_received');
+ assert.deepEqual(m,[
+  {to:'ExponentPushToken[aaaaaaaaaaaaaaaa]',title:'UPZONE',body:'Nouveau message.',badge:3,channelId:'messages',sound:'default',priority:'high',data:{kind:'message_received'}},
+  {to:'ExpoPushToken[bbbbbbbbbbbbbbbb]',title:'UPZONE',body:'Nouveau message.',badge:3,channelId:'messages',sound:'default',priority:'high',data:{kind:'message_received'}}]);
+ assert.equal(expoMessages(['ExponentPushToken[aaaaaaaaaaaaaaaa]'],'made-up','x',0,'k')[0].channelId,'account','an unknown group falls back to « account »');
+ assert.deepEqual(expoMessages(null,'meet','x',0,'k'),[]);
+ assert.equal(expoMessages(Array.from({length:9},(_,i)=>`ExponentPushToken[phone${i}xxxxxxxxxxx]`),'meet','x',0,'k').length,5,'never more than 5 phones');
+});
+
+test('server: a phone whose app was uninstalled is forgotten; other errors keep the phone',()=>{
+ const {goneTokens}=serverHelpers();
+ const msgs=[{to:'A'},{to:'B'},{to:'C'}];
+ assert.deepEqual(goneTokens(msgs,{data:[{status:'ok'},{status:'error',details:{error:'DeviceNotRegistered'}},{status:'error',details:{error:'MessageRateExceeded'}}]}),['B']);
+ assert.deepEqual(goneTokens(msgs,null),[]);assert.deepEqual(goneTokens(msgs,{errors:[{}]}),[]);
+});
+
+test('website: the phone is handed to the server for the signed-in member and taken back at sign-out; choices are per group',()=>{
+ const web=fs.readFileSync(path.join(__dirname,'..','src','account.js'),'utf8');
+ assert.match(web,/rpc\('register_device',\{p_token:st\.token,p_platform:st\.platform==='ios'\?'ios':'android'\}\)/);
+ assert.match(web,/action==='signout'\)\{await pushDisable\(true\);await forgetDevice\(\);/,'before the session ends');
+ assert.match(web,/if\(!user\|\|!st\|\|!st\.allowed\|\|!st\.token\)return;/,'never without a member, permission and an address');
+ assert.match(web,/rpc\('set_notification_pref',\{p_group:g,p_on:on\}\)/);
+ assert.match(web,/data-notif-group="\$\{k\}"/);
+ for(const k of ['meet','messages','talents'])assert.ok(web.includes(`['${k}',`));
+ assert.doesNotMatch(web,/data-notif-group="account"/,'account information cannot be switched off');
 });

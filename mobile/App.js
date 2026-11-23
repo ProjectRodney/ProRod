@@ -31,6 +31,10 @@ Notifications.setNotificationHandler({
   // Shown even while the app is open: the « Envoyer un test » button of the settings fires one five seconds later.
   handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false }),
 });
+// The phone's address for notifications sent by UPZONE (Expo's push service). It exists only in a version of the app
+// built with the push service configured; an older version answers with an error, and simply receives nothing.
+const PROJECT_ID = Constants.expoConfig?.extra?.eas?.projectId;
+const getPushToken = async () => (await Notifications.getExpoPushTokenAsync(PROJECT_ID ? { projectId: PROJECT_ID } : undefined)).data;
 // What happened, in a few characters: shown in the app's settings and in the invitation below.
 let notifDiag = '';
 let planning = false;
@@ -73,14 +77,14 @@ export default function App() {
   // UPZONE's settings screen talks to the app: are notifications allowed, turn them on, send a test (reminders.js).
   // Only pages of UPZONE itself are listened to.
   const answerSite = useCallback((action) => {
-    notifRequest({ Notifications, action, openSettings: () => Linking.openSettings(), isForeground: () => AppState.currentState === 'active' }).then((state) => {
+    notifRequest({ Notifications, action, platform: Platform.OS, getToken: getPushToken, openSettings: () => Linking.openSettings(), isForeground: () => AppState.currentState === 'active' }).then((state) => {
       web.current?.injectJavaScript(`window.__upzoneNotifState=${JSON.stringify(state)};window.dispatchEvent(new Event('upzone-notif'));true;`);
       if (state.allowed) setAskNotif(false);
       if (action === 'enable' && state.allowed) runReminders(tellSite).then(tellSite);
     });
   }, [tellSite]);
   const onMessage = useCallback((event) => {
-    if (Platform.OS !== 'android' || !inside(event.nativeEvent.url)) return;
+    if (!inside(event.nativeEvent.url)) return;
     let msg = null;
     try { msg = JSON.parse(event.nativeEvent.data); } catch { return; }
     if (msg && msg.upzone === 'notif' && ['status', 'enable', 'test'].includes(msg.action)) answerSite(msg.action);
@@ -90,7 +94,7 @@ export default function App() {
     // plan the reminders if allowed, show the band if not. A run skipped because another is in progress changes nothing.
     const check = () => runReminders(tellSite).then((r) => { tellSite(); if (!r.skipped && Platform.OS === 'android') setAskNotif(!r.allowed); });
     check();
-    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') { check(); if (Platform.OS === 'android') answerSite('status'); } });
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') { check(); answerSite('status'); } });
     return () => sub.remove();
   }, [tellSite, answerSite]);
   const retry = () => { setFailed(false); setLoading(true); web.current?.reload(); };
@@ -114,7 +118,7 @@ export default function App() {
           pullToRefreshEnabled
           setSupportMultipleWindows={false}
           onNavigationStateChange={(state) => { canGoBack.current = state.canGoBack; }}
-          onLoadEnd={() => { setLoading(false); tellSite(); if (Platform.OS === 'android') answerSite('status'); }}
+          onLoadEnd={() => { setLoading(false); tellSite(); answerSite('status'); }}
           onMessage={onMessage}
           onError={() => { setLoading(false); setFailed(true); }}
           onHttpError={(e) => { if (e.nativeEvent.statusCode >= 500) setFailed(true); }}

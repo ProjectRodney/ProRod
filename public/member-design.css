@@ -257,3 +257,11 @@ body>header nav button.head-me .pin{display:block}
 .photo-fallback .photo-code{display:block;margin-top:8px;font-size:.78rem;color:#7a6520;word-break:break-all}
 /* A known member's phone, while the session is being checked: no visitor welcome text, no FR / EN buttons. */
 html.booting-member body>header nav,html.booting-member .account-intro{display:none}
+/* Notification groups in the settings: one tick per group, under the notifications block. */
+.notif-groups{margin-top:16px;padding-top:14px;border-top:1.5px solid #fff}
+.notif-groups-t{font-weight:700;margin:0 0 6px}
+.notif-group{display:flex;gap:10px;align-items:flex-start;margin:10px 0}
+.notif-group-text{display:block;flex:1}
+.notif-group-name{font-weight:700}
+.notif-group small{display:block;margin-top:2px;color:#5d5a52}
+.notif-group-fixed{margin-top:12px}

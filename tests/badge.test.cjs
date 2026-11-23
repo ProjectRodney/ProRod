@@ -16,7 +16,8 @@ test('push notifications: generic text only, private subscriptions, removed at s
   // the push payload is built from the notification kind only, never its payload (names, conversation ids)
   assert.match(db,/body:=jsonb_build_object\('kind',new\.kind,'lang',coalesce\(lang,'fr'\),'badge',private\.unread_total\(new\.user_id\),'subscriptions',subs\)/);
   assert.doesNotMatch(db,/new\.payload/);
-  assert.match(fn,/JSON\.stringify\(\{ title: "UPZONE", body: data\.lang === "en" \? en : fr, badge, tag: data\.kind \|\| "upzone", url: "\.\/account\.html" \}\)/);
+  assert.match(fn,/const text = data\.lang === "en" \? en : fr;/);
+  assert.match(fn,/JSON\.stringify\(\{ title: "UPZONE", body: text, badge, tag: data\.kind \|\| "upzone", url: "\.\/account\.html" \}\)/);
   assert.match(fn,/sameSecret\(req\.headers\.get\("x-push-secret"\)/);assert.doesNotMatch(fn,/VAPID_PRIVATE_KEY\s*=\s*"/);
   assert.match(db,/revoke all on public\.push_subscriptions from anon, authenticated;/);
   assert.match(db,/private\.save_push_subscription[\s\S]*?private\.require_member\(\)/);
@@ -53,7 +54,7 @@ test('push_status checks membership before reading anything (fix found by check 
 });
 test('typed form values survive a redraw (refused save, language switch, counts refresh); passwords and files never copied',()=>{
   const s=fs.readFileSync('src/account.js','utf8');
-  assert.match(s,/function render\(\)\{document\.documentElement\.classList\.remove\('booting-member'\);const drafts=snapshotForms\(\);/);assert.match(s,/;restoreForms\(drafts\);/);
+  assert.match(s,/function render\(\)\{document\.documentElement\.classList\.remove\('booting-member'\);syncDevice\(\);const drafts=snapshotForms\(\);/);assert.match(s,/;restoreForms\(drafts\);/);
   assert.match(s,/\['password','file','hidden','submit'\]\.includes\(el\.type\)/);
   assert.match(s,/const file=pendingPhoto\|\|form\.querySelector\('#photo'\)\?\.files\?\.\[0\]/);
   assert.match(s,/&&!typing\(\)\)render\(\)/);
