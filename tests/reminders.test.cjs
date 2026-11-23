@@ -85,16 +85,17 @@ function startApp({before,after,hang,appState='active'}={}){
  const file=path.join(__dirname,'..','mobile','App.js');
  const code=require('esbuild').transformSync(fs.readFileSync(file,'utf8'),{loader:'jsx',format:'cjs',jsx:'automatic',sourcefile:file}).code;
  const p=phone({before,after,hang});
- const seen={alerts:[],injected:[],opened:0,listeners:[]};
+ const seen={injected:[],opened:0,listeners:[]};
  const notif=Object.assign(p.Notifications,{setNotificationHandler(){}});
- const effects=[];
- const webProps={};
- const React={createElement:(type,props,...kids)=>{if(type==='W')Object.assign(webProps,props);return {type,props:props||{},kids};},useRef:(v)=>({current:v}),useState:(v)=>[v,()=>{}],useCallback:(f)=>f,useEffect:(f)=>{effects.push(f);},Fragment:'frag'};
+ // A small stand-in for React: state is kept between renders, effects run once, the screen is a tree of plain objects.
+ const states=[];let at=0,effects=[],ran=false,webProps={};
+ const el=(type,props)=>{if(type==='W')webProps=props;return {type,props:props||{}};};
  const webRef={current:{injectJavaScript:(js)=>seen.injected.push(js),reload(){},goBack(){}}};
- React.useRef=(v)=>(v===null?webRef:{current:v});
+ const React={useRef:(v)=>(v===null?webRef:{current:v}),useCallback:(f)=>f,useEffect:(f)=>{if(!ran)effects.push(f);},
+  useState:(v)=>{const k=at++;if(!(k in states))states[k]=v;return [states[k],(x)=>{states[k]=typeof x==='function'?x(states[k]):x;}];}};
  const mocks={
-  'react':React,'react/jsx-runtime':{jsx:React.createElement,jsxs:React.createElement,Fragment:'frag'},
-  'react-native':{ActivityIndicator:'A',Alert:{alert:(t,m,b)=>seen.alerts.push({t,m,b})},AppState:{currentState:appState,addEventListener:(e,f)=>{seen.listeners.push(f);return {remove(){}};}},BackHandler:{addEventListener:()=>({remove(){}})},Linking:{openURL:()=>Promise.resolve(),openSettings:()=>{seen.opened++;return Promise.resolve();}},Platform:{OS:'android',Version:34},Pressable:'P',StyleSheet:{create:(x)=>x},Text:'T',View:'V'},
+  'react':React,'react/jsx-runtime':{jsx:el,jsxs:el,Fragment:'frag'},
+  'react-native':{ActivityIndicator:'A',AppState:{currentState:appState,addEventListener:(e,f)=>{seen.listeners.push(f);return {remove(){}};}},BackHandler:{addEventListener:()=>({remove(){}})},Linking:{openURL:()=>Promise.resolve(),openSettings:()=>{seen.opened++;return Promise.resolve();}},Platform:{OS:'android',Version:34},Pressable:'P',StyleSheet:{create:(x)=>x,absoluteFillObject:{}},Text:'T',View:'V'},
   'expo-status-bar':{StatusBar:'S'},'expo-constants':{__esModule:true,default:{expoConfig:{extra:{testRemindersUntil:'2099-12-31',appUrl:'https://upzoneapp.fr/account.html'}}}},
   'react-native-safe-area-context':{SafeAreaProvider:'SP',SafeAreaView:'SV'},'react-native-webview':{WebView:'W'},
   'expo-notifications':notif,'expo-updates':{isEmbeddedLaunch:false,updateId:'01a2080f-ef01'},
@@ -103,37 +104,59 @@ function startApp({before,after,hang,appState='active'}={}){
  const m=new Module(file);m.filename=file;m.paths=Module._nodeModulePaths(path.dirname(file));
  m.require=(id)=>{if(id in mocks)return mocks[id];throw new Error('unexpected import in App.js: '+id);};
  m._compile(code,file);
- const App=m.exports.default;App();effects.forEach(f=>f());
+ const App=m.exports.default;
+ const render=()=>{at=0;const tree=App();if(!ran){ran=true;effects.forEach(f=>f());}return tree;};
+ render();
+ // What is on the screen: every text, and every button with its label.
+ const walk=(n,out)=>{if(n==null||n===false)return out;if(Array.isArray(n)){n.forEach(x=>walk(x,out));return out;}if(typeof n==='string'){out.texts.push(n);return out;}
+  if(n.type==='P'){const label=walk(n.props.children,{texts:[],buttons:[]}).texts.join(' ');out.buttons.push({label,press:n.props.onPress});}
+  return walk(n.props&&n.props.children,out);};
+ const screen=()=>{webProps.onLoadEnd();return walk(render(),{texts:[],buttons:[]});};
  const fromPage=(data,url='https://upzoneapp.fr/account.html')=>webProps.onMessage({nativeEvent:{data:typeof data==='string'?data:JSON.stringify(data),url}});
- return {seen,p,fromPage,settle:()=>new Promise(r=>setTimeout(r,60))};
+ const comeBack=()=>seen.listeners.forEach(f=>f('active'));
+ return {seen,p,fromPage,screen,comeBack,settle:()=>new Promise(r=>setTimeout(r,60))};
 }
+const BAND=/Autorise les notifications pour recevoir un petit rappel/;
+const band=(sc)=>sc.texts.some(t=>BAND.test(t));
 
-test('app start, the phone refuses without a question: the app shows its own invitation, with the readout, and « Autoriser » opens the phone settings',async()=>{
+test('app opening, notifications not allowed: a band at the bottom of the screen proposes to allow them; « Autoriser » opens the phone settings',async()=>{
  const a=startApp({after:{status:'denied',granted:false,canAskAgain:false}});await a.settle();
- assert.equal(a.seen.alerts.length,1);
- const al=a.seen.alerts[0];
- assert.equal(al.t,'Rappels du test');
- assert.match(al.m,/autorise les notifications/);
- assert.match(al.m,/\[a=34 ch=ok get=undetermined\/1 req=denied\/0\/\d+ms\]/);
- assert.deepEqual(al.b.map(x=>x.text),['Plus tard','Autoriser']);
- al.b[1].onPress();assert.equal(a.seen.opened,1);
+ const sc=a.screen();
+ assert.ok(band(sc),'the band is on the screen');
+ assert.deepEqual(sc.buttons.map(b=>b.label),['Plus tard','Autoriser']);
+ sc.buttons[1].press();await a.settle();
+ assert.equal(a.seen.opened,1,'Android would not ask: the phone settings for UPZONE open');
  assert.ok(a.seen.injected.some(js=>js.includes('window.__upzoneNotif="a=34 ch=ok get=undetermined/1 req=denied/0/')),'the settings page receives the readout');
 });
 
-test('app start, the person allows: no invitation, reminders planned, the readout says how many',async()=>{
+test('app opening, the person allows Android\'s question: no band, reminders planned, the readout says how many',async()=>{
  const a=startApp();await a.settle();
- assert.equal(a.seen.alerts.length,0);
+ assert.ok(!band(a.screen()));
  assert.ok(a.p.Notifications._p.length>0);
  assert.ok(a.seen.injected.some(js=>/plan=\d+/.test(js)));
 });
 
-test('back from the phone settings with notifications switched on: reminders are planned, no second invitation',async()=>{
+test('notifications already allowed: nothing is proposed',async()=>{
+ const a=startApp({before:{status:'granted',granted:true,canAskAgain:true}});await a.settle();
+ assert.ok(!band(a.screen()));
+});
+
+test('« Plus tard » hides the band; coming back to the app (without closing it) shows it again while notifications are off',async()=>{
  const a=startApp({after:{status:'denied',granted:false,canAskAgain:false}});await a.settle();
- assert.equal(a.seen.alerts.length,1);assert.equal(a.p.Notifications._p.length,0);
+ let sc=a.screen();assert.ok(band(sc));
+ sc.buttons[0].press();assert.ok(!band(a.screen()),'hidden for now');
+ a.comeBack();await a.settle();
+ assert.ok(band(a.screen()),'proposed again at the next return to the app');
+});
+
+test('back from the phone settings with notifications switched on: the band goes away and reminders are planned once',async()=>{
+ const a=startApp({after:{status:'denied',granted:false,canAskAgain:false}});await a.settle();
+ assert.ok(band(a.screen()));assert.equal(a.p.Notifications._p.length,0);
  a.p.Notifications.getPermissionsAsync=()=>Promise.resolve({status:'granted',granted:true,canAskAgain:true});
- a.seen.listeners.forEach(f=>f('active'));await a.settle();
- assert.ok(a.p.Notifications._p.length>0,'planned after coming back');
- assert.equal(a.seen.alerts.length,1,'still one invitation only');
+ a.comeBack();await a.settle();
+ assert.ok(!band(a.screen()),'no band once allowed');
+ const n=a.p.Notifications._p.length;assert.ok(n>0,'planned after coming back');
+ assert.equal(new Set(a.p.Notifications._p.map(x=>String(x.trigger.date))).size,n,'no reminder planned twice');
 });
 
 // --- UPZONE's settings screen asks the app: status, turn on, send a test ---

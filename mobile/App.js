@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, BackHandler, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, BackHandler, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -45,23 +45,13 @@ async function runReminders(onNote) {
     });
   } finally { planning = false; }
 }
-// When Android will not show its own question (or the person said no), the app says why it asks and opens the phone's
-// settings for UPZONE, where notifications can be switched on. Once per opening of the app, during the test only.
-let invited = false;
-function inviteToAllow() {
-  if (invited || Platform.OS !== 'android') return;
-  invited = true;
-  Alert.alert(
-    'Rappels du test',
-    `Pour recevoir un petit rappel les jours où tu n’as pas encore ouvert UPZONE, autorise les notifications.\n\n[${notifDiag}]`,
-    [{ text: 'Plus tard', style: 'cancel' }, { text: 'Autoriser', onPress: () => { Linking.openSettings().catch(() => {}); } }],
-  );
-}
-
 export default function App() {
   const web = useRef(null);
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Notifications are not allowed on this phone: a band at the bottom of the screen proposes to allow them. It is shown
+  // at every opening and every return to the app, until they are allowed; « Plus tard » hides it until the next return.
+  const [askNotif, setAskNotif] = useState(false);
 
   const onNavigate = useCallback((request) => {
     if (inside(request.url)) return true;
@@ -85,6 +75,7 @@ export default function App() {
   const answerSite = useCallback((action) => {
     notifRequest({ Notifications, action, openSettings: () => Linking.openSettings(), isForeground: () => AppState.currentState === 'active' }).then((state) => {
       web.current?.injectJavaScript(`window.__upzoneNotifState=${JSON.stringify(state)};window.dispatchEvent(new Event('upzone-notif'));true;`);
+      if (state.allowed) setAskNotif(false);
       if (action === 'enable' && state.allowed) runReminders(tellSite).then(tellSite);
     });
   }, [tellSite]);
@@ -95,9 +86,11 @@ export default function App() {
     if (msg && msg.upzone === 'notif' && ['status', 'enable', 'test'].includes(msg.action)) answerSite(msg.action);
   }, [answerSite]);
   useEffect(() => {
-    runReminders(tellSite).then((r) => { tellSite(); if (!r.allowed) inviteToAllow(); });
-    // Back from the phone's settings (or from Android's own question): plan the reminders now, without a second invitation.
-    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') { runReminders(tellSite).then(tellSite); if (Platform.OS === 'android') answerSite('status'); } });
+    // At the opening of the app and at every return to it (most people never close the app completely): ask Android,
+    // plan the reminders if allowed, show the band if not. A run skipped because another is in progress changes nothing.
+    const check = () => runReminders(tellSite).then((r) => { tellSite(); if (!r.skipped && Platform.OS === 'android') setAskNotif(!r.allowed); });
+    check();
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') { check(); if (Platform.OS === 'android') answerSite('status'); } });
     return () => sub.remove();
   }, [tellSite, answerSite]);
   const retry = () => { setFailed(false); setLoading(true); web.current?.reload(); };
@@ -127,6 +120,15 @@ export default function App() {
           onHttpError={(e) => { if (e.nativeEvent.statusCode >= 500) setFailed(true); }}
           onContentProcessDidTerminate={() => web.current?.reload()}
         />
+        {askNotif && !loading && !failed ? (
+          <View style={styles.notifBar} accessibilityRole="alert">
+            <Text style={styles.notifText}>Autorise les notifications pour recevoir un petit rappel les jours où tu n’as pas encore ouvert UPZONE.</Text>
+            <View style={styles.notifRow}>
+              <Pressable style={styles.notifLater} onPress={() => setAskNotif(false)} accessibilityRole="button"><Text style={styles.notifLaterText}>Plus tard</Text></Pressable>
+              <Pressable style={styles.notifAllow} onPress={() => answerSite('enable')} accessibilityRole="button"><Text style={styles.buttonText}>Autoriser</Text></Pressable>
+            </View>
+          </View>
+        ) : null}
         {loading && !failed ? <View style={styles.cover}><ActivityIndicator size="large" color="#5005b0" /></View> : null}
         {failed ? (
           <View style={styles.cover}>
@@ -151,4 +153,11 @@ const styles = StyleSheet.create({
   text: { fontSize: 17, lineHeight: 24, textAlign: 'center', color: '#1c1530', marginBottom: 24 },
   button: { backgroundColor: '#fffc00', paddingVertical: 14, paddingHorizontal: 28, borderRadius: 15 },
   buttonText: { fontSize: 17, fontWeight: '700', color: '#111' },
+  // Above the app's own bottom menu, in the app's colours (cream card, white border, purple text, yellow button).
+  notifBar: { position: 'absolute', left: 12, right: 12, bottom: 104, backgroundColor: '#fdf2ba', borderColor: '#fff', borderWidth: 2, borderRadius: 18, padding: 14, elevation: 8 },
+  notifText: { fontSize: 15, lineHeight: 21, color: '#1c1530', marginBottom: 12 },
+  notifRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 10 },
+  notifLater: { paddingVertical: 10, paddingHorizontal: 14 },
+  notifLaterText: { fontSize: 15, fontWeight: '600', color: '#5005b0' },
+  notifAllow: { backgroundColor: '#fffc00', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 13 },
 });
