@@ -30,6 +30,8 @@ test('Android closed test: two reminders a day planned on the phone, ending on a
   assert.match(app,/if \(Platform\.OS !== 'android'\) return;/,'Android only');
   assert.match(app,/await Notifications\.cancelAllScheduledNotificationsAsync\(\);\n\s+if \(!end \|\| isNaN\(end\) \|\| Date\.now\(\) > end\.getTime\(\)\) return;/,'after the date everything is cancelled and nothing is asked');
   assert.match(app,/for \(let n = 1; n <= 30; n \+= 1\)/,'from tomorrow: opening the app today cancels today\'s reminders');
+  // Android 13+: the phone asks « allow notifications? » only once a channel exists, so the channel is created first.
+  assert.ok(app.indexOf("setNotificationChannelAsync('rappels'")>0&&app.indexOf("setNotificationChannelAsync('rappels'")<app.indexOf('Notifications.requestPermissionsAsync()'),'channel before the permission question');
   assert.match(app,/if \(!perm\.granted\) return;/,'nothing without the tester\'s permission');
   assert.doesNotMatch(app,/getExpoPushTokenAsync|getDevicePushTokenAsync/,'no push token: the phone is never identified');
   assert.doesNotMatch(app,/fetch\(|XMLHttpRequest/,'the shell itself sends nothing');
