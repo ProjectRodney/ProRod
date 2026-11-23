@@ -6,6 +6,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
+import { planTestReminders } from './reminders';
 
 const APP_URL = Constants.expoConfig?.extra?.appUrl || 'https://upzoneapp.fr/account.html';
 const APP_HOST = new URL(APP_URL).host;
@@ -24,67 +25,24 @@ const inside = (url) => {
   }
 };
 
-// Reminders during the Google Play closed test (20 Nov 2026): Google asks that testers really use the app for 14 days.
-// Until the date in app.config.js (`testRemindersUntil`), the Android app plans two reminders a day, at 12:30 and 19:30.
-// They are planned on the phone itself: nothing is sent to a server and no identifier of the phone is collected.
-// Opening the app cancels the reminders of that day (the tester has done their part) and plans the following days.
-// After the date, everything is cancelled and the app never asks for the permission again for this purpose.
+// Test reminders: the whole decision is in reminders.js (run for real in the tests with a pretend phone).
 const REMIND_UNTIL = Constants.expoConfig?.extra?.testRemindersUntil || '';
-const REMIND_AT = [[12, 30], [19, 30]];
-const REMIND_TEXT = [
-  'Merci de tester UPZONE ! Ouvre l’appli aujourd’hui et dis-nous ce que tu en penses.',
-  'Un petit tour sur UPZONE ce soir ? Chaque essai nous aide avant la sortie.',
-];
 Notifications.setNotificationHandler({
   handleNotification: async () => ({ shouldShowBanner: false, shouldShowList: false, shouldPlaySound: false, shouldSetBadge: false }),
 });
-// What happened, in a few characters: shown in the app's settings (and in the invitation below) so that a tester's
-// screenshot tells why no question was asked. No personal data: Android version, the phone's answers, how many reminders.
+// What happened, in a few characters: shown in the app's settings and in the invitation below.
 let notifDiag = '';
-async function planTestReminders() {
-  const d = [];
-  let allowed = false;
+let planning = false;
+async function runReminders(onNote) {
+  if (planning) return { allowed: true, skipped: true };
+  planning = true;
   try {
-    if (Platform.OS !== 'android') { d.push(`os=${Platform.OS}`); notifDiag = d.join(' '); return { allowed: true }; }
-    d.push(`a=${Platform.Version}`);
-    const end = REMIND_UNTIL ? new Date(REMIND_UNTIL + 'T23:59:59') : null;
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    if (!end || isNaN(end) || Date.now() > end.getTime()) { d.push('until=over'); notifDiag = d.join(' '); return { allowed: true }; }
-    // The channel comes first: since Android 13 the phone only shows the « allow notifications » question once the app
-    // has a notification channel (Expo documentation).
-    await Notifications.setNotificationChannelAsync('rappels', { name: 'Rappels du test', importance: Notifications.AndroidImportance.DEFAULT });
-    d.push('ch=ok');
-    // Ask whenever notifications are not allowed yet, as Expo's own example does.
-    let perm = await Notifications.getPermissionsAsync();
-    d.push(`get=${perm.status}/${perm.canAskAgain ? 1 : 0}`);
-    if (!perm.granted) {
-      const t = Date.now();
-      perm = await Notifications.requestPermissionsAsync();
-      d.push(`req=${perm.status}/${perm.canAskAgain ? 1 : 0}/${Date.now() - t}ms`);
-    }
-    allowed = !!perm.granted;
-    if (allowed) {
-      let planned = 0;
-      const day = new Date(); day.setHours(0, 0, 0, 0);
-      for (let n = 1; n <= 30; n += 1) {
-        const at0 = new Date(day); at0.setDate(at0.getDate() + n);
-        if (at0.getTime() > end.getTime()) break;
-        for (let i = 0; i < REMIND_AT.length; i += 1) {
-          const at = new Date(at0); at.setHours(REMIND_AT[i][0], REMIND_AT[i][1], 0, 0);
-          await Notifications.scheduleNotificationAsync({
-            content: { title: 'UPZONE', body: REMIND_TEXT[i] },
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: 'rappels' },
-          });
-          planned += 1;
-        }
-      }
-      d.push(`plan=${planned}`);
-    }
-  } catch (e) {
-    d.push(`err=${String(e?.message || e).slice(0, 90)}`);
-  }
-  notifDiag = d.join(' ');
-  return { allowed };
+    return await planTestReminders({
+      Notifications, os: Platform.OS, version: Platform.Version, until: REMIND_UNTIL,
+      isForeground: () => AppState.currentState === 'active',
+      note: (text) => { notifDiag = text; onNote?.(); },
+    });
+  } finally { planning = false; }
 }
 // When Android will not show its own question (or the person said no), the app says why it asks and opens the phone's
 // settings for UPZONE, where notifications can be switched on. Once per opening of the app, during the test only.
@@ -122,9 +80,9 @@ export default function App() {
   // The website shows the readout at the bottom of the settings (window.__upzoneNotif).
   const tellSite = useCallback(() => { web.current?.injectJavaScript(`window.__upzoneNotif=${JSON.stringify(notifDiag)};true;`); }, []);
   useEffect(() => {
-    planTestReminders().then((r) => { tellSite(); if (!r.allowed) inviteToAllow(); });
-    // Back from the phone's settings: plan the reminders now if notifications were just switched on (no second invitation).
-    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') planTestReminders().then(tellSite); });
+    runReminders(tellSite).then((r) => { tellSite(); if (!r.allowed) inviteToAllow(); });
+    // Back from the phone's settings (or from Android's own question): plan the reminders now, without a second invitation.
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') runReminders(tellSite).then(tellSite); });
     return () => sub.remove();
   }, [tellSite]);
   const retry = () => { setFailed(false); setLoading(true); web.current?.reload(); };
