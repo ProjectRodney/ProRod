@@ -36,6 +36,14 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
       - run: npm ci
+      # Expo's build receives the Firebase file (variable GOOGLE_SERVICES_JSON, type file), but its command line does not
+      # load file variables on this machine, so the two would compute different runtime versions and the build would stop
+      # (or an update would miss the build). The file is fetched here first; it is never written to the repository.
+      - name: Firebase file from Expo, when there is one
+        run: |
+          eas env:pull production --non-interactive --path "$RUNNER_TEMP/expo-production.env" || echo "::warning::Could not read the Expo variables."
+          f="$PWD/.eas/.env/GOOGLE_SERVICES_JSON"
+          if [ -s "$f" ]; then echo "GOOGLE_SERVICES_JSON=$f" >> "$GITHUB_ENV"; echo "Firebase file found."; else echo "No Firebase file on Expo."; fi
       - name: Publish the update
         env:
           UPDATE_MESSAGE: ${{ inputs.message }}
