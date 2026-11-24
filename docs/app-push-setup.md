@@ -27,10 +27,12 @@ needed. Only if « enhanced security for push notifications » is switched on in
 1. https://console.firebase.google.com → create a project (or use the operator's) → add an **Android app** with the
    package name `fr.upzoneapp.app`.
 2. Download `google-services.json`. **Do not commit it.**
-3. expo.dev → project → Environment variables → add `GOOGLE_SERVICES_JSON`, type **File**, environment
-   **production**, visibility secret, and upload that file.
+3. expo.dev → project → Environment variables → add `GOOGLE_SERVICES_JSON`: click the file icon next to « Value »
+   and upload that file, visibility **Sensitive** (not Secret: a secret variable cannot be read when an update over
+   the air is published, so updates would no longer match the build), environment **production**.
 4. Firebase → Project settings → Service accounts → « Generate new private key » (a JSON file). **Never commit it.**
-5. expo.dev → project → Credentials → Android → `fr.upzoneapp.app` → « FCM V1 service account key » → upload that JSON.
+5. expo.dev → project → Credentials (address ending in `/credentials`) → Android → `fr.upzoneapp.app` → Service
+   credentials → « FCM V1 service account key » → upload that JSON. Do not touch the upload keystore.
 
 ### 4. New Android build
 Run the workflow « Android build (Expo) », upload the `.aab` to the closed test in Play Console, and publish. This
