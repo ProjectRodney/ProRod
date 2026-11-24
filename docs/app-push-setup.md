@@ -35,6 +35,10 @@ needed. Only if « enhanced security for push notifications » is switched on in
    credentials → « FCM V1 service account key » → upload that JSON. Do not touch the upload keystore.
 
 ### 4. New Android build
+The three workflows first fetch the Firebase file from Expo (`eas env:pull`): Expo's command line does not load file
+variables by itself, and without the file the build stops with « Runtime version calculated on local machine not
+equal to runtime version calculated during build ».
+
 Run the workflow « Android build (Expo) », upload the `.aab` to the closed test in Play Console, and publish. This
 build has a new runtime version: updates over the air published afterwards reach this build, no longer 1.0.0 (6).
 
