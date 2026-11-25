@@ -72,3 +72,29 @@ test('every new sentence exists in English',()=>{
 test('on a phone the way back to the app is still in the header, where the bottom bar did not take its place',()=>{
   assert.match(css,/@media\(max-width:860px\)\{body\.admin header nav a\.to-app\{display:inline;/);
 });
+
+// Changing a QR code in place (25 Nov 2026).
+test('a valid QR code is changed in place: its length, for the people already in if asked, and its last day; only an administrator can',()=>{
+  const db=fs.readFileSync('db/2026-11-25-edit-qr.sql','utf8');
+  const fn=db.split('function private.admin_update_invite(')[1].split('$function$;')[0];
+  assert.ok(fn.includes('declare uid uuid := private.require_admin()'),'administrator only');
+  assert.ok(fn.includes("where id=p_id and revoked_at is null and expires_at>now() for update")&&fn.includes("raise exception 'invite_missing'"),'not a deleted or expired QR code');
+  assert.ok(fn.includes("p_minutes not between 15 and 720 then raise exception 'invalid_duration'"),'same limits as a new QR code');
+  assert.ok(fn.includes('update public.venue_sessions set expires_at=started_at+make_interval(mins=>p_minutes)')&&fn.includes('where invite_id=p_id and ended_at is null and expires_at>now()'),'only visits in progress with this QR code, counted from their own start');
+  assert.doesNotMatch(fn,/token_hash\s*=|delete from/i,'the link already shared keeps working, and nothing is deleted');
+  assert.ok(fn.includes("private.log_admin(uid,'invite_updated'"),'journaled');
+  assert.match(db,/revoke all on function public\.admin_update_invite\(uuid,integer,boolean,integer\) from public, anon;/);
+  const verify=fs.readFileSync('db/verify-edit-qr.sql','utf8');
+  for(const needle of ['TEST: a member changed a QR code','TEST: a deleted QR code was changed','TEST: an expired QR code was changed','TEST: the QR code secret changed','TEST: a visit was deleted'])assert.ok(verify.includes(needle),needle);
+  assert.match(verify,/rollback;\s*$/,'the test leaves nothing behind');
+});
+test('the portal: « Modifier » is the one button on a venue that has a valid QR code, and « Générer » only when nobody can come in',()=>{
+  const card=s.split('function venueCard(x)')[1].split('\nfunction venuesView')[0];
+  assert.ok(card.includes("'Modifier le lieu et ses QR codes'"));
+  assert.ok(card.indexOf('Aucun QR code actif : personne ne peut entrer')<card.indexOf('data-action="invite"'),'the « Générer » button of the card belongs to the venue nobody can enter');
+  const list=s.split('function qrList(x)')[1].split('\n')[0];
+  for(const needle of ['data-form="invite"','name="apply" type="checkbox" checked','Une visite commencée depuis plus longtemps se termine.','data-action="extend"','data-action="revoke"','Créer un QR code supplémentaire'])assert.ok(list.includes(needle),needle);
+  assert.ok(s.includes("rpc('admin_update_invite',{p_id:f.dataset.id,p_minutes:Number(v.minutes),p_apply:v.apply==='on'})"));
+  assert.ok(s.includes("if(e?.code==='PGRST202'){notice('La modification d’un QR code n’est pas encore installée : la base de données doit être mise à jour.',true);return;}"),'said plainly while the database is not updated');
+  for(const t of ['Save the length','Extend by 30 days','Edit the venue and its QR codes','Create an additional QR code'])assert.ok(s.includes(t),t);
+});
