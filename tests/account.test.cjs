@@ -88,3 +88,12 @@ test('a profile photo is accepted whatever its size or declared format; only an 
   assert.ok(app.includes("photo_unreadable:['This photo could not be read."),'a clear message when a file cannot be read');
   assert.ok(app.includes("typing()||pendingPhoto||document.querySelector('form[data-form=\"profile\"]')"),'no self-reload while a profile is being filled in');
 });
+
+test('the QR scanner keeps its camera picture when the screen is redrawn (it went black in the phone app)',()=>{
+  const s=fs.readFileSync('src/account.js','utf8');
+  assert.match(s,/function keepScan\(\)\{if\(view!=='scan'\|\|!scanStream\)return;const video=document\.getElementById\('scan-video'\)[^}]*video\.srcObject=scanStream;video\.play\(\)/,'a redraw puts the live camera on the new video');
+  assert.match(s,/clock\(\);keepScan\(\);\}/,'after every redraw');
+  assert.match(s,/const tick=async\(\)=>\{if\(view!=='scan'\|\|!scanStream\)return;const video=document\.getElementById\('scan-video'\),status=document\.getElementById\('scan-status'\);/,'the scan loop reads the video that is on screen now, not the one it started with');
+  assert.match(s,/window\.addEventListener\('upzone-notif',\(\)=>\{syncDevice\(\);if\(!typing\(\)&&view!=='scan'\)render\(\);\}\);/,'the phone app reporting its notification state does not redraw the scanner');
+  assert.match(s,/function stopScan\(\)\{if\(scanTimer\)\{clearTimeout\(scanTimer\);scanTimer=null;\}if\(scanStream\)\{scanStream\.getTracks\(\)\.forEach\(t=>t\.stop\(\)\);scanStream=null;\}/,'leaving the scanner still switches the camera off');
+});
