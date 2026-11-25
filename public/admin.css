@@ -180,3 +180,7 @@ body.admin .topbar span{flex:1 0 100%}
 /* The way back to the app stays in the header on a phone too (25 Nov 2026): the bar at the bottom took the place where it used to sit. */
 @media(max-width:860px){body.admin header nav a.to-app{display:inline;margin-right:4px;text-decoration:none}body.admin>header{padding:8px 12px;gap:8px}body.admin .brand b{font-size:18px}}
 @media(max-width:400px){body.admin .brand b{display:none}}
+/* Changing a QR code in place (25 Nov 2026) */
+.qr-edit{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0 0 10px}
+.qr-edit .actions{align-items:center}
+body.admin .qr-edit select.hours{max-width:180px}
