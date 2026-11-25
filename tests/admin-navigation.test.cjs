@@ -42,17 +42,18 @@ test('approving an application is still an administrator’s decision, and it cr
   const submit=s.split("case 'decide-venue':")[1].split("case 'decide-pro':")[0];
   assert.ok(submit.includes("if(!ok&&!confirm(tx('Refuser cette candidature ?')))return;"),'a refusal is confirmed');
   assert.ok(submit.indexOf("rpc('admin_decide_venue'")<submit.indexOf('await newQr(res.venue_id'),'the server decides first; the QR code is for the venue it returns');
-  assert.ok(submit.includes("catch{qrOk=false;lastToken=null;}")&&submit.includes('Le lieu est ouvert, mais son QR code n’a pas pu être créé.'),'a failed QR code is said, the approval is not undone');
+  assert.ok(submit.includes("catch{qrOk=false;}")&&submit.includes('Le lieu est ouvert, mais son QR code n’a pas pu être créé.'),'a failed QR code is said, the approval is not undone');
   assert.doesNotMatch(s,/setInterval\([^)]*admin_decide|auto.?approve/i,'nothing approves by itself');
   const fn=fs.readFileSync('db/functions.sql','utf8');
   assert.ok(fn.split('FUNCTION private.admin_decide_venue')[1].split('$function$;')[0].includes('private.require_admin()'),'the server still checks the administrator');
 });
 test('the new QR code: a link to copy, a picture to keep, a poster to print, and it is said to be shown once',()=>{
   const panel=s.split('function qrPanel()')[1].split('\n')[0];
-  for(const needle of ['data-action="qr-print"','data-action="qr-copy"','download="upzone-qr.png"','<input id="qr-link" readonly value="${esc(t.url)}">','ne sont affichés qu’une fois'])assert.ok(panel.includes(needle),needle);
-  assert.ok(s.includes("await navigator.clipboard.writeText(lastToken.url);notice('Lien copié.');"));
-  assert.ok(s.includes("if(a==='qr-print'){window.print();return;}"));
-  assert.match(css,/@media print\{[\s\S]*body\.admin>header,\.admin-layout,#feedback,noscript\{display:none!important\}[\s\S]*\.poster\{display:flex/,'on paper, only the poster');
+  for(const needle of ['data-action="qr-print"','data-action="qr-copy"','download="upzone-qr.png"','<input id="qr-link-${k}" readonly value="${esc(t.url)}">','ne sont affichés qu’une fois'])assert.ok(panel.includes(needle),needle);
+  assert.ok(s.includes("await navigator.clipboard.writeText(tokens[k].url);notice('Lien copié.');"));
+  assert.ok(s.includes("if(a==='qr-print'){data.posterK=Number(t.dataset.k);render();window.print();return;}"),'the poster printed is the one whose button was pressed');
+  assert.match(css,/@media print\{[\s\S]*body\.admin:has\(\.poster\)>header,body\.admin:has\(\.poster\) \.admin-layout,body\.admin:has\(\.poster\) #feedback\{display:none!important\}[\s\S]*body\.admin:has\(\.poster\) \.poster\{display:flex/,'on paper, only the poster, and only while a fresh QR code is on screen');
+  assert.doesNotMatch(css.split('@media print{')[1],/\n  body\.admin>header|\n  \.admin-layout/,'any other screen of the portal still prints');
   assert.match(css,/\n\.poster\{display:none\}/,'and never on screen');
   const poster=s.split('function posterView()')[1].split('\n')[0];
   assert.ok(poster.includes('Un même lieu. De nouvelles rencontres.')&&poster.includes('18 ans et plus'),'the poster uses the landing page’s validated wording');
@@ -97,4 +98,41 @@ test('the portal: « Modifier » is the one button on a venue that has a valid Q
   assert.ok(s.includes("rpc('admin_update_invite',{p_id:f.dataset.id,p_minutes:Number(v.minutes),p_apply:v.apply==='on'})"));
   assert.ok(s.includes("if(e?.code==='PGRST202'){notice('La modification d’un QR code n’est pas encore installée : la base de données doit être mise à jour.',true);return;}"),'said plainly while the database is not updated');
   for(const t of ['Save the length','Extend by 30 days','Edit the venue and its QR codes','Create an additional QR code'])assert.ok(s.includes(t),t);
+});
+
+// Findings of the code review of 25 Nov 2026.
+test('a fresh QR code is never lost: each one stays on screen until the administrator says it is kept',()=>{
+  assert.ok(s.includes("function qrPanel(){return tokens.map((t,k)=>"),'every pending QR code has its panel');
+  assert.ok(s.includes("tokens.push(lastToken);"),'a new QR code is added, it does not replace the previous one');
+  assert.ok(s.includes("if(a==='qr-done'){tokens.splice(Number(t.dataset.k),1);render();return;}")&&s.includes('J’ai gardé ce QR code : le masquer'));
+  assert.ok(s.includes("if(t.dataset.tab){tab=t.dataset.tab;render();run(loadTab);return;}"),'changing section does not throw a QR code away');
+  assert.doesNotMatch(s,/lastToken=null;(?!\s*,)/,'nothing clears it behind the administrator’s back');
+});
+test('« À traiter »: one list that fails does not hide the others, and « Tout est à jour » is never shown on a partial answer',()=>{
+  const load=s.split('async function loadTodo()')[1].split('\n')[0];
+  assert.ok(load.includes('Promise.allSettled')&&load.includes('data.todoPartial=!!failed;'));
+  assert.ok(s.includes("(tokens.length||data.todoPartial?'':`<div class=\"all-done\">"));
+  assert.ok(s.includes('Une partie de la liste n’a pas pu être chargée.'));
+});
+test('nothing the old portal said or showed was dropped: the check before approving, and the two figures',()=>{
+  const card=s.split('function applicationCard(x)')[1].split('\n')[0];
+  assert.ok(card.includes('Vérifiez l’existence du lieu ou de l’organisateur (Google, site, téléphone) avant d’approuver'));
+  const stats=s.split('function statsLine()')[1].split('\n')[0];
+  assert.ok(stats.includes('o.members_complete')&&stats.includes('o.suspended'));
+});
+test('names typed by people are never rewritten by the English rendering, on screen or on the poster',()=>{
+  assert.ok(s.includes("if(!walker.currentNode.parentElement?.closest('[data-raw]'))texts.push(walker.currentNode);"));
+  assert.ok(s.split('function posterView()')[1].split('\n')[0].includes('<b data-raw>${esc(t.venue)}</b>'));
+  for(const needle of ['<b data-raw>${esc(x.name)}</b>','<b data-raw>${esc(x.venue_name)}</b>','<b data-raw>${esc(x.business_name)}</b>','<b data-raw>${esc(x.display_name)}</b>'])assert.ok(s.includes(needle),needle);
+  for(const t of ["['à traiter','to handle']","['Chargement…','Loading…']"])assert.ok(s.includes(t),t);
+});
+test('changing a visit: the pass follows the visit, « add 30 days » never shortens, and the app asks the server before ending a visit',()=>{
+  const db=fs.readFileSync('db/2026-11-25-edit-qr.sql','utf8'),app=fs.readFileSync('src/account.js','utf8'),verify=fs.readFileSync('db/verify-edit-qr.sql','utf8');
+  assert.match(db,/update public\.passes p set expires_at=m\.expires_at from moved m\s+where p\.session_id=m\.id and p\.kind='venue_pass' and p\.status='active'/);
+  assert.ok(db.includes("set expires_at=least(expires_at+make_interval(days=>p_days),now()+interval '365 days')"));
+  for(const needle of ['TEST: a pass no longer ends with its visit','TEST: a later last day was brought closer','TEST: a QR code valid more than a year'])assert.ok(verify.includes(needle),needle);
+  assert.ok(app.includes('if(!seconds)visitCheck(true);}'),'the countdown reaching zero asks the server first');
+  assert.ok(app.includes("if(failed){if(ending){session=null;render();}return;}"),'without an answer the visit still ends when its time is up');
+  assert.ok(app.includes("new Promise(done=>setTimeout(()=>done({error:{message:'timeout'}}),5000))"),'and the app does not wait for the server more than five seconds');
+  assert.ok(app.includes("document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&session)visitCheck(false);});"));
 });

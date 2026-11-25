@@ -162,10 +162,10 @@ body.admin .topbar span{flex:1 0 100%}
   #feedback{bottom:84px}
 }
 @media print{
-  body.admin{background:#fff}
-  body.admin>header,.admin-layout,#feedback,noscript{display:none!important}
-  .admin-shell{max-width:none;padding:0}
-  .poster{display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center;min-height:95vh;padding:40px 36px;box-sizing:border-box;background:#fffadd;color:#1e1a12;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body.admin:has(.poster){background:#fff}
+  body.admin:has(.poster)>header,body.admin:has(.poster) .admin-layout,body.admin:has(.poster) #feedback{display:none!important}
+  body.admin:has(.poster) .admin-shell{max-width:none;padding:0}
+  body.admin:has(.poster) .poster{display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center;min-height:95vh;padding:40px 36px;box-sizing:border-box;background:#fffadd;color:#1e1a12;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .poster-brand{font-family:"Playfair Display",Georgia,serif;font-weight:900;font-size:34px}
   .poster h1{font-family:"Playfair Display",Georgia,serif;font-weight:900;font-size:44px;line-height:1.08;margin:0}
   .poster-qr{padding:18px;background:#fff;border:4px solid #1e1a12;border-radius:24px}
@@ -184,3 +184,4 @@ body.admin .topbar span{flex:1 0 100%}
 .qr-edit{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0 0 10px}
 .qr-edit .actions{align-items:center}
 body.admin .qr-edit select.hours{max-width:180px}
+body.admin .warn{background:#fde7e4;color:#8c1d18;border-radius:12px;padding:10px 14px;margin:0 0 14px;font-weight:600}
