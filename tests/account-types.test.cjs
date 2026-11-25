@@ -23,7 +23,7 @@ test('professional sheets are approved before being listed, only inside the live
   for(const needle of ['function proSheetView','function proView','function talentsView','function talentView',"rpc('save_pro_profile'","rpc('my_pro_profile')","rpc('venue_talents')","rpc('send_enquiry'",'data-action="talents"'])assert.ok(source.includes(needle),needle);
   assert.ok(migration.includes("t.status='approved' and t.subscription_until is not null and t.subscription_until>now()"),'talent listing requires approval and subscription');
   assert.ok(migration.includes("if private.blocked_between(uid,p_pro) then raise exception 'not_co_present'"),'enquiries respect blocks');
-  for(const tab of ["'applications'","'pros'","admin_decide_venue","admin_decide_pro"])assert.ok(admin.includes(tab),tab);
+  for(const tab of ["function applicationCard","'pros'","admin_decide_venue","admin_decide_pro"])assert.ok(admin.includes(tab),tab);
 });
 test('payments are simulated only: a neutral pass rule, no amounts, no gender, clear SIMULATION label',()=>{
   for(const needle of ["rpc('buy_pass_simulated')","rpc('subscribe_talent_simulated')",'SIMULATION','function passBlock','m.locked','pass_required'])assert.ok(source.includes(needle),needle);
