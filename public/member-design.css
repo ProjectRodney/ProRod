@@ -265,3 +265,13 @@ html.booting-member body>header nav,html.booting-member .account-intro{display:n
 .notif-group-name{font-weight:700}
 .notif-group small{display:block;margin-top:2px;color:#5d5a52}
 .notif-group-fixed{margin-top:12px}
+
+/* Legibility pass (25 Nov 2026): nothing under 12 px, and nothing to tap under 44 px. Colours unchanged, except the
+   « no photo yet » label, darkened to pass the contrast threshold on its own background. */
+.account-card .eyebrow,.pilot-note,.journey-hint,.dept-abbr,.bubble.announce small,.badge,.member-nav button span,.member-nav button{font-size:12px}
+.account-card small,small{font-size:max(12px,.86em)}
+body[data-screen=people] .people-compact .person small{font-size:12px}
+.photo-preview.empty{color:#5c5440}
+.account-card a[target=_blank]{display:inline-flex;align-items:center;min-height:44px}
+.account-card details>summary{min-height:44px;box-sizing:border-box;padding-block:10px}
+.account-card .pass-card summary{padding-block:0}
