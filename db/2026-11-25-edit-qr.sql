@@ -17,12 +17,20 @@ begin
     update private.venue_invites set duration_minutes=p_minutes where id=p_id;
     if coalesce(p_apply,true) then
       -- A visit lasts the new length counted from its own start; one that began longer ago than that ends now.
-      update public.venue_sessions set expires_at=started_at+make_interval(mins=>p_minutes)
-        where invite_id=p_id and ended_at is null and expires_at>now();
-      get diagnostics n = row_count;
+      -- The pass taken for a visit ends with that visit: it follows the visit's new end, or the member would lose the
+      -- unveiled view at the old time while still inside.
+      with moved as (
+        update public.venue_sessions set expires_at=started_at+make_interval(mins=>p_minutes)
+          where invite_id=p_id and ended_at is null and expires_at>now() returning id, expires_at
+      ), passes_moved as (
+        update public.passes p set expires_at=m.expires_at from moved m
+          where p.session_id=m.id and p.kind='venue_pass' and p.status='active' returning 1
+      )
+      select count(*) into n from moved;
     end if;
   end if;
-  if p_days is not null then update private.venue_invites set expires_at=now()+make_interval(days=>p_days) where id=p_id; end if;
+  -- Pushing back the last day adds days to it; it never brings it closer.
+  if p_days is not null then update private.venue_invites set expires_at=least(expires_at+make_interval(days=>p_days),now()+interval '365 days') where id=p_id; end if;
   select * into inv from private.venue_invites where id=p_id;
   perform private.log_admin(uid,'invite_updated',p_id::text,jsonb_build_object('duration_minutes',inv.duration_minutes,'expires_at',inv.expires_at,'visits_changed',n));
   return jsonb_build_object('id',inv.id,'duration_minutes',inv.duration_minutes,'expires_at',inv.expires_at,'visits_changed',n);

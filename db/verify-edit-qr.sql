@@ -15,6 +15,9 @@ update private.venue_invites set revoked_at=now() where id='00000000-0000-4000-8
 insert into public.venue_sessions(user_id,venue_id,invite_id,venue_name,started_at,expires_at) values
 ('00000000-0000-4000-8000-000000009501','00000000-0000-4000-8000-000000009511','00000000-0000-4000-8000-000000009521','QR edit test',now()-interval '1 hour',now()+interval '2 hours'),
 ('00000000-0000-4000-8000-000000009502','00000000-0000-4000-8000-000000009511','00000000-0000-4000-8000-000000009521','QR edit test',now()-interval '5 hours',now()+interval '7 hours');
+-- Both took the pass for their visit: it ends when the visit ends.
+insert into public.passes(user_id,venue_id,session_id,kind,simulated,amount_cents,expires_at)
+select s.user_id,s.venue_id,s.id,'venue_pass',true,0,s.expires_at from public.venue_sessions s where s.invite_id='00000000-0000-4000-8000-000000009521';
 set local role authenticated;
 
 -- A member cannot change a QR code.
@@ -66,6 +69,11 @@ do $$ declare r jsonb; m numeric; h text; begin
   m := (select extract(epoch from expires_at-now())/60 from public.venue_sessions where user_id='00000000-0000-4000-8000-000000009502');
   if m is null or m not between 59 and 61 then raise exception 'TEST: B has % minutes left, expected 60', m; end if;
 
+  -- The pass follows its visit: A's pass now ends with A's visit, five hours from now.
+  m := (select extract(epoch from p.expires_at-now())/60 from public.passes p where p.user_id='00000000-0000-4000-8000-000000009501');
+  if m is null or m not between 299 and 301 then raise exception 'TEST: A''s pass has % minutes left, expected 300', m; end if;
+  if exists(select 1 from public.passes p join public.venue_sessions s on s.id=p.session_id where p.expires_at<>s.expires_at and s.invite_id='00000000-0000-4000-8000-000000009521') then raise exception 'TEST: a pass no longer ends with its visit'; end if;
+
   -- With « apply », 2 hours: B, in for 5 hours, is no longer in the venue; A has 1 h left. Nothing is deleted.
   r := public.admin_update_invite('00000000-0000-4000-8000-000000009521',120,true);
   if (select count(*) from public.venue_sessions where invite_id='00000000-0000-4000-8000-000000009521' and ended_at is null and expires_at>now())<>1 then raise exception 'TEST: who is still in after shortening'; end if;
@@ -76,13 +84,20 @@ do $$ declare r jsonb; m numeric; h text; begin
   if (public.preview_venue(repeat('e',40))->>'duration_minutes')::int<>120 then raise exception 'TEST: the preview does not announce the new length'; end if;
 
   -- Pushing back the last day, alone.
+  -- Pushing back the last day, alone: 30 days are added to the 2 days left, never taken away.
   r := public.admin_update_invite('00000000-0000-4000-8000-000000009521',null,true,30);
   if (r->>'duration_minutes')::int<>120 then raise exception 'TEST: the length moved when only the last day was asked'; end if;
   m := extract(epoch from (r->>'expires_at')::timestamptz-now())/86400;
-  if m is null or m not between 29.9 and 30.1 then raise exception 'TEST: last day in % days, expected 30', m; end if;
+  if m is null or m not between 31.9 and 32.1 then raise exception 'TEST: last day in % days, expected 32', m; end if;
+  r := public.admin_update_invite('00000000-0000-4000-8000-000000009521',null,true,10);
+  m := extract(epoch from (r->>'expires_at')::timestamptz-now())/86400;
+  if m is null or m not between 41.9 and 42.1 then raise exception 'TEST: a later last day was brought closer (% days)', m; end if;
+  r := public.admin_update_invite('00000000-0000-4000-8000-000000009521',null,true,365);
+  m := extract(epoch from (r->>'expires_at')::timestamptz-now())/86400;
+  if m is null or m > 365.1 then raise exception 'TEST: a QR code valid more than a year (% days)', m; end if;
 
   -- Journaled.
-  if (select count(*) from private.admin_actions where action='invite_updated' and target='00000000-0000-4000-8000-000000009521')<>4 then raise exception 'TEST: journal'; end if;
+  if (select count(*) from private.admin_actions where action='invite_updated' and target='00000000-0000-4000-8000-000000009521')<>6 then raise exception 'TEST: journal'; end if;
 end $$;
 select 'PASS: QR code editing' as result;
 rollback;
