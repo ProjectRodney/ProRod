@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment2.outputs.page_url || steps.deployment3.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -46,5 +46,22 @@ jobs:
             sleep 2
           done
           echo "Still not listed after 60 s; trying to publish anyway."
+      # Being listed is not enough (25 Nov 2026: listed at once, and the publishing step still found nothing, twice in a
+      # row): the publishing step reads another index. So it is tried up to three times, twenty seconds apart. A failed
+      # try stops before anything is published, and the site is uploaded only once, so trying again is safe.
       - id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Wait before a second try
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 20
+      - id: deployment2
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Wait before a third try
+        if: steps.deployment2.outcome == 'failure'
+        run: sleep 20
+      - id: deployment3
+        if: steps.deployment2.outcome == 'failure'
         uses: actions/deploy-pages@v4
