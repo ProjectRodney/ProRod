@@ -136,3 +136,6 @@ test('changing a visit: the pass follows the visit, « add 30 days » never shor
   assert.ok(app.includes("new Promise(done=>setTimeout(()=>done({error:{message:'timeout'}}),5000))"),'and the app does not wait for the server more than five seconds');
   assert.ok(app.includes("document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&session)visitCheck(false);});"));
 });
+test('on a phone the confirmation message stays above the bottom bar, never behind it',()=>{
+  assert.match(css,/@media\(max-width:860px\)\{body\.admin #feedback\{position:fixed;left:12px;right:12px;bottom:calc\(86px \+ env\(safe-area-inset-bottom\)\);/);
+});
