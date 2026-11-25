@@ -177,3 +177,6 @@ body.admin .topbar span{flex:1 0 100%}
   .poster-foot{margin-top:auto;display:flex;flex-direction:column;gap:4px}
   .poster-foot b{font-size:18px}.poster-foot span{font-size:13px;color:#5c5440}
 }
+/* The way back to the app stays in the header on a phone too (25 Nov 2026): the bar at the bottom took the place where it used to sit. */
+@media(max-width:860px){body.admin header nav a.to-app{display:inline;margin-right:4px;text-decoration:none}body.admin>header{padding:8px 12px;gap:8px}body.admin .brand b{font-size:18px}}
+@media(max-width:400px){body.admin .brand b{display:none}}

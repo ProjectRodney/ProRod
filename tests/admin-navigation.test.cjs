@@ -69,3 +69,6 @@ test('on a phone the four sections sit in a bar at the bottom, and the page leav
 test('every new sentence exists in English',()=>{
   for(const t of ['All up to date','Venue application','Professional sheet','Print the poster','Copy the link','Save the image','Link copied.','People','No active QR code: no one can come in','Handled applications (','Add a venue without an organiser'])assert.ok(s.includes(t),t);
 });
+test('on a phone the way back to the app is still in the header, where the bottom bar did not take its place',()=>{
+  assert.match(css,/@media\(max-width:860px\)\{body\.admin header nav a\.to-app\{display:inline;/);
+});
