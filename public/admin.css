@@ -114,3 +114,66 @@ body.admin .topbar a.link{display:block;text-decoration:none}
 body.admin header nav a.to-app{font-weight:650;white-space:nowrap}
 @media (max-width:860px){body.admin header nav a.to-app{font-size:13px}.topbar{flex-wrap:wrap}.topbar span{flex:1 0 100%}body.admin .topbar a.link{display:inline}}
 body.admin .item .link.back{margin:0 0 10px}
+
+/* Administration reworked (25 Nov 2026): four sections, decisions on their card, the app's own colours. */
+body.admin{--bg:#fffadd;--card:#fdf2ba;--line:#f0e9c8;--soft:#efe6ff;--muted:#5c5440;--ink:#1e1a12}
+body.admin>header{background:#fdf2ba;border-bottom:2px solid #fff}
+.admin-layout{display:block}
+.panel{background:transparent;border:0;padding:0;border-radius:0}
+body.admin .panel-title{font-family:"Playfair Display",Georgia,serif;font-weight:900;font-size:34px;line-height:1.1;margin:6px 0 14px}
+body.admin .tabs{flex-direction:row;gap:6px;margin:0 0 18px;flex-wrap:wrap}
+body.admin .tabs button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:8px 16px;border-radius:999px;background:#fdf2ba;border:2px solid #fff;font-weight:650}
+body.admin .tabs button:hover{background:#fff}
+body.admin .tabs button[aria-pressed=true]{background:var(--purple);border-color:var(--purple);color:#fff}
+.tabs .count{background:#fffc00;color:#1e1a12;border-radius:999px;padding:1px 8px;font-size:13px;font-weight:800}
+body.admin .lead{font-size:16px;color:var(--muted);margin:0 0 14px}
+.todo{background:var(--card);border:2px solid #fff;border-radius:18px;padding:14px}
+.todo.urgent{background:#fff;border-color:var(--red)}
+.todo>.item{border:0;padding:0;background:transparent}
+.kicker{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--purple);margin:0 0 6px}
+.kicker.urgent{color:#8c1d18}
+.decide{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+body.admin .decide .button{min-height:48px;border-radius:999px}
+body.admin .decide .button.secondary{color:var(--ink);border:2px solid var(--ink)}
+body.admin .button.accent{background:#fffc00;color:#1e1a12;border:2px solid #1e1a12}
+body.admin .button.accent:hover{background:#f2ef00}
+.all-done{background:var(--card);border:2px solid #fff;border-radius:18px;padding:28px 20px;text-align:center;margin:0 0 14px}
+.all-done .tick{width:64px;height:64px;border-radius:999px;background:#14532d;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+body.admin .all-done h3{font-family:"Playfair Display",Georgia,serif;font-weight:900;font-size:26px;text-transform:none;letter-spacing:0;color:var(--ink);margin:0 0 6px}
+.all-done p{margin:0;color:var(--muted)}
+.stats{display:flex;flex-wrap:wrap;gap:8px 24px;background:#fff;border-radius:16px;padding:14px 18px;margin:14px 0 8px}
+.stats b{font-size:18px}
+.item.token{background:#fff;border:2px solid var(--purple)}
+body.admin .item.token .done-title{font-family:"Playfair Display",Georgia,serif;font-weight:900;font-size:26px;text-transform:none;letter-spacing:0;color:var(--ink);margin:4px 0 8px}
+.done{text-align:left;max-width:520px;margin:0 auto 6px;padding-left:20px}.done li{margin:4px 0}
+.qr-actions{justify-content:center}
+body.admin .item.token label{text-align:left}
+body.admin .subs{margin-bottom:16px}
+body.admin .topbar{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;border:0;margin:0;padding:0;font-size:14px}
+body.admin .topbar span{flex:1 0 100%}
+.poster{display:none}
+@media(max-width:860px){
+  .admin-shell{padding:12px 12px 96px}
+  body.admin .tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:0;padding:8px 8px calc(10px + env(safe-area-inset-bottom));background:#fdf2ba;border-top:2px solid #fff;overflow:visible}
+  body.admin .tabs button{position:relative;flex-direction:column;gap:3px;min-height:52px;padding:6px 4px;border-radius:12px;border:0;background:transparent;font-size:12px;white-space:normal}
+  body.admin .tabs button[aria-pressed=true]{background:var(--purple);color:#fff}
+  .tabs .count{position:absolute;top:2px;right:14%;font-size:11px;padding:0 6px}
+  body.admin .panel-title{font-size:30px}
+  #feedback{bottom:84px}
+}
+@media print{
+  body.admin{background:#fff}
+  body.admin>header,.admin-layout,#feedback,noscript{display:none!important}
+  .admin-shell{max-width:none;padding:0}
+  .poster{display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center;min-height:95vh;padding:40px 36px;box-sizing:border-box;background:#fffadd;color:#1e1a12;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .poster-brand{font-family:"Playfair Display",Georgia,serif;font-weight:900;font-size:34px}
+  .poster h1{font-family:"Playfair Display",Georgia,serif;font-weight:900;font-size:44px;line-height:1.08;margin:0}
+  .poster-qr{padding:18px;background:#fff;border:4px solid #1e1a12;border-radius:24px}
+  .poster-qr img{display:block;width:260px;height:260px}
+  .poster-cta{padding:10px 22px;border-radius:999px;background:#fffc00;border:3px solid #1e1a12;font-weight:800;font-size:22px}
+  .poster ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-self:stretch;text-align:left}
+  .poster li{padding:14px;background:#fdf2ba;border:2px solid #fff;border-radius:16px;font-size:17px}
+  .poster li b{display:block;color:#5005b0;font-size:20px}
+  .poster-foot{margin-top:auto;display:flex;flex-direction:column;gap:4px}
+  .poster-foot b{font-size:18px}.poster-foot span{font-size:13px;color:#5c5440}
+}
