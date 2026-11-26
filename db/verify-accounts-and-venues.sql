@@ -587,7 +587,8 @@ do $$ begin
   perform public.admin_decide_pro('00000000-0000-4000-8000-000000000001',true,'OK');
 end $$;
 reset role;
-update public.pro_profiles set subscription_until=now()+interval '30 days' where user_id='00000000-0000-4000-8000-000000000001';
+-- Visibility is taken for the visit that is live (db/2026-11-26-pro-evening.sql).
+update public.pro_profiles t set subscription_until=s.expires_at, subscription_session=s.id from public.venue_sessions s where t.user_id='00000000-0000-4000-8000-000000000001' and s.user_id=t.user_id and s.ended_at is null and s.expires_at>now();
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{}}',true);
 do $$ declare t jsonb; begin

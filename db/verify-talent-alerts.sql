@@ -1,7 +1,7 @@
 -- Checks for db/2026-11-17-talent-alerts.sql. Transaction-only fixtures; everything is rolled back.
 -- Expected last line: PASS: talent alerts …
 begin;
--- P = professional (approved, subscribed), B = opted in, C = not opted in, D = opted in but blocked P,
+-- P = professional (approved, takes the evening once in the place), B = opted in, C = not opted in, D = opted in but blocked P,
 -- E = opted in, other venue, F = opted in, suspended, Q = professional not subscribed, G = arrives later, opted in.
 insert into auth.users(id,email,email_confirmed_at,is_anonymous) values
 ('00000000-0000-4000-8000-000000009301','ta-p@example.invalid',now(),false),
@@ -17,7 +17,7 @@ select u.id, 'Membre '||right(u.id::text,2), '1995-01-01', 'fr', 'Bio de test', 
        case when right(u.id::text,2) in ('01','07') then 'pro' else 'personal' end
 from auth.users u where u.email like 'ta-%@example.invalid';
 insert into public.pro_profiles(user_id,business_name,category,pitch,status,subscription_until) values
-('00000000-0000-4000-8000-000000009301','Studio Test','Photographe / vidéo','Portraits et photos de soirée.','approved',now()+interval '30 days'),
+('00000000-0000-4000-8000-000000009301','Studio Test','Photographe / vidéo','Portraits et photos de soirée.','approved',null),
 ('00000000-0000-4000-8000-000000009307','Sans Abonnement','DJ','Mixes pour vos soirées.','approved',null);
 insert into private.venues(id,name,category,duration_minutes) values
 ('00000000-0000-4000-8000-000000009311','Talent test','test',180),('00000000-0000-4000-8000-000000009312','Autre lieu','test',180);
@@ -53,7 +53,7 @@ reset role;
 update public.profiles set talent_alerts_at=now() where user_id in ('00000000-0000-4000-8000-000000009304','00000000-0000-4000-8000-000000009305','00000000-0000-4000-8000-000000009306','00000000-0000-4000-8000-000000009308');
 insert into private.account_restrictions(user_id,suspended) values ('00000000-0000-4000-8000-000000009306',true);
 
--- Everyone but E is in the test venue; E is elsewhere. Then the subscribed professional P arrives.
+-- Everyone but E is in the test venue; E is elsewhere. Then the professional P arrives and takes the evening.
 insert into public.venue_sessions(user_id,venue_id,invite_id,venue_name,expires_at)
 select u, '00000000-0000-4000-8000-000000009311','00000000-0000-4000-8000-000000009321','Talent test',now()+interval '2 hours'
 from unnest(array['00000000-0000-4000-8000-000000009302','00000000-0000-4000-8000-000000009303','00000000-0000-4000-8000-000000009304','00000000-0000-4000-8000-000000009306','00000000-0000-4000-8000-000000009307']::uuid[]) u;
@@ -62,6 +62,10 @@ values ('00000000-0000-4000-8000-000000009305','00000000-0000-4000-8000-00000000
 do $$ begin if exists(select 1 from public.notifications where kind='talent_here') then raise exception 'TEST: an unsubscribed professional triggered an alert'; end if; end $$;
 insert into public.venue_sessions(user_id,venue_id,invite_id,venue_name,expires_at)
 values ('00000000-0000-4000-8000-000000009301','00000000-0000-4000-8000-000000009311','00000000-0000-4000-8000-000000009321','Talent test',now()+interval '2 hours');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000009301","role":"authenticated"}',true);
+select public.subscribe_talent_simulated();
+reset role;
 
 do $$ declare n public.notifications; begin
   if (select count(*) from public.notifications where kind='talent_here')<>1 then raise exception 'TEST: expected exactly one alert, got %',(select count(*) from public.notifications where kind='talent_here'); end if;
@@ -75,6 +79,10 @@ end $$;
 update public.venue_sessions set ended_at=now() where user_id='00000000-0000-4000-8000-000000009301' and ended_at is null;
 insert into public.venue_sessions(user_id,venue_id,invite_id,venue_name,expires_at)
 values ('00000000-0000-4000-8000-000000009301','00000000-0000-4000-8000-000000009311','00000000-0000-4000-8000-000000009321','Talent test',now()+interval '2 hours');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000009301","role":"authenticated"}',true);
+select public.subscribe_talent_simulated();
+reset role;
 do $$ begin if (select count(*) from public.notifications where kind='talent_here')<>1 then raise exception 'TEST: same visit alerted twice'; end if; end $$;
 
 -- G arrives later, opted in: G is told about the professional already present (and not about Q, unsubscribed).
