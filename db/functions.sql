@@ -2440,6 +2440,113 @@ CREATE OR REPLACE FUNCTION public.venue_update(p_hours text, p_contact text, p_d
  SET search_path TO ''
 AS $function$ select private.venue_update(p_hours,p_contact,p_duration) $function$;
 
+CREATE OR REPLACE FUNCTION private.record_purchase(p_user uuid, p_store text, p_product text, p_transaction text, p_amount_cents integer, p_currency text DEFAULT 'EUR'::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare row public.purchases; mine public.venue_sessions; pass public.passes; pro public.pro_profiles; why text;
+begin
+  if p_user is null or p_transaction is null then raise exception 'purchase_invalid'; end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_store||':'||p_transaction,0));
+  select * into row from public.purchases where store=p_store and transaction_id=p_transaction;
+  if found then
+    if row.user_id is distinct from p_user or row.product<>p_product then raise exception 'purchase_conflict'; end if;
+    return jsonb_build_object('id',row.id,'granted',row.granted,'status',row.status,'note',row.note,'already',true);
+  end if;
+  if not exists(select 1 from auth.users u where u.id=p_user and (u.email_confirmed_at is not null or u.phone_confirmed_at is not null) and coalesce(u.is_anonymous,false)=false) then raise exception 'purchase_invalid'; end if;
+
+  mine := private.live_session(p_user);
+  if exists(select 1 from private.account_restrictions r where r.user_id=p_user and r.suspended) then why := 'suspended';
+  elsif mine.id is null then why := 'no_visit';
+  elsif p_product='venue_pass' then
+    if exists(select 1 from public.profiles p where p.user_id=p_user and p.account_type<>'personal') then why := 'wrong_account';
+    elsif exists(select 1 from public.passes x where x.user_id=p_user and x.venue_id=mine.venue_id and x.status='active' and x.kind='venue_pass' and x.expires_at>now() and not x.simulated) then why := 'already_active';
+    else
+      -- A simulated pass of the test period gives way to the paid one.
+      update public.passes set status='expired' where user_id=p_user and venue_id=mine.venue_id and status='active' and kind='venue_pass' and simulated;
+      insert into public.passes(user_id,venue_id,session_id,kind,simulated,amount_cents,expires_at)
+        values(p_user,mine.venue_id,mine.id,'venue_pass',false,p_amount_cents,mine.expires_at) returning * into pass;
+    end if;
+  elsif p_product='pro_evening' then
+    select * into pro from public.pro_profiles where user_id=p_user for update;
+    if not found or pro.status<>'approved' or not private.is_pro(p_user) then why := 'pro_not_approved';
+    elsif pro.subscription_session=mine.id and pro.subscription_until>now() and exists(select 1 from public.passes x where x.session_id=mine.id and x.user_id=p_user and x.kind='talent_subscription' and x.status='active' and not x.simulated) then why := 'already_active';
+    else
+      update public.passes set status='expired' where user_id=p_user and session_id=mine.id and kind='talent_subscription' and status='active' and simulated;
+      update public.pro_profiles set subscription_until=mine.expires_at, subscription_session=mine.id, updated_at=now() where user_id=p_user;
+      insert into public.passes(user_id,venue_id,session_id,kind,simulated,amount_cents,expires_at)
+        values(p_user,mine.venue_id,mine.id,'talent_subscription',false,p_amount_cents,mine.expires_at) returning * into pass;
+      begin perform private.announce_talent(p_user, mine);
+      exception when others then raise warning 'talent alert skipped: %', sqlerrm; end;
+    end if;
+  else raise exception 'purchase_invalid';
+  end if;
+
+  -- The money was taken, so the purchase is always written down, granted or not: a purchase that could not be
+  -- granted is the list of refunds to make.
+  insert into public.purchases(user_id,store,product,transaction_id,amount_cents,currency,granted,note,venue_id,session_id,pass_id)
+    values(p_user,p_store,p_product,p_transaction,p_amount_cents,upper(p_currency),why is null,why,mine.venue_id,mine.id,pass.id) returning * into row;
+  return jsonb_build_object('id',row.id,'granted',row.granted,'status',row.status,'note',row.note,'already',false);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.refund_purchase(p_store text, p_transaction text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare row public.purchases;
+begin
+  select * into row from public.purchases where store=p_store and transaction_id=p_transaction for update;
+  if not found then raise exception 'purchase_missing'; end if;
+  if row.status='refunded' then return jsonb_build_object('id',row.id,'status','refunded','already',true); end if;
+  update public.purchases set status='refunded', refunded_at=now() where id=row.id;
+  if row.pass_id is not null then
+    update public.passes set status='refunded', expires_at=least(expires_at,now()) where id=row.pass_id;
+    if row.product='pro_evening' then
+      update public.pro_profiles set subscription_until=null where user_id=row.user_id and subscription_session=row.session_id;
+    end if;
+  end if;
+  return jsonb_build_object('id',row.id,'status','refunded','already',false);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.admin_purchases(p_limit integer DEFAULT 100)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_admin();
+begin
+  return coalesce((select jsonb_agg(x.row order by x.created_at desc) from (
+    select p.created_at, jsonb_build_object('id',p.id,'created_at',p.created_at,'store',p.store,'product',p.product,'amount_cents',p.amount_cents,'currency',p.currency,
+      'status',p.status,'granted',p.granted,'note',p.note,'refunded_at',p.refunded_at,'transaction',p.transaction_id,
+      'venue',(select name from private.venues v where v.id=p.venue_id),
+      'member',(select display_name from public.profiles f where f.user_id=p.user_id)) as row
+    from public.purchases p order by p.created_at desc limit least(greatest(coalesce(p_limit,100),1),500)) x),'[]'::jsonb);
+end $function$;
+
+CREATE OR REPLACE FUNCTION public.record_purchase(p_user uuid, p_store text, p_product text, p_transaction text, p_amount_cents integer, p_currency text DEFAULT 'EUR'::text)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.record_purchase(p_user,p_store,p_product,p_transaction,p_amount_cents,p_currency) $function$;
+
+CREATE OR REPLACE FUNCTION public.refund_purchase(p_store text, p_transaction text)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.refund_purchase(p_store,p_transaction) $function$;
+
+CREATE OR REPLACE FUNCTION public.admin_purchases(p_limit integer DEFAULT 100)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$ select private.admin_purchases(p_limit) $function$;
+
 
 -- On a fresh project, functions are open to everyone by default: close them first, then grant.
 revoke all on all functions in schema private from public, anon, authenticated;
@@ -2938,3 +3045,10 @@ grant execute on function public.venue_talents() to service_role;
 grant execute on function public.venue_update(p_hours text, p_contact text, p_duration integer) to authenticated;
 
 grant execute on function public.venue_update(p_hours text, p_contact text, p_duration integer) to service_role;
+grant execute on function private.admin_purchases(p_limit integer) to authenticated;
+grant execute on function private.record_purchase(p_user uuid, p_store text, p_product text, p_transaction text, p_amount_cents integer, p_currency text) to service_role;
+grant execute on function private.refund_purchase(p_store text, p_transaction text) to service_role;
+grant execute on function public.admin_purchases(p_limit integer) to authenticated;
+grant execute on function public.admin_purchases(p_limit integer) to service_role;
+grant execute on function public.record_purchase(p_user uuid, p_store text, p_product text, p_transaction text, p_amount_cents integer, p_currency text) to service_role;
+grant execute on function public.refund_purchase(p_store text, p_transaction text) to service_role;
