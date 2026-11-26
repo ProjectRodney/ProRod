@@ -8,9 +8,7 @@ Three statuses per feature, kept in `docs/product-flow.md`:
 
 How to run the database checks: open the Supabase SQL editor on the ProRod project, paste one section (from `begin;` to `rollback;`) and run it; the last row must read `PASS: …`. Nothing is kept: every section ends with `rollback`.
 
-How to refresh `db/functions.sql` after a migration: run in the SQL editor
-`select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('private','public') and p.prokind='f' and not exists(select 1 from pg_depend d where d.objid=p.oid and d.deptype='e') order by n.nspname desc, p.proname;`
-and replace the definitions in the file (grants at the end of the file stay as they are unless a function was added).
+How to refresh `db/functions.sql` after a migration: run the query kept in `db/export-functions.sql` in the SQL editor (it only reads), export the single cell as CSV, and replace everything below the three header lines of the file with it (definitions, then the grants).
 
 | Date | Sections | Result |
 |---|---|---|

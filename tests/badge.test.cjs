@@ -48,8 +48,8 @@ test('accounts confirmed by phone only are verified members (require_member)',()
 });
 test('push_status checks membership before reading anything (fix found by check 8b)',()=>{
   for(const f of ['db/2026-11-07-push-notifications.sql','db/2026-11-07-push-status-fix.sql','db/functions.sql']){
-    const s=fs.readFileSync(f,'utf8').replace(/\r\n/g,'\n');const fn=s.slice(s.indexOf('function private.push_status()'));
-    assert.match(fn,/^function private\.push_status\(\) returns jsonb language plpgsql[^$]*\$\$\ndeclare uid uuid := private\.require_member\(\);/,f);
+    const s=fs.readFileSync(f,'utf8').replace(/\r\n/g,'\n');const fn=s.slice(s.toLowerCase().indexOf('function private.push_status()'));
+    assert.match(fn,/^function private\.push_status\(\)\s+returns jsonb\s+language plpgsql[^$]*\$(?:function)?\$\ndeclare uid uuid := private\.require_member\(\);/i,f);
   }
 });
 test('typed form values survive a redraw (refused save, language switch, counts refresh); passwords and files never copied',()=>{
