@@ -277,3 +277,9 @@ body[data-screen=people] .people-compact .person small{font-size:12px}
 .account-card .pass-card summary{padding-block:0}
 /* Exchange with a professional (26 Nov 2026): a request in a list, without a photo. */
 .account-card .person.enq,.account-card .person.enq span,.account-card .person.enq small{align-items:flex-start;text-align:left}.person.enq span{flex:1}.person.enq b{font-size:15px}
+/* Readability pass on the conversation and message list (26 Nov 2026): rows of the message list read from the left like
+   the rest of the page, the hidden-reply line is not cut mid-sentence, and the translate option keeps its note under it. */
+body[data-screen=messages] .account-card button.person,body[data-screen=messages] .account-card button.person span{text-align:left}
+body[data-screen=messages] .account-card button.person>span{flex:1}
+body[data-screen=messages] .account-card button.person small{-webkit-line-clamp:3}
+.account-card label.agreement>span{flex:1;min-width:0}
