@@ -57,7 +57,7 @@ Five-second prompt once the other person proposed; either side can propose from 
 Leaving, switching venue or expiry ends presence and discovery; the account remains. Pass expiry: a pass ends with its venue session (see 7). Read-only history while apart is in place (see 8). Retention, and whether returning to an existing conversation should need fresh consent: DECIDE. Blocking and reporting must survive expiry.
 
 ## 11. Talent journey — DONE for the test (offer and price DECIDE)
-Professional accounts fill a sheet (business name, professional name, category, pitch, website, Instagram/TikTok/LinkedIn, city). The team approves it (« Fiches pro »). With an approved sheet and an active subscription (simulated, 30 days, one tap) the sheet appears in « Talents ici » for people checked in the same venue only; others can send an enquiry (not a chat; optional contact left), notified in-app. Blocks and reports apply to talents as well.
+Professional accounts fill a sheet (business name, professional name, category, pitch, website, Instagram/TikTok/LinkedIn, city). The team approves it (« Fiches pro »). With an approved sheet, the professional makes it visible for the visit while checked in a place (simulated, one tap, no subscription: it ends with the visit and is chosen again at the next one); the sheet then appears in « Talents ici » for people checked in the same venue only. Others can send an enquiry, which opens an exchange inside the app, apart from dating conversations; the professional answers and never writes first. Blocks and reports apply to talents as well.
 
 Talent profile + agreed subscription; visible only inside the active venue, moderated; no bypass of consent, no visibility in other venues.
 

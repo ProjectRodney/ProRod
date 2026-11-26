@@ -36,7 +36,8 @@ test('arrival and subscription trigger the alert; a failure never blocks the vis
   assert.match(body(sql,'function private.talent_alerts_on_visit('),/exception when others then\s+raise warning/);
   assert.match(body(sql,'function private.subscribe_talent_simulated('),/private\.announce_talent\(uid, private\.live_session\(uid\)\)/);
   assert.match(sql,/'talent_here'\]\) k\s+union select distinct kind from public\.notifications/,'existing notification kinds stay allowed');
-  assert.ok(fn.includes('FUNCTION private.send_talent_alert(')&&fn.includes('private.announce_talent(uid, private.live_session(uid))'),'functions.sql is in sync');
+  // Since 26 Nov 2026 (db/2026-11-26-pro-evening.sql) the announcement uses the visit the visibility was taken for.
+  assert.ok(fn.includes('FUNCTION private.send_talent_alert(')&&fn.includes('private.announce_talent(uid, mine)'),'functions.sql is in sync');
 });
 
 test('the app asks consent with an unticked box and offers a one-tap stop',()=>{

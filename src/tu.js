@@ -131,7 +131,7 @@ export const TU = {
 'Vos données':'Tes données',
 'Votre e-mail et votre date de naissance restent privés. Les autres membres ne voient que votre nom affiché. Vous pouvez supprimer votre compte à tout moment depuis vos réglages.':'Ton e-mail et ta date de naissance restent privés. Les autres membres ne voient que ton nom affiché. Tu peux supprimer ton compte à tout moment depuis tes réglages.',
 'Prenez votre pass pour les découvrir.':'Prends ton pass pour les découvrir.',
-'Personne d’autre pour l’instant. Revenez dans un moment.':'Personne d’autre pour l’instant. Reviens dans un moment.',
+'Vous êtes parmi les premiers ici. La liste se remplit au fil des arrivées.':'Tu es parmi les premiers ici. La liste se remplit au fil des arrivées.',
 'Cette personne n’est pas obligée de répondre. Merci de respecter son choix. Vous pouvez envoyer un seul message ; la conversation ne s’ouvre que si elle accepte et répond.':'Cette personne n’est pas obligée de répondre. Merci de respecter son choix. Tu peux envoyer un seul message ; la conversation ne s’ouvre que si elle accepte et répond.',
 'Votre message':'Ton message',
 'Restez respectueux·se. Insultes, propos vulgaires ou harcèlement entraînent un avertissement, puis une suspension, et la personne peut vous bloquer.':'Reste respectueux·se. Insultes, propos vulgaires ou harcèlement entraînent un avertissement, puis une suspension, et la personne peut te bloquer.',

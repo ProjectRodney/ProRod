@@ -1704,19 +1704,24 @@ CREATE OR REPLACE FUNCTION private.subscribe_talent_simulated()
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-declare uid uuid := private.require_person(); row public.pro_profiles;
+declare uid uuid := private.require_person(); row public.pro_profiles; mine public.venue_sessions;
 begin
   if (private.setting('simulation'))::boolean is distinct from true then raise exception 'simulation_only'; end if;
   select * into row from public.pro_profiles where user_id=uid for update;
   if not found or row.status<>'approved' then raise exception 'pro_not_approved'; end if;
-  update public.pro_profiles set subscription_until=greatest(coalesce(subscription_until,now()),now())+interval '30 days', updated_at=now() where user_id=uid returning * into row;
-  insert into public.passes(user_id,venue_id,kind,simulated,amount_cents,expires_at) values(uid,null,'talent_subscription',true,0,row.subscription_until);
+  mine := private.live_session(uid);
+  if mine.id is null then raise exception 'pro_visit_required'; end if;
+  if row.subscription_session=mine.id and row.subscription_until is not null and row.subscription_until>now() then
+    return jsonb_build_object('subscription_until',row.subscription_until,'venue',mine.venue_name,'simulated',true,'already',true);
+  end if;
+  update public.pro_profiles set subscription_until=mine.expires_at, subscription_session=mine.id, updated_at=now() where user_id=uid returning * into row;
+  insert into public.passes(user_id,venue_id,session_id,kind,simulated,amount_cents,expires_at) values(uid,mine.venue_id,mine.id,'talent_subscription',true,0,mine.expires_at);
   begin
-    perform private.announce_talent(uid, private.live_session(uid));
+    perform private.announce_talent(uid, mine);
   exception when others then
     raise warning 'talent alert skipped: %', sqlerrm;
   end;
-  return jsonb_build_object('subscription_until',row.subscription_until,'simulated',true);
+  return jsonb_build_object('subscription_until',row.subscription_until,'venue',mine.venue_name,'simulated',true,'already',false);
 end $function$;
 
 CREATE OR REPLACE FUNCTION private.talent_alerts_on_visit()
@@ -1746,10 +1751,25 @@ CREATE OR REPLACE FUNCTION private.talent_listed(p_pro uuid)
  SET search_path TO ''
 AS $function$
   select exists(select 1 from public.profiles p join public.pro_profiles t on t.user_id=p.user_id
+    join public.venue_sessions s on s.id=t.subscription_session and s.user_id=p.user_id and s.ended_at is null and s.expires_at>now()
     where p.user_id=p_pro and p.account_type='pro' and t.status='approved' and t.subscription_until is not null and t.subscription_until>now()
       and private.profile_complete(p)
       and not exists(select 1 from private.account_restrictions r where r.user_id=p_pro and r.suspended))
 $function$;
+
+CREATE OR REPLACE FUNCTION private.talent_visibility_follows_visit()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  update public.pro_profiles set subscription_until=case when new.ended_at is not null then null else new.expires_at end
+    where subscription_session=new.id;
+  update public.passes set expires_at=case when new.ended_at is not null then least(expires_at,new.ended_at) else new.expires_at end
+    where session_id=new.id and kind='talent_subscription';
+  return new;
+end $function$;
 
 CREATE OR REPLACE FUNCTION private.unread_total(p_uid uuid)
  RETURNS integer
@@ -1891,6 +1911,7 @@ begin
     from public.venue_sessions s join public.profiles p on p.user_id=s.user_id join public.pro_profiles t on t.user_id=s.user_id
     where s.venue_id=mine.venue_id and s.ended_at is null and s.expires_at>now() and s.user_id<>uid
       and p.account_type='pro' and t.status='approved' and t.subscription_until is not null and t.subscription_until>now()
+      and t.subscription_session=s.id
       and private.profile_complete(p) and not private.blocked_between(uid,s.user_id)
       and not exists(select 1 from private.account_restrictions r where r.user_id=s.user_id and r.suspended)),'[]'::jsonb);
 end $function$;
