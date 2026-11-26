@@ -3,7 +3,7 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
 const sql=fs.readFileSync('db/2026-11-17-pro-accounts.sql','utf8');const fn=fs.readFileSync('db/functions.sql','utf8');
 const app=fs.readFileSync('src/account.js','utf8');const tu=fs.readFileSync('src/tu.js','utf8');
-const body=(src,name)=>{const i=src.indexOf(name);assert.ok(i>=0,name);return src.slice(i,src.indexOf('end $function$;',i));};
+const body=(src,name)=>{const i=src.toLowerCase().indexOf(name.toLowerCase());assert.ok(i>=0,name);return src.slice(i,src.indexOf('end $function$;',i));};
 
 test('a pro account cannot turn itself back into a personal one',()=>{
   for(const src of [sql,fn])assert.match(body(src,'FUNCTION private.set_account_type('),/if existing='pro' and p_type<>'pro' then raise exception 'pro_locked'/);

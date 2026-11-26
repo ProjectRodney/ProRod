@@ -179,7 +179,12 @@ begin
       'reporter',private.member_card(r.reporter_id),'reported',private.member_card(r.reported_id),
       'reported_suspended',exists(select 1 from private.account_restrictions a where a.user_id=r.reported_id and a.suspended),
       'reported_report_count',(select count(*) from public.reports x where x.reported_id=r.reported_id),
-      'conversation',case when r.conversation_id is null then null else (select jsonb_agg(jsonb_build_object('from_reported',m.sender_id=r.reported_id,'body',m.body,'created_at',m.created_at) order by m.created_at) from public.messages m where m.conversation_id=r.conversation_id) end)
+      'conversation',case
+        when r.conversation_id is not null then (select jsonb_agg(jsonb_build_object('from_reported',m.sender_id=r.reported_id,'body',m.body,'created_at',m.created_at) order by m.created_at) from public.messages m where m.conversation_id=r.conversation_id)
+        when r.enquiry_id is not null then (select jsonb_build_array(jsonb_build_object('from_reported',e.from_id=r.reported_id,'body',e.message,'created_at',e.created_at))
+            || coalesce((select jsonb_agg(jsonb_build_object('from_reported',m.sender_id=r.reported_id,'body',m.body,'created_at',m.created_at) order by m.created_at) from public.enquiry_messages m where m.enquiry_id=e.id),'[]'::jsonb)
+          from public.enquiries e where e.id=r.enquiry_id)
+        else null end)
     order by r.created_at desc) from public.reports r where p_status is null or r.status=p_status),'[]'::jsonb);
 end $function$;
 
@@ -231,6 +236,80 @@ begin
   return jsonb_build_object('id',row.id);
 end $function$;
 
+CREATE OR REPLACE FUNCTION private.admin_send_feedback(p_hours integer DEFAULT NULL::integer)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_admin(); api_key text; to_addr text; from_addr text; n integer; avg_score numeric; bugs integer; body text; period text; ids uuid[];
+begin
+  if p_hours is not null and p_hours not between 1 and 8760 then raise exception 'invalid_duration'; end if;
+  select decrypted_secret into api_key from vault.decrypted_secrets where name='brevo_api_key' limit 1;
+  to_addr := private.setting('feedback_email') #>> '{}'; from_addr := private.setting('feedback_sender') #>> '{}';
+  if api_key is null or to_addr is null or from_addr is null then raise exception 'feedback_email_not_configured'; end if;
+  select array_agg(id) into ids from (select f.id from public.feedback f
+    where p_hours is null or f.created_at > now() - make_interval(hours => p_hours) order by f.created_at desc limit 300) picked;
+  n := coalesce(array_length(ids,1),0);
+  if n = 0 then return jsonb_build_object('count',0); end if;
+  select round(avg(score),1), count(*) filter (where bug) into avg_score, bugs from public.feedback where id = any(ids);
+  period := case when p_hours is null then 'Tous les retours' else 'Retours des ' || p_hours || ' dernières heures' end;
+  select 'UPZONE · retours des membres' || E'\n' || period || ' · envoyé le ' || to_char(now() at time zone 'Europe/Paris','DD/MM/YYYY HH24:MI') || E'\n' ||
+         n || ' retour(s) · note moyenne ' || avg_score || '/4 · ' || bugs || ' bug(s) signalé(s)' || E'\n\n' ||
+         string_agg(
+           '— Retour ' || rn || ' · ' || to_char(created_at at time zone 'Europe/Paris','DD/MM/YYYY HH24:MI') || ' —' || E'\n' ||
+           'Note : ' || score || '/4' || E'\n' ||
+           'Compte : ' || coalesce(who,'(supprimé)') || ' · type ' || coalesce(account_type,'?') || E'\n' ||
+           'Utilisation : ' || coalesce(context->>'minutes','?') || ' min · ' || case when context->>'installed'='true' then 'application installée' else 'navigateur' end || E'\n' ||
+           case when change_text is not null then 'À changer en premier : ' || change_text || E'\n' else '' end ||
+           case when bug then 'Bug : ' || coalesce(bug_text,'signalé sans détail') || E'\n' else '' end,
+           E'\n' order by created_at)
+    into body from (select f.*, (select display_name from public.profiles p where p.user_id=f.user_id) as who, row_number() over (order by f.created_at) as rn
+                    from public.feedback f where f.id = any(ids)) x;
+  perform net.http_post(url:='https://api.brevo.com/v3/smtp/email',
+    headers:=jsonb_build_object('api-key',api_key,'content-type','application/json','accept','application/json'),
+    body:=jsonb_build_object('sender',jsonb_build_object('email',from_addr,'name','UPZONE'),'to',jsonb_build_array(jsonb_build_object('email',to_addr)),'subject','[UPZONE] Retours regroupés (' || n || ')','textContent',body));
+  update public.feedback set emailed_at=now() where emailed_at is null and id = any(ids);
+  perform private.log_admin(uid,'feedback_sent',null,jsonb_build_object('count',n,'hours',p_hours));
+  return jsonb_build_object('count',n,'to',to_addr);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.admin_update_invite(p_id uuid, p_minutes integer DEFAULT NULL::integer, p_apply boolean DEFAULT true, p_days integer DEFAULT NULL::integer)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_admin(); inv private.venue_invites; n integer := 0;
+begin
+  select * into inv from private.venue_invites where id=p_id and revoked_at is null and expires_at>now() for update;
+  if not found then raise exception 'invite_missing'; end if;
+  if p_minutes is null and p_days is null then raise exception 'nothing_to_change'; end if;
+  if p_minutes is not null and p_minutes not between 15 and 720 then raise exception 'invalid_duration'; end if;
+  if p_days is not null and p_days not between 1 and 365 then raise exception 'invalid_duration'; end if;
+  if p_minutes is not null then
+    update private.venue_invites set duration_minutes=p_minutes where id=p_id;
+    if coalesce(p_apply,true) then
+      -- A visit lasts the new length counted from its own start; one that began longer ago than that ends now.
+      -- The pass taken for a visit ends with that visit: it follows the visit's new end, or the member would lose the
+      -- unveiled view at the old time while still inside.
+      with moved as (
+        update public.venue_sessions set expires_at=started_at+make_interval(mins=>p_minutes)
+          where invite_id=p_id and ended_at is null and expires_at>now() returning id, expires_at
+      ), passes_moved as (
+        update public.passes p set expires_at=m.expires_at from moved m
+          where p.session_id=m.id and p.kind='venue_pass' and p.status='active' returning 1
+      )
+      select count(*) into n from moved;
+    end if;
+  end if;
+  -- Pushing back the last day adds days to it; it never brings it closer.
+  if p_days is not null then update private.venue_invites set expires_at=least(expires_at+make_interval(days=>p_days),now()+interval '365 days') where id=p_id; end if;
+  select * into inv from private.venue_invites where id=p_id;
+  perform private.log_admin(uid,'invite_updated',p_id::text,jsonb_build_object('duration_minutes',inv.duration_minutes,'expires_at',inv.expires_at,'visits_changed',n));
+  return jsonb_build_object('id',inv.id,'duration_minutes',inv.duration_minutes,'expires_at',inv.expires_at,'visits_changed',n);
+end $function$;
+
 CREATE OR REPLACE FUNCTION private.admin_venue_applications(p_status text DEFAULT 'pending'::text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -252,7 +331,50 @@ declare uid uuid := private.require_admin();
 begin
   return coalesce((select jsonb_agg(jsonb_build_object('id',v.id,'name',v.name,'category',v.category,'duration_minutes',v.duration_minutes,'address',v.address,'active',v.active,
       'live',(select count(*) from public.venue_sessions s where s.venue_id=v.id and s.ended_at is null and s.expires_at>now()),
-      'invites',coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'expires_at',i.expires_at,'duration_minutes',i.duration_minutes,'revoked_at',i.revoked_at,'uses',(select count(*) from public.venue_sessions s where s.invite_id=i.id)) order by i.expires_at desc) from private.venue_invites i where i.venue_id=v.id),'[]'::jsonb)) order by v.name) from private.venues v),'[]'::jsonb);
+      'invites',coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'expires_at',i.expires_at,'duration_minutes',i.duration_minutes,'revoked_at',i.revoked_at,
+        'uses',(select count(*) from public.venue_sessions s where s.invite_id=i.id),
+        'live',(select count(*) from public.venue_sessions s where s.invite_id=i.id and s.ended_at is null and s.expires_at>now())) order by i.expires_at desc) from private.venue_invites i where i.venue_id=v.id),'[]'::jsonb)) order by v.name) from private.venues v),'[]'::jsonb);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.admin_warn_member(p_report uuid, p_message text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_admin(); row public.reports;
+begin
+  select * into row from public.reports where id=p_report;
+  if not found then raise exception 'report_missing'; end if;
+  perform private.notify(row.reported_id,'account_warned',jsonb_build_object('message',coalesce(nullif(left(btrim(p_message),300),''),'')),null);
+  update public.reports set status=case when status='open' then 'actioned' else status end, decided_at=coalesce(decided_at,now()), decided_by=coalesce(decided_by,uid) where id=p_report;
+  perform private.log_admin(uid,'member_warned',row.reported_id::text,jsonb_build_object('report',p_report));
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.age_band(p_birth date)
+ RETURNS text
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$
+  select case when a is null then null when a <= 20 then '18-20' else (21 + 5*((a-21)/5))::text || '-' || (25 + 5*((a-21)/5))::text end
+  from (select date_part('year', age(p_birth))::int as a) x
+$function$;
+
+CREATE OR REPLACE FUNCTION private.announce_talent(p_pro uuid, p_session venue_sessions)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare s record; n integer := 0;
+begin
+  if p_session.id is null or not private.talent_listed(p_pro) then return 0; end if;
+  for s in select v.id, v.user_id from public.venue_sessions v
+    where v.venue_id=p_session.venue_id and v.ended_at is null and v.expires_at>now() and v.user_id<>p_pro loop
+    if private.send_talent_alert(s.user_id, s.id, p_pro, p_session.venue_name) then n := n+1; end if;
+  end loop;
+  return n;
 end $function$;
 
 CREATE OR REPLACE FUNCTION private.app_settings_public()
@@ -280,30 +402,6 @@ begin
   return jsonb_build_object('id',row.id,'status',row.status);
 end $function$;
 
-CREATE OR REPLACE FUNCTION private.exchanged_with(a uuid, b uuid)
- RETURNS boolean
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-  select a is not null and b is not null and a <> b and (
-    exists(select 1 from public.introductions i where (i.sender_id=a and i.recipient_id=b) or (i.sender_id=b and i.recipient_id=a))
-    or exists(select 1 from public.enquiries e where (e.from_id=a and e.pro_id=b) or (e.from_id=b and e.pro_id=a)))
-$function$;
-
-CREATE OR REPLACE FUNCTION private.has_met(a uuid, b uuid)
- RETURNS boolean
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-  select private.exchanged_with(a,b) or exists(
-    select 1 from public.venue_sessions x join public.venue_sessions y on x.venue_id=y.venue_id
-    where x.user_id=a and y.user_id=b
-      and x.started_at < coalesce(y.ended_at,y.expires_at) and y.started_at < coalesce(x.ended_at,x.expires_at)
-      and greatest(x.started_at,y.started_at) > now()-interval '7 days')
-$function$;
-
 CREATE OR REPLACE FUNCTION private.block_member(p_user uuid)
  RETURNS void
  LANGUAGE plpgsql
@@ -329,6 +427,14 @@ AS $function$
   select exists(select 1 from public.blocks where (blocker_id=a and blocked_id=b) or (blocker_id=b and blocked_id=a))
 $function$;
 
+CREATE OR REPLACE FUNCTION private.bot_as(p_uid uuid)
+ RETURNS void
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$
+  select set_config('request.jwt.claims', case when p_uid is null then '' else jsonb_build_object('sub',p_uid::text,'role','authenticated')::text end, true)::void
+$function$;
+
 CREATE OR REPLACE FUNCTION private.buy_pass_simulated()
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -346,6 +452,19 @@ begin
   return jsonb_build_object('id',row.id,'expires_at',row.expires_at,'simulated',row.simulated,'already',false);
 end $function$;
 
+CREATE OR REPLACE FUNCTION private.clear_places()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person(); n int;
+begin
+  update public.venue_sessions set history_hidden_at=now() where user_id=uid and history_hidden_at is null;
+  get diagnostics n = row_count;
+  return jsonb_build_object('hidden', n);
+end $function$;
+
 CREATE OR REPLACE FUNCTION private.close_conversation(p_id uuid)
  RETURNS void
  LANGUAGE plpgsql
@@ -356,6 +475,30 @@ declare uid uuid := private.require_member(); conv public.conversations;
 begin
   update public.conversations set closed_at=now(), closed_by=uid where id=p_id and (a_id=uid or b_id=uid) and closed_at is null returning * into conv;
   if found then perform private.notify(case when conv.a_id=uid then conv.b_id else conv.a_id end,'conversation_closed',jsonb_build_object('conversation',conv.id),conv.id::text); end if;
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.close_enquiries_on_block()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  update public.enquiries set closed_at=now(), closed_by=new.blocker_id
+    where closed_at is null and ((from_id=new.blocker_id and pro_id=new.blocked_id) or (from_id=new.blocked_id and pro_id=new.blocker_id));
+  return new;
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.close_enquiry(p_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person();
+begin
+  update public.enquiries set closed_at=now(), closed_by=uid where id=p_id and (from_id=uid or pro_id=uid) and closed_at is null;
+  if not found and not exists(select 1 from public.enquiries where id=p_id and (from_id=uid or pro_id=uid)) then raise exception 'enquiry_missing'; end if;
 end $function$;
 
 CREATE OR REPLACE FUNCTION private.co_present(viewer uuid, owner uuid)
@@ -414,6 +557,156 @@ begin
   if uid is null then raise exception 'verified_account_required' using errcode='42501'; end if;
   delete from auth.users where id=uid;
 end $function$;
+
+CREATE OR REPLACE FUNCTION private.delete_push_subscription(p_endpoint text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_member();
+begin
+  delete from public.push_subscriptions where endpoint=p_endpoint and user_id=uid;
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.end_conversation(p_id uuid, p_reason text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_member(); conv public.conversations;
+begin
+  if p_reason is null or p_reason not in ('not_available','left_venue','not_interested','other') then raise exception 'invalid_reason'; end if;
+  update public.conversations set closed_at=now(), closed_by=uid, closed_reason=p_reason where id=p_id and (a_id=uid or b_id=uid) and closed_at is null returning * into conv;
+  if found then perform private.notify(case when conv.a_id=uid then conv.b_id else conv.a_id end,'conversation_closed',jsonb_build_object('conversation',conv.id,'reason',p_reason),conv.id::text); end if;
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.enquiry_block(p_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person(); e public.enquiries;
+begin
+  select * into e from public.enquiries where id=p_id and (from_id=uid or pro_id=uid);
+  if not found then raise exception 'enquiry_missing'; end if;
+  perform private.block_member(case when uid=e.pro_id then e.from_id else e.pro_id end);
+  update public.enquiries set closed_at=coalesce(closed_at,now()), closed_by=coalesce(closed_by,uid) where id=e.id;
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.enquiry_open(e enquiries)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select e.closed_at is null and not private.blocked_between(e.from_id,e.pro_id)
+    and not exists(select 1 from private.account_restrictions r where r.user_id in (e.from_id,e.pro_id) and r.suspended)
+    and exists(select 1 from public.pro_profiles t join public.profiles p on p.user_id=t.user_id
+               where t.user_id=e.pro_id and t.status='approved' and p.account_type='pro')
+$function$;
+
+CREATE OR REPLACE FUNCTION private.enquiry_pro_streak(e enquiries)
+ RETURNS integer
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select count(*)::integer from public.enquiry_messages m where m.enquiry_id=e.id and m.sender_id=e.pro_id
+    and m.created_at > coalesce((select max(x.created_at) from public.enquiry_messages x where x.enquiry_id=e.id and x.sender_id=e.from_id), e.created_at)
+$function$;
+
+CREATE OR REPLACE FUNCTION private.enquiry_report(p_id uuid, p_category text, p_details text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person(); e public.enquiries; r jsonb;
+begin
+  select * into e from public.enquiries where id=p_id and (from_id=uid or pro_id=uid);
+  if not found then raise exception 'enquiry_missing'; end if;
+  r := private.report_member(case when uid=e.pro_id then e.from_id else e.pro_id end,p_category,p_details,null);
+  update public.reports set enquiry_id=e.id where id=(r->>'id')::uuid;
+  update public.enquiries set closed_at=coalesce(closed_at,now()), closed_by=coalesce(closed_by,uid) where id=e.id;
+  return r;
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.enquiry_thread(p_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person(); e public.enquiries; is_pro boolean; open boolean;
+begin
+  select * into e from public.enquiries where id=p_id and (from_id=uid or pro_id=uid);
+  if not found then raise exception 'enquiry_missing'; end if;
+  is_pro := uid=e.pro_id; open := private.enquiry_open(e);
+  if is_pro then update public.enquiries set pro_read_at=clock_timestamp() where id=e.id;
+  else update public.enquiries set from_read_at=clock_timestamp() where id=e.id; end if;
+  update public.notifications set read_at=now() where user_id=uid and read_at is null and payload->>'key' in (e.id::text,'enquiry:'||e.id::text);
+  return jsonb_build_object('id',e.id,'role',case when is_pro then 'pro' else 'member' end,
+    'with',case when is_pro then (select p.display_name from public.profiles p where p.user_id=e.from_id)
+                else (select coalesce(nullif(btrim(t.business_name),''),t.professional_name) from public.pro_profiles t where t.user_id=e.pro_id) end,
+    'category',case when is_pro then null else (select t.category from public.pro_profiles t where t.user_id=e.pro_id) end,
+    'venue',(select v.name from private.venues v where v.id=e.venue_id),
+    'contact',e.contact,'created_at',e.created_at,'open',open,'closed_by_me',e.closed_by=uid,
+    'wait',is_pro and open and private.enquiry_pro_streak(e)>=3,
+    'messages',jsonb_build_array(jsonb_build_object('id',e.id,'mine',not is_pro,'body',e.message,'created_at',e.created_at))
+      || coalesce((select jsonb_agg(jsonb_build_object('id',m.id,'mine',m.sender_id=uid,'body',m.body,'created_at',m.created_at) order by m.created_at)
+                   from public.enquiry_messages m where m.enquiry_id=e.id),'[]'::jsonb));
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.exchanged_with(a uuid, b uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select a is not null and b is not null and a <> b and (
+    exists(select 1 from public.introductions i where (i.sender_id=a and i.recipient_id=b) or (i.sender_id=b and i.recipient_id=a))
+    or exists(select 1 from public.enquiries e where (e.from_id=a and e.pro_id=b) or (e.from_id=b and e.pro_id=a)))
+$function$;
+
+CREATE OR REPLACE FUNCTION private.has_met(a uuid, b uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select private.exchanged_with(a,b) or exists(
+    select 1 from public.venue_sessions x join public.venue_sessions y on x.venue_id=y.venue_id
+    where x.user_id=a and y.user_id=b
+      and x.started_at < coalesce(y.ended_at,y.expires_at) and y.started_at < coalesce(x.ended_at,x.expires_at)
+      and greatest(x.started_at,y.started_at) > now()-interval '7 days')
+$function$;
+
+CREATE OR REPLACE FUNCTION private.hide_place(p_venue uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person(); n int;
+begin
+  if p_venue is null then raise exception 'invalid_place'; end if;
+  update public.venue_sessions set history_hidden_at=now()
+   where user_id=uid and venue_id=p_venue and history_hidden_at is null;
+  get diagnostics n = row_count;
+  return jsonb_build_object('hidden', n);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.is_pro(p_user uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select exists(select 1 from public.profiles p where p.user_id=p_user and p.account_type='pro')
+$function$;
 
 CREATE OR REPLACE FUNCTION private.join_venue(p_token text)
  RETURNS venue_sessions
@@ -507,9 +800,24 @@ AS $function$
     'agreed_at', conv.meeting_agreed_at)
 $function$;
 
-create or replace function private.member_card(p_user uuid) returns jsonb language sql stable security definer set search_path to '' as $function$
+CREATE OR REPLACE FUNCTION private.member_card(p_user uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
   select jsonb_build_object('user_id',p.user_id,'display_name',p.display_name,'age',date_part('year',age(p.birth_date))::int,'bio',p.bio,'avatar_path',p.avatar_path,'height_cm',p.height_cm,'department',p.department)
   from public.profiles p where p.user_id=p_user
+$function$;
+
+CREATE OR REPLACE FUNCTION private.message_hidden(p_conv conversations, p_uid uuid, p_sender uuid, p_at timestamp with time zone)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select p_sender<>p_uid and (private.setting('pass_rule') #>> '{}')='everyone'
+     and not exists(select 1 from public.passes p where p.user_id=p_uid and p.venue_id=p_conv.venue_id and p.status='active' and p.kind='venue_pass' and p.expires_at>=p_at)
 $function$;
 
 CREATE OR REPLACE FUNCTION private.my_account_type()
@@ -541,6 +849,28 @@ begin
     'blocks',(select coalesce(jsonb_agg(jsonb_build_object('blocked',(select display_name from public.profiles where user_id=b.blocked_id and private.exchanged_with(uid,b.blocked_id)),'created_at',b.created_at)),'[]'::jsonb) from public.blocks b where b.blocker_id=uid),
     'reports_made',(select coalesce(jsonb_agg(jsonb_build_object('category',r.category,'details',r.details,'created_at',r.created_at,'status',r.status)),'[]'::jsonb) from public.reports r where r.reporter_id=uid),
     'notifications',(select coalesce(jsonb_agg(jsonb_build_object('kind',n.kind,'created_at',n.created_at,'read_at',n.read_at)),'[]'::jsonb) from public.notifications n where n.user_id=uid));
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.my_enquiries()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person();
+begin
+  return coalesce((select jsonb_agg(x.row order by x.last_at desc) from (
+    select greatest(e.created_at,coalesce(l.created_at,e.created_at)) as last_at,
+      jsonb_build_object('id',e.id,
+        'with',(select coalesce(nullif(btrim(t.business_name),''),t.professional_name) from public.pro_profiles t where t.user_id=e.pro_id),
+        'category',(select t.category from public.pro_profiles t where t.user_id=e.pro_id),
+        'last',left(coalesce(l.body,e.message),90),'last_mine',coalesce(l.sender_id,e.from_id)=uid,
+        'last_at',greatest(e.created_at,coalesce(l.created_at,e.created_at)),
+        'unread',(select count(*) from public.enquiry_messages m where m.enquiry_id=e.id and m.sender_id<>uid and m.created_at>coalesce(e.from_read_at,e.created_at)),
+        'open',private.enquiry_open(e)) as row
+    from (select * from public.enquiries where from_id=uid order by created_at desc limit 50) e
+    left join lateral (select m.body,m.sender_id,m.created_at from public.enquiry_messages m where m.enquiry_id=e.id order by m.created_at desc limit 1) l on true
+    where not private.blocked_between(uid,e.pro_id)) x),'[]'::jsonb);
 end $function$;
 
 CREATE OR REPLACE FUNCTION private.my_inbox()
@@ -589,6 +919,29 @@ AS $function$
     from public.passes p where p.user_id=private.require_member()),'[]'::jsonb)
 $function$;
 
+CREATE OR REPLACE FUNCTION private.my_places()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person();
+begin
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'venue', x.venue_id, 'name', v.name, 'category', v.category, 'open', v.active,
+      'visits', x.visits, 'last_visit', x.last_visit,
+      'announcement', case when v.active then (select a.body from public.venue_announcements a
+        where a.venue_id=x.venue_id and a.expires_at>now() order by a.created_at desc limit 1) end
+    ) order by x.last_visit desc)
+    from (select s.venue_id, count(*)::int as visits, max(s.started_at) as last_visit
+          from public.venue_sessions s
+          where s.user_id=uid and s.history_hidden_at is null and s.started_at>now()-interval '90 days'
+          group by s.venue_id) x
+    join private.venues v on v.id=x.venue_id
+    where v.category<>'event'), '[]'::jsonb);
+end $function$;
+
 CREATE OR REPLACE FUNCTION private.my_pro_profile()
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -600,7 +953,12 @@ begin
   select * into row from public.pro_profiles where user_id=uid;
   if not found then return null; end if;
   return jsonb_build_object('business_name',row.business_name,'professional_name',row.professional_name,'category',row.category,'pitch',row.pitch,'website',row.website,'socials',row.socials,'city',row.city,'status',row.status,'decision',row.decision,'subscription_until',row.subscription_until,'subscription_active',row.subscription_until is not null and row.subscription_until>now(),
-    'enquiries',coalesce((select jsonb_agg(jsonb_build_object('id',e.id,'message',e.message,'contact',e.contact,'created_at',e.created_at,'from',(select display_name from public.profiles where user_id=e.from_id),'venue',(select name from private.venues where id=e.venue_id)) order by e.created_at desc) from (select * from public.enquiries where pro_id=uid order by created_at desc limit 50) e),'[]'::jsonb));
+    'enquiries',coalesce((select jsonb_agg(jsonb_build_object('id',e.id,'message',e.message,'contact',e.contact,'created_at',e.created_at,'from',(select display_name from public.profiles where user_id=e.from_id),'venue',(select name from private.venues where id=e.venue_id),
+        'unread',(select count(*) from public.enquiry_messages m where m.enquiry_id=e.id and m.sender_id<>uid and m.created_at>coalesce(e.pro_read_at,e.created_at)) + case when e.pro_read_at is null then 1 else 0 end,
+        'answered',exists(select 1 from public.enquiry_messages m where m.enquiry_id=e.id and m.sender_id=uid),
+        'last_at',greatest(e.created_at,coalesce((select max(m.created_at) from public.enquiry_messages m where m.enquiry_id=e.id),e.created_at)),
+        'open',private.enquiry_open(e)) order by e.created_at desc)
+      from (select * from public.enquiries where pro_id=uid and not private.blocked_between(uid,from_id) order by created_at desc limit 50) e),'[]'::jsonb));
 end $function$;
 
 CREATE OR REPLACE FUNCTION private.my_venue()
@@ -635,15 +993,21 @@ AS $function$
      and not exists(select 1 from public.passes p where p.user_id=p_uid and p.venue_id=p_conv.venue_id and p.status='active' and p.kind='venue_pass' and p.expires_at>now())
 $function$;
 
-CREATE OR REPLACE FUNCTION private.message_hidden(p_conv public.conversations, p_uid uuid, p_sender uuid, p_at timestamp with time zone)
- RETURNS boolean
- LANGUAGE sql
+CREATE OR REPLACE FUNCTION private.notification_prefs()
+ RETURNS jsonb
+ LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-  select p_sender<>p_uid and (private.setting('pass_rule') #>> '{}')='everyone'
-     and not exists(select 1 from public.passes p where p.user_id=p_uid and p.venue_id=p_conv.venue_id and p.status='active' and p.kind='venue_pass' and p.expires_at>=p_at)
-$function$;
+declare uid uuid := private.require_member();
+begin
+  return jsonb_build_object(
+    'meet', not exists(select 1 from private.notification_mutes m where m.user_id=uid and m.grp='meet'),
+    'messages', not exists(select 1 from private.notification_mutes m where m.user_id=uid and m.grp='messages'),
+    'talents', not exists(select 1 from private.notification_mutes m where m.user_id=uid and m.grp='talents'),
+    'phones', (select count(*) from public.app_devices d where d.user_id=uid),
+    'browsers', (select count(*) from public.push_subscriptions s where s.user_id=uid));
+end $function$;
 
 CREATE OR REPLACE FUNCTION private.notify(p_user uuid, p_kind text, p_payload jsonb DEFAULT '{}'::jsonb, p_dedupe_key text DEFAULT NULL::text)
  RETURNS void
@@ -658,6 +1022,18 @@ begin
   insert into public.notifications(user_id,kind,payload) values(p_user,p_kind,coalesce(p_payload,'{}'::jsonb)||case when p_dedupe_key is null then '{}'::jsonb else jsonb_build_object('key',p_dedupe_key) end);
   delete from public.notifications where user_id=p_user and id not in (select id from public.notifications where user_id=p_user order by created_at desc limit 200);
 end $function$;
+
+CREATE OR REPLACE FUNCTION private.photo_visible(viewer uuid, owner uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select private.co_present(viewer, owner) and (
+    private.venue_unlocked(viewer, (private.live_session(viewer)).venue_id)
+    or exists(select 1 from public.introductions i where (i.sender_id=owner and i.recipient_id=viewer) or (i.sender_id=viewer and i.recipient_id=owner))
+    or exists(select 1 from public.conversations c where (c.a_id=viewer and c.b_id=owner) or (c.a_id=owner and c.b_id=viewer)))
+$function$;
 
 CREATE OR REPLACE FUNCTION private.preview_venue(p_token text)
  RETURNS jsonb
@@ -686,6 +1062,105 @@ AS $function$
          else p.display_name is not null and p.birth_date is not null and p.locale is not null
               and p.bio is not null and char_length(btrim(p.bio)) > 0 and p.avatar_path is not null end
 $function$;
+
+CREATE OR REPLACE FUNCTION private.push_group(p_kind text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+  select case
+    when p_kind in ('introduction_received','reply_received','conversation_closed') then 'meet'
+    when p_kind = 'message_received' then 'messages'
+    when p_kind = 'talent_here' then 'talents'
+    else 'account' end
+$function$;
+
+CREATE OR REPLACE FUNCTION private.push_on_notification()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare secret text; url text; subs jsonb; devs jsonb; lang text; v_group text := private.push_group(new.kind);
+begin
+  begin
+    if v_group <> 'account' and exists(select 1 from private.notification_mutes m where m.user_id=new.user_id and m.grp=v_group) then return new; end if;
+    select jsonb_agg(jsonb_build_object('endpoint',s.endpoint,'p256dh',s.p256dh,'auth',s.auth)) into subs from public.push_subscriptions s where s.user_id=new.user_id;
+    select jsonb_agg(d.token) into devs from public.app_devices d where d.user_id=new.user_id;
+    if subs is null and devs is null then return new; end if;
+    select decrypted_secret into secret from vault.decrypted_secrets where name='push_hook_secret' limit 1;
+    url := private.setting('push_function_url') #>> '{}';
+    if secret is null or url is null then return new; end if;
+    select coalesce(p.locale,'fr') into lang from public.profiles p where p.user_id=new.user_id;
+    perform net.http_post(url:=url,
+      headers:=jsonb_build_object('content-type','application/json','x-push-secret',secret),
+      body:=jsonb_build_object('kind',new.kind,'group',v_group,'lang',coalesce(lang,'fr'),'badge',private.unread_total(new.user_id),
+                               'subscriptions',coalesce(subs,'[]'::jsonb),'devices',coalesce(devs,'[]'::jsonb)));
+    update public.push_subscriptions set last_sent_at=now() where user_id=new.user_id;
+    update public.app_devices set last_sent_at=now() where user_id=new.user_id;
+  exception when others then
+    raise warning 'push_on_notification: %', sqlerrm;
+  end;
+  return new;
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.push_status()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_member();  -- checked first, whatever the table holds
+begin
+  return jsonb_build_object('devices',(select count(*) from public.push_subscriptions where user_id=uid));
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.register_device(p_token text, p_platform text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_member();
+begin
+  if p_token is null or p_token !~ '^Expo(nent)?PushToken\[[A-Za-z0-9_:-]{10,200}\]$' or p_platform is null or p_platform not in ('android','ios') then
+    raise exception 'invalid_device';
+  end if;
+  -- One phone app = one token: signing in with another account on the same phone moves it to that account.
+  insert into public.app_devices(user_id,token,platform,created_at) values(uid,p_token,p_platform,clock_timestamp())
+  on conflict (token) do update set user_id=excluded.user_id, platform=excluded.platform, created_at=clock_timestamp();
+  -- At most 5 phones per member.
+  delete from public.app_devices where user_id=uid and id not in (select id from public.app_devices where user_id=uid order by created_at desc limit 5);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.reply_enquiry(p_id uuid, p_body text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person(); e public.enquiries; row public.enquiry_messages; other uuid; shown text;
+begin
+  if p_body is null or char_length(btrim(p_body)) not between 1 and 1000 then raise exception 'enquiry_length'; end if;
+  select * into e from public.enquiries where id=p_id and (from_id=uid or pro_id=uid) for update;
+  if not found then raise exception 'enquiry_missing'; end if;
+  if not private.enquiry_open(e) then raise exception 'enquiry_closed'; end if;
+  if uid=e.pro_id then
+    if private.enquiry_pro_streak(e)>=3 then raise exception 'enquiry_wait'; end if;
+    other := e.from_id;
+    select coalesce(nullif(btrim(t.business_name),''),p.display_name) into shown from public.pro_profiles t join public.profiles p on p.user_id=t.user_id where t.user_id=uid;
+  else
+    if (select count(*) from public.enquiry_messages m where m.sender_id=uid and m.created_at>now()-interval '1 day')>=60 then raise exception 'enquiry_limit'; end if;
+    other := e.pro_id;
+    select display_name into shown from public.profiles where user_id=uid;
+  end if;
+  insert into public.enquiry_messages(enquiry_id,sender_id,body) values(e.id,uid,btrim(p_body)) returning * into row;
+  if uid=e.pro_id then update public.enquiries set pro_read_at=clock_timestamp() where id=e.id;
+  else update public.enquiries set from_read_at=clock_timestamp() where id=e.id; end if;
+  perform private.notify(other,'message_received',jsonb_build_object('from',shown,'enquiry',true),'enquiry:'||e.id::text);
+  return jsonb_build_object('id',row.id,'created_at',row.created_at);
+end $function$;
 
 CREATE OR REPLACE FUNCTION private.report_member(p_user uuid, p_category text, p_details text DEFAULT NULL::text, p_conversation uuid DEFAULT NULL::uuid)
  RETURNS jsonb
@@ -741,11 +1216,6 @@ begin
   return uid;
 end $function$;
 
-CREATE OR REPLACE FUNCTION private.is_pro(p_user uuid) returns boolean language sql stable security definer set search_path to '' as $function$
-  select exists(select 1 from public.profiles p where p.user_id=p_user and p.account_type='pro')
-$function$;
-revoke all on function private.is_pro(uuid) from public, anon, authenticated;
-
 CREATE OR REPLACE FUNCTION private.require_person()
  RETURNS uuid
  LANGUAGE plpgsql
@@ -783,6 +1253,107 @@ begin
   insert into public.conversation_reads(conversation_id,user_id) values(conv.id,uid);
   perform private.notify(row.sender_id,'reply_received',jsonb_build_object('from',(select display_name from public.profiles where user_id=uid),'conversation',conv.id),conv.id::text);
   return jsonb_build_object('status','accepted','conversation_id',conv.id);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.run_test_bots()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_venue constant uuid := 'a2c1a2c1-0000-4000-8000-000000000001';
+  v_invite constant uuid := 'a2c1a2c1-0000-4000-8000-000000000002';
+  decliner constant uuid := 'a2c1a2c1-0000-4000-8000-0000000000f4';  -- Karim (test): always declines
+  opener constant uuid := 'a2c1a2c1-0000-4000-8000-0000000000f2';    -- Sam (test): introduces himself first
+  b record; i record; c record; m record; n integer := 0; lang text; mine int; theirs int; bot_is_a boolean;
+  lines_fr text[] := array['Sympa ! Je suis venu·e avec des amis ce soir.','Tu viens souvent ici ?','Ça te dirait qu’on se dise bonjour au comptoir tout à l’heure ?','Avec plaisir, à tout à l’heure !','(Profil de test) Merci d’avoir testé la conversation.'];
+  lines_en text[] := array['Nice! I came with friends tonight.','Do you come here often?','Shall we say hi at the counter later?','Great, see you in a bit!','(Test profile) Thanks for testing the conversation.'];
+begin
+  if coalesce((private.setting('test_bots') #>> '{}')::boolean,false) is not true then return 0; end if;
+
+  -- 1. Bots stay present in the test venue (3 h visits, renewed) and hold a simulated pass.
+  for b in select u.id from auth.users u where u.email like '%.test@example.invalid' loop
+    begin
+      if not exists(select 1 from public.venue_sessions s where s.user_id=b.id and s.venue_id=v_venue and s.ended_at is null and s.expires_at>now()+interval '5 minutes') then
+        update public.venue_sessions set ended_at=now() where user_id=b.id and ended_at is null;
+        insert into public.venue_sessions(user_id,venue_id,invite_id,venue_name,expires_at)
+          values(b.id,v_venue,v_invite,(select v.name from private.venues v where v.id=v_venue),now()+interval '180 minutes');
+      end if;
+      perform private.bot_as(b.id); perform public.buy_pass_simulated();
+    exception when others then null; end;
+  end loop;
+
+  -- 2. Introductions received by a bot (at least 20 s old): Karim declines, the others accept with a reply.
+  for i in select x.id, x.recipient_id, x.sender_id from public.introductions x join auth.users u on u.id=x.recipient_id
+           where u.email like '%.test@example.invalid' and x.status='pending' and x.created_at<now()-interval '20 seconds'
+             and not exists(select 1 from auth.users s where s.id=x.sender_id and s.email like '%.test@example.invalid') loop
+    begin
+      select coalesce(p.locale,'fr') into lang from public.profiles p where p.user_id=i.sender_id;
+      perform private.bot_as(i.recipient_id);
+      if i.recipient_id=decliner then perform public.respond_introduction(i.id,false,null);
+      else perform public.respond_introduction(i.id,true,case when lang='en' then 'Hi! Happy to chat. Are you here for the whole evening?' else 'Salut ! Avec plaisir. Tu es là pour toute la soirée ?' end); end if;
+      n := n+1;
+    exception when others then null; end;
+  end loop;
+
+  -- 3. Conversations with a bot where the other person wrote last (at least 15 s ago): the bot answers,
+  --    proposes to meet once both wrote twice, and says yes when the other person proposed.
+  for c in select cv.* from public.conversations cv
+           where cv.closed_at is null and cv.venue_id=v_venue
+             and ((select u.email from auth.users u where u.id=cv.a_id) like '%.test@example.invalid')
+                 <> ((select u.email from auth.users u where u.id=cv.b_id) like '%.test@example.invalid') loop
+    begin
+      bot_is_a := (select u.email like '%.test@example.invalid' from auth.users u where u.id=c.a_id);
+      select * into m from public.messages where conversation_id=c.id order by created_at desc limit 1;
+      select coalesce(p.locale,'fr') into lang from public.profiles p where p.user_id=case when bot_is_a then c.b_id else c.a_id end;
+      perform private.bot_as(case when bot_is_a then c.a_id else c.b_id end);
+      if m.sender_id <> (case when bot_is_a then c.a_id else c.b_id end) and m.created_at<now()-interval '15 seconds' then
+        select count(*) filter (where sender_id=(case when bot_is_a then c.a_id else c.b_id end)), count(*) filter (where sender_id<>(case when bot_is_a then c.a_id else c.b_id end))
+          into mine, theirs from public.messages where conversation_id=c.id;
+        perform public.send_message(c.id, (case when lang='en' then lines_en else lines_fr end)[least(greatest(mine,1),5)]);
+        n := n+1;
+      end if;
+      select count(*) filter (where sender_id=(case when bot_is_a then c.a_id else c.b_id end)), count(*) filter (where sender_id<>(case when bot_is_a then c.a_id else c.b_id end))
+        into mine, theirs from public.messages where conversation_id=c.id;
+      if mine>=2 and theirs>=2 and (case when bot_is_a then c.meeting_a else c.meeting_b end) is null then
+        perform public.meeting_answer(c.id,true);
+      end if;
+    exception when others then null; end;
+  end loop;
+
+  -- 4. Sam (test) introduces himself to each real member present in the test venue for at least 1 minute, once.
+  for b in select s.user_id from public.venue_sessions s join public.profiles p on p.user_id=s.user_id join auth.users u on u.id=s.user_id
+           where s.venue_id=v_venue and s.ended_at is null and s.expires_at>now() and s.started_at<now()-interval '1 minute'
+             and u.email not like '%.test@example.invalid' and p.account_type<>'venue'
+             and not exists(select 1 from public.introductions x where (x.sender_id=opener and x.recipient_id=s.user_id) or (x.sender_id=s.user_id and x.recipient_id=opener)) loop
+    begin
+      select coalesce(p.locale,'fr') into lang from public.profiles p where p.user_id=b.user_id;
+      perform private.bot_as(opener);
+      perform public.send_introduction(b.user_id, case when lang='en' then 'Hi! I''m Sam (test profile). Fancy a chat?' else 'Salut ! Je suis Sam (profil de test). On discute ?' end);
+      n := n+1;
+    exception when others then null; end;
+  end loop;
+
+  perform private.bot_as(null);
+  return n;
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.save_member_profile(p_name text, p_birth_date date, p_locale text, p_accept_rules boolean, p_bio text, p_avatar_path text, p_gender text)
+ RETURNS profiles
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_member(); result public.profiles;
+begin
+  if p_gender is not null and p_gender not in ('woman','man','non_binary','another_identity','prefer_not_to_say') then
+    raise exception 'invalid_gender';
+  end if;
+  result := private.save_profile(p_name,p_birth_date,p_locale,p_accept_rules,p_bio,p_avatar_path);
+  if result.account_type = 'venue' then raise exception 'person_required'; end if;
+  update public.profiles set gender=p_gender, updated_at=now() where user_id=uid returning * into result;
+  return result;
 end $function$;
 
 CREATE OR REPLACE FUNCTION private.save_pro_profile(p_business text, p_professional text, p_category text, p_pitch text, p_website text, p_socials jsonb, p_city text)
@@ -836,6 +1407,25 @@ begin
   return result;
 end $function$;
 
+CREATE OR REPLACE FUNCTION private.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_member();
+begin
+  if p_endpoint is null or p_endpoint not like 'https://%' or char_length(p_endpoint) not between 20 and 1000
+     or char_length(coalesce(p_p256dh,'')) not between 20 and 200 or char_length(coalesce(p_auth,'')) not between 8 and 100 then
+    raise exception 'invalid_subscription';
+  end if;
+  -- One browser = one endpoint: signing in with another account on the same phone moves it to that account.
+  insert into public.push_subscriptions(user_id,endpoint,p256dh,auth) values(uid,p_endpoint,p_p256dh,p_auth)
+  on conflict (endpoint) do update set user_id=excluded.user_id, p256dh=excluded.p256dh, auth=excluded.auth, created_at=now();
+  -- At most 10 devices per member.
+  delete from public.push_subscriptions where user_id=uid and id not in (select id from public.push_subscriptions where user_id=uid order by created_at desc limit 10);
+end $function$;
+
 CREATE OR REPLACE FUNCTION private.send_enquiry(p_pro uuid, p_message text, p_contact text DEFAULT NULL::text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -884,46 +1474,12 @@ begin
   return n;
 end $function$;
 
-CREATE OR REPLACE FUNCTION private.admin_send_feedback(p_hours integer DEFAULT NULL::integer)
+CREATE OR REPLACE FUNCTION private.send_introduction(p_to uuid, p_message text)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-declare uid uuid := private.require_admin(); api_key text; to_addr text; from_addr text; n integer; avg_score numeric; bugs integer; body text; period text; ids uuid[];
-begin
-  if p_hours is not null and p_hours not between 1 and 8760 then raise exception 'invalid_duration'; end if;
-  select decrypted_secret into api_key from vault.decrypted_secrets where name='brevo_api_key' limit 1;
-  to_addr := private.setting('feedback_email') #>> '{}'; from_addr := private.setting('feedback_sender') #>> '{}';
-  if api_key is null or to_addr is null or from_addr is null then raise exception 'feedback_email_not_configured'; end if;
-  select array_agg(id) into ids from (select f.id from public.feedback f
-    where p_hours is null or f.created_at > now() - make_interval(hours => p_hours) order by f.created_at desc limit 300) picked;
-  n := coalesce(array_length(ids,1),0);
-  if n = 0 then return jsonb_build_object('count',0); end if;
-  select round(avg(score),1), count(*) filter (where bug) into avg_score, bugs from public.feedback where id = any(ids);
-  period := case when p_hours is null then 'Tous les retours' else 'Retours des ' || p_hours || ' dernières heures' end;
-  select 'UPZONE · retours des membres' || E'\n' || period || ' · envoyé le ' || to_char(now() at time zone 'Europe/Paris','DD/MM/YYYY HH24:MI') || E'\n' ||
-         n || ' retour(s) · note moyenne ' || avg_score || '/4 · ' || bugs || ' bug(s) signalé(s)' || E'\n\n' ||
-         string_agg(
-           '— Retour ' || rn || ' · ' || to_char(created_at at time zone 'Europe/Paris','DD/MM/YYYY HH24:MI') || ' —' || E'\n' ||
-           'Note : ' || score || '/4' || E'\n' ||
-           'Compte : ' || coalesce(who,'(supprimé)') || ' · type ' || coalesce(account_type,'?') || E'\n' ||
-           'Utilisation : ' || coalesce(context->>'minutes','?') || ' min · ' || case when context->>'installed'='true' then 'application installée' else 'navigateur' end || E'\n' ||
-           case when change_text is not null then 'À changer en premier : ' || change_text || E'\n' else '' end ||
-           case when bug then 'Bug : ' || coalesce(bug_text,'signalé sans détail') || E'\n' else '' end,
-           E'\n' order by created_at)
-    into body from (select f.*, (select display_name from public.profiles p where p.user_id=f.user_id) as who, row_number() over (order by f.created_at) as rn
-                    from public.feedback f where f.id = any(ids)) x;
-  perform net.http_post(url:='https://api.brevo.com/v3/smtp/email',
-    headers:=jsonb_build_object('api-key',api_key,'content-type','application/json','accept','application/json'),
-    body:=jsonb_build_object('sender',jsonb_build_object('email',from_addr,'name','UPZONE'),'to',jsonb_build_array(jsonb_build_object('email',to_addr)),'subject','[UPZONE] Retours regroupés (' || n || ')','textContent',body));
-  update public.feedback set emailed_at=now() where emailed_at is null and id = any(ids);
-  perform private.log_admin(uid,'feedback_sent',null,jsonb_build_object('count',n,'hours',p_hours));
-  return jsonb_build_object('count',n,'to',to_addr);
-end $function$;
-
-create or replace function private.send_introduction(p_to uuid, p_message text) returns jsonb
- language plpgsql security definer set search_path to '' as $function$
 declare uid uuid := private.require_member(); mine public.venue_sessions; theirs public.venue_sessions; row public.introductions;
 begin
   if p_to is null or p_to=uid then raise exception 'invalid_recipient'; end if;
@@ -970,6 +1526,27 @@ begin
   return jsonb_build_object('id',row.id,'created_at',row.created_at);
 end $function$;
 
+CREATE OR REPLACE FUNCTION private.send_talent_alert(p_to uuid, p_to_session uuid, p_pro uuid, p_venue text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare me public.profiles; t public.pro_profiles; k text := md5('talent:'||p_pro::text||':'||p_to_session::text);
+begin
+  if p_to is null or p_to=p_pro then return false; end if;
+  select * into me from public.profiles where user_id=p_to;
+  if not found or me.talent_alerts_at is null or me.account_type='venue' or not private.profile_complete(me) then return false; end if;
+  if exists(select 1 from private.account_restrictions r where r.user_id=p_to and r.suspended) then return false; end if;
+  if private.blocked_between(p_to,p_pro) then return false; end if;
+  -- One alert per professional per visit (read or not), five per person per 24 hours.
+  if exists(select 1 from public.notifications n where n.user_id=p_to and n.kind='talent_here' and n.payload->>'key'=k) then return false; end if;
+  if (select count(*) from public.notifications n where n.user_id=p_to and n.kind='talent_here' and n.created_at>now()-interval '24 hours')>=5 then return false; end if;
+  select * into t from public.pro_profiles where user_id=p_pro;
+  perform private.notify(p_to,'talent_here',jsonb_build_object('business',t.business_name,'category',t.category,'venue',p_venue),k);
+  return true;
+end $function$;
+
 CREATE OR REPLACE FUNCTION private.set_account_type(p_type text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -987,6 +1564,114 @@ begin
   end if;
   insert into private.account_choices(user_id,account_type) values(uid,p_type) on conflict(user_id) do update set account_type=excluded.account_type;
   return jsonb_build_object('account_type',p_type);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.set_avatar_blur(p_path text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person();
+begin
+  update public.profiles set avatar_blur_path=null where user_id=uid and avatar_blur_path is not null;
+  return jsonb_build_object('avatar_blur_path', null);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.set_avatar_blur_data(p_data text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person();
+begin
+  if p_data is not null and (char_length(p_data) > 6000 or p_data !~ '^data:image/jpeg;base64,[A-Za-z0-9+/]+={0,2}$') then
+    raise exception 'photo_invalid';
+  end if;
+  update public.profiles set avatar_blur=p_data, avatar_blur_path=null, updated_at=now() where user_id=uid;
+  return jsonb_build_object('avatar_blur', p_data is not null);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.set_department(p_department text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person(); d text := nullif(upper(btrim(coalesce(p_department,''))),'');
+begin
+  if d is not null and d !~ '^(0[1-9]|1[0-9]|2[1-9]|[3-8][0-9]|9[0-5]|2A|2B|97[1-6])$' then raise exception 'invalid_department'; end if;
+  update public.profiles set department=d, updated_at=now() where user_id=uid;
+  return jsonb_build_object('department',d);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.set_height(p_cm integer)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_member();
+begin
+  if exists(select 1 from public.profiles where user_id=uid and account_type='venue') then raise exception 'person_required'; end if;
+  if p_cm is not null and p_cm not between 120 and 230 then raise exception 'invalid_height'; end if;
+  update public.profiles set height_cm=p_cm, updated_at=now() where user_id=uid;
+  if not found then raise exception 'profile_required'; end if;
+  return jsonb_build_object('height_cm',p_cm);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.set_interest(p_interest text, p_consent boolean)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_member(); me public.profiles;
+begin
+  select * into me from public.profiles where user_id=uid for update;
+  if not found then raise exception 'profile_required'; end if;
+  if me.account_type='venue' then raise exception 'person_required'; end if;
+  if p_interest is null or p_interest='' then
+    update public.profiles set interested_in=null, interest_consent_at=null, updated_at=now() where user_id=uid;
+    return jsonb_build_object('interested_in',null);
+  end if;
+  if p_interest not in ('women','men','everyone') then raise exception 'invalid_interest'; end if;
+  if p_consent is distinct from true then raise exception 'interest_consent_required'; end if;
+  update public.profiles set interested_in=p_interest, interest_consent_at=coalesce(case when interested_in is not null then interest_consent_at end, now()), updated_at=now() where user_id=uid;
+  return jsonb_build_object('interested_in',p_interest);
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.set_notification_pref(p_group text, p_on boolean)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_member();
+begin
+  if p_group is null or p_group not in ('meet','messages','talents') or p_on is null then raise exception 'invalid_group'; end if;
+  if p_on then delete from private.notification_mutes where user_id=uid and grp=p_group;
+  else insert into private.notification_mutes(user_id,grp) values(uid,p_group) on conflict do nothing;
+  end if;
+  return private.notification_prefs();
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.set_talent_alerts(p_on boolean, p_consent boolean)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_person();
+begin
+  if p_on is distinct from true then
+    update public.profiles set talent_alerts_at=null, updated_at=now() where user_id=uid;
+    return jsonb_build_object('talent_alerts',false);
+  end if;
+  if p_consent is distinct from true then raise exception 'talent_alerts_consent_required'; end if;
+  update public.profiles set talent_alerts_at=coalesce(talent_alerts_at,now()), updated_at=now() where user_id=uid;
+  return jsonb_build_object('talent_alerts',true);
 end $function$;
 
 CREATE OR REPLACE FUNCTION private.setting(p_key text)
@@ -1034,6 +1719,64 @@ begin
   return jsonb_build_object('subscription_until',row.subscription_until,'simulated',true);
 end $function$;
 
+CREATE OR REPLACE FUNCTION private.talent_alerts_on_visit()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare t record;
+begin
+  begin
+    perform private.announce_talent(new.user_id, new);
+    for t in select v.user_id from public.venue_sessions v
+      where v.venue_id=new.venue_id and v.ended_at is null and v.expires_at>now() and v.user_id<>new.user_id loop
+      if private.talent_listed(t.user_id) then perform private.send_talent_alert(new.user_id, new.id, t.user_id, new.venue_name); end if;
+    end loop;
+  exception when others then
+    raise warning 'talent alert skipped: %', sqlerrm;
+  end;
+  return new;
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.talent_listed(p_pro uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select exists(select 1 from public.profiles p join public.pro_profiles t on t.user_id=p.user_id
+    where p.user_id=p_pro and p.account_type='pro' and t.status='approved' and t.subscription_until is not null and t.subscription_until>now()
+      and private.profile_complete(p)
+      and not exists(select 1 from private.account_restrictions r where r.user_id=p_pro and r.suspended))
+$function$;
+
+CREATE OR REPLACE FUNCTION private.unread_total(p_uid uuid)
+ RETURNS integer
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select (
+    (select count(*) from public.introductions i where i.recipient_id=p_uid and i.status='pending' and not private.blocked_between(p_uid,i.sender_id))
+  + (select count(*) from public.messages m join public.conversations c on c.id=m.conversation_id
+       where (c.a_id=p_uid or c.b_id=p_uid) and m.sender_id<>p_uid
+         and not private.blocked_between(p_uid,case when c.a_id=p_uid then c.b_id else c.a_id end)
+         and m.created_at>coalesce((select r.read_at from public.conversation_reads r where r.conversation_id=c.id and r.user_id=p_uid),'epoch'::timestamptz))
+  + (select count(*) from public.notifications n where n.user_id=p_uid and n.read_at is null))::integer
+$function$;
+
+CREATE OR REPLACE FUNCTION private.unregister_device(p_token text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_member();
+begin
+  delete from public.app_devices where token=p_token and user_id=uid;
+end $function$;
+
 CREATE OR REPLACE FUNCTION private.venue_announce(p_body text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -1077,11 +1820,12 @@ begin
   update public.venue_announcements set expires_at=now() where id=p_id and venue_id=vid;
 end $function$;
 
--- Updated 17 November 2026 (blurred preview inline, no file name, no id): db/2026-11-17-blur-without-id.sql.
-create or replace function private.venue_members()
- returns table(user_id uuid, display_name text, age integer, bio text, avatar_path text, since timestamp with time zone, height_cm smallint,
-               department text, age_band text, veiled boolean, blur_path text, blur_data text)
- language plpgsql stable security definer set search_path to '' as $function$
+CREATE OR REPLACE FUNCTION private.venue_members()
+ RETURNS TABLE(user_id uuid, display_name text, age integer, bio text, avatar_path text, since timestamp with time zone, height_cm smallint, department text, age_band text, veiled boolean, blur_path text, blur_data text)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
 declare uid uuid := private.require_person(); mine public.venue_sessions; wants text; open boolean;
 begin
   if private.is_pro(uid) then raise exception 'pro_account_dating'; end if;
@@ -1151,6 +1895,17 @@ begin
       and not exists(select 1 from private.account_restrictions r where r.user_id=s.user_id and r.suspended)),'[]'::jsonb);
 end $function$;
 
+CREATE OR REPLACE FUNCTION private.venue_unlocked(p_uid uuid, p_venue uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select p_uid is not null and p_venue is not null and (
+    (private.setting('pass_rule') #>> '{}') is distinct from 'everyone'
+    or exists(select 1 from public.passes p where p.user_id=p_uid and p.venue_id=p_venue and p.status='active' and p.kind='venue_pass' and p.expires_at>now()))
+$function$;
+
 CREATE OR REPLACE FUNCTION private.venue_update(p_hours text, p_contact text, p_duration integer)
  RETURNS void
  LANGUAGE plpgsql
@@ -1163,143 +1918,6 @@ begin
   if vid is null then raise exception 'venue_required'; end if;
   if p_duration is null or p_duration not between 15 and 180 then raise exception 'invalid_duration'; end if;
   update private.venues set hours=nullif(btrim(p_hours),''), contact=nullif(btrim(p_contact),''), duration_minutes=p_duration where id=vid;
-end $function$;
-
-CREATE OR REPLACE FUNCTION private.set_talent_alerts(p_on boolean, p_consent boolean)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare uid uuid := private.require_person();
-begin
-  if p_on is distinct from true then
-    update public.profiles set talent_alerts_at=null, updated_at=now() where user_id=uid;
-    return jsonb_build_object('talent_alerts',false);
-  end if;
-  if p_consent is distinct from true then raise exception 'talent_alerts_consent_required'; end if;
-  update public.profiles set talent_alerts_at=coalesce(talent_alerts_at,now()), updated_at=now() where user_id=uid;
-  return jsonb_build_object('talent_alerts',true);
-end $function$;
-
-CREATE OR REPLACE FUNCTION private.talent_listed(p_pro uuid)
- RETURNS boolean
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-  select exists(select 1 from public.profiles p join public.pro_profiles t on t.user_id=p.user_id
-    where p.user_id=p_pro and p.account_type='pro' and t.status='approved' and t.subscription_until is not null and t.subscription_until>now()
-      and private.profile_complete(p)
-      and not exists(select 1 from private.account_restrictions r where r.user_id=p_pro and r.suspended))
-$function$;
-
-CREATE OR REPLACE FUNCTION private.send_talent_alert(p_to uuid, p_to_session uuid, p_pro uuid, p_venue text)
- RETURNS boolean
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare me public.profiles; t public.pro_profiles; k text := md5('talent:'||p_pro::text||':'||p_to_session::text);
-begin
-  if p_to is null or p_to=p_pro then return false; end if;
-  select * into me from public.profiles where user_id=p_to;
-  if not found or me.talent_alerts_at is null or me.account_type='venue' or not private.profile_complete(me) then return false; end if;
-  if exists(select 1 from private.account_restrictions r where r.user_id=p_to and r.suspended) then return false; end if;
-  if private.blocked_between(p_to,p_pro) then return false; end if;
-  -- One alert per professional per visit (read or not), five per person per 24 hours.
-  if exists(select 1 from public.notifications n where n.user_id=p_to and n.kind='talent_here' and n.payload->>'key'=k) then return false; end if;
-  if (select count(*) from public.notifications n where n.user_id=p_to and n.kind='talent_here' and n.created_at>now()-interval '24 hours')>=5 then return false; end if;
-  select * into t from public.pro_profiles where user_id=p_pro;
-  perform private.notify(p_to,'talent_here',jsonb_build_object('business',t.business_name,'category',t.category,'venue',p_venue),k);
-  return true;
-end $function$;
-
-CREATE OR REPLACE FUNCTION private.announce_talent(p_pro uuid, p_session venue_sessions)
- RETURNS integer
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare s record; n integer := 0;
-begin
-  if p_session.id is null or not private.talent_listed(p_pro) then return 0; end if;
-  for s in select v.id, v.user_id from public.venue_sessions v
-    where v.venue_id=p_session.venue_id and v.ended_at is null and v.expires_at>now() and v.user_id<>p_pro loop
-    if private.send_talent_alert(s.user_id, s.id, p_pro, p_session.venue_name) then n := n+1; end if;
-  end loop;
-  return n;
-end $function$;
-
-CREATE OR REPLACE FUNCTION private.talent_alerts_on_visit()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare t record;
-begin
-  begin
-    perform private.announce_talent(new.user_id, new);
-    for t in select v.user_id from public.venue_sessions v
-      where v.venue_id=new.venue_id and v.ended_at is null and v.expires_at>now() and v.user_id<>new.user_id loop
-      if private.talent_listed(t.user_id) then perform private.send_talent_alert(new.user_id, new.id, t.user_id, new.venue_name); end if;
-    end loop;
-  exception when others then
-    raise warning 'talent alert skipped: %', sqlerrm;
-  end;
-  return new;
-end $function$;
-
-CREATE OR REPLACE FUNCTION private.my_places()
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare uid uuid := private.require_person();
-begin
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'venue', x.venue_id, 'name', v.name, 'category', v.category, 'open', v.active,
-      'visits', x.visits, 'last_visit', x.last_visit,
-      'announcement', case when v.active then (select a.body from public.venue_announcements a
-        where a.venue_id=x.venue_id and a.expires_at>now() order by a.created_at desc limit 1) end
-    ) order by x.last_visit desc)
-    from (select s.venue_id, count(*)::int as visits, max(s.started_at) as last_visit
-          from public.venue_sessions s
-          where s.user_id=uid and s.history_hidden_at is null and s.started_at>now()-interval '90 days'
-          group by s.venue_id) x
-    join private.venues v on v.id=x.venue_id
-    where v.category<>'event'), '[]'::jsonb);
-end $function$;
-
-CREATE OR REPLACE FUNCTION private.hide_place(p_venue uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare uid uuid := private.require_person(); n int;
-begin
-  if p_venue is null then raise exception 'invalid_place'; end if;
-  update public.venue_sessions set history_hidden_at=now()
-   where user_id=uid and venue_id=p_venue and history_hidden_at is null;
-  get diagnostics n = row_count;
-  return jsonb_build_object('hidden', n);
-end $function$;
-
-CREATE OR REPLACE FUNCTION private.clear_places()
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare uid uuid := private.require_person(); n int;
-begin
-  update public.venue_sessions set history_hidden_at=now() where user_id=uid and history_hidden_at is null;
-  get diagnostics n = row_count;
-  return jsonb_build_object('hidden', n);
 end $function$;
 
 CREATE OR REPLACE FUNCTION public.admin_audit(p_limit integer DEFAULT 100)
@@ -1392,6 +2010,25 @@ CREATE OR REPLACE FUNCTION public.admin_save_venue(p_id uuid, p_name text, p_cat
  SET search_path TO ''
 AS $function$ select private.admin_save_venue(p_id,p_name,p_category,p_duration,p_address,p_active) $function$;
 
+CREATE OR REPLACE FUNCTION public.admin_send_feedback(p_hours integer DEFAULT NULL::integer)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.admin_send_feedback(p_hours) $function$;
+
+CREATE OR REPLACE FUNCTION public.admin_two_step_required()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$ select coalesce(private.setting('admin_two_step'),'true'::jsonb) <> 'false'::jsonb $function$;
+
+CREATE OR REPLACE FUNCTION public.admin_update_invite(p_id uuid, p_minutes integer DEFAULT NULL::integer, p_apply boolean DEFAULT true, p_days integer DEFAULT NULL::integer)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.admin_update_invite(p_id,p_minutes,p_apply,p_days) $function$;
+
 CREATE OR REPLACE FUNCTION public.admin_venue_applications(p_status text DEFAULT 'pending'::text)
  RETURNS jsonb
  LANGUAGE sql
@@ -1403,6 +2040,12 @@ CREATE OR REPLACE FUNCTION public.admin_venues()
  LANGUAGE sql
  SET search_path TO ''
 AS $function$ select private.admin_venues() $function$;
+
+CREATE OR REPLACE FUNCTION public.admin_warn_member(p_report uuid, p_message text)
+ RETURNS void
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.admin_warn_member(p_report,p_message) $function$;
 
 CREATE OR REPLACE FUNCTION public.app_settings_public()
  RETURNS jsonb
@@ -1428,11 +2071,23 @@ CREATE OR REPLACE FUNCTION public.buy_pass_simulated()
  SET search_path TO ''
 AS $function$ select private.buy_pass_simulated() $function$;
 
+CREATE OR REPLACE FUNCTION public.clear_places()
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.clear_places() $function$;
+
 CREATE OR REPLACE FUNCTION public.close_conversation(p_id uuid)
  RETURNS void
  LANGUAGE sql
  SET search_path TO ''
 AS $function$ select private.close_conversation(p_id) $function$;
+
+CREATE OR REPLACE FUNCTION public.close_enquiry(p_id uuid)
+ RETURNS void
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.close_enquiry(p_id) $function$;
 
 CREATE OR REPLACE FUNCTION public.conversation_messages(p_id uuid)
  RETURNS jsonb
@@ -1446,18 +2101,41 @@ CREATE OR REPLACE FUNCTION public.delete_account()
  SET search_path TO ''
 AS $function$ select private.delete_account() $function$;
 
-CREATE OR REPLACE FUNCTION public.admin_send_feedback(p_hours integer DEFAULT NULL::integer)
+CREATE OR REPLACE FUNCTION public.delete_push_subscription(p_endpoint text)
+ RETURNS void
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.delete_push_subscription(p_endpoint) $function$;
+
+CREATE OR REPLACE FUNCTION public.end_conversation(p_id uuid, p_reason text)
+ RETURNS void
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.end_conversation(p_id,p_reason) $function$;
+
+CREATE OR REPLACE FUNCTION public.enquiry_block(p_id uuid)
+ RETURNS void
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.enquiry_block(p_id) $function$;
+
+CREATE OR REPLACE FUNCTION public.enquiry_report(p_id uuid, p_category text, p_details text DEFAULT NULL::text)
  RETURNS jsonb
  LANGUAGE sql
  SET search_path TO ''
-AS $function$ select private.admin_send_feedback(p_hours) $function$;
+AS $function$ select private.enquiry_report(p_id,p_category,p_details) $function$;
 
-CREATE OR REPLACE FUNCTION public.admin_two_step_required()
- RETURNS boolean
+CREATE OR REPLACE FUNCTION public.enquiry_thread(p_id uuid)
+ RETURNS jsonb
  LANGUAGE sql
- STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$ select coalesce(private.setting('admin_two_step'),'true'::jsonb) <> 'false'::jsonb $function$;
+AS $function$ select private.enquiry_thread(p_id) $function$;
+
+CREATE OR REPLACE FUNCTION public.hide_place(p_venue uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.hide_place(p_venue) $function$;
 
 CREATE OR REPLACE FUNCTION public.is_admin()
  RETURNS boolean
@@ -1498,6 +2176,12 @@ CREATE OR REPLACE FUNCTION public.my_data_export()
  SET search_path TO ''
 AS $function$ select private.my_data_export() $function$;
 
+CREATE OR REPLACE FUNCTION public.my_enquiries()
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.my_enquiries() $function$;
+
 CREATE OR REPLACE FUNCTION public.my_inbox()
  RETURNS jsonb
  LANGUAGE sql
@@ -1516,6 +2200,13 @@ CREATE OR REPLACE FUNCTION public.my_passes()
  SET search_path TO ''
 AS $function$ select private.my_passes() $function$;
 
+CREATE OR REPLACE FUNCTION public.my_places()
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$ select private.my_places() $function$;
+
 CREATE OR REPLACE FUNCTION public.my_pro_profile()
  RETURNS jsonb
  LANGUAGE sql
@@ -1528,11 +2219,35 @@ CREATE OR REPLACE FUNCTION public.my_venue()
  SET search_path TO ''
 AS $function$ select private.my_venue() $function$;
 
+CREATE OR REPLACE FUNCTION public.notification_prefs()
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.notification_prefs() $function$;
+
 CREATE OR REPLACE FUNCTION public.preview_venue(p_token text)
  RETURNS jsonb
  LANGUAGE sql
  SET search_path TO ''
 AS $function$ select private.preview_venue(p_token) $function$;
+
+CREATE OR REPLACE FUNCTION public.push_status()
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.push_status() $function$;
+
+CREATE OR REPLACE FUNCTION public.register_device(p_token text, p_platform text)
+ RETURNS void
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.register_device(p_token,p_platform) $function$;
+
+CREATE OR REPLACE FUNCTION public.reply_enquiry(p_id uuid, p_body text)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.reply_enquiry(p_id,p_body) $function$;
 
 CREATE OR REPLACE FUNCTION public.report_member(p_user uuid, p_category text, p_details text DEFAULT NULL::text, p_conversation uuid DEFAULT NULL::uuid)
  RETURNS jsonb
@@ -1546,6 +2261,14 @@ CREATE OR REPLACE FUNCTION public.respond_introduction(p_id uuid, p_accept boole
  SET search_path TO ''
 AS $function$ select private.respond_introduction(p_id,p_accept,p_reply) $function$;
 
+CREATE OR REPLACE FUNCTION public.save_member_profile(p_name text, p_birth_date date, p_locale text, p_accept_rules boolean, p_bio text, p_avatar_path text, p_gender text)
+ RETURNS profiles
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$
+  select private.save_member_profile(p_name,p_birth_date,p_locale,p_accept_rules,p_bio,p_avatar_path,p_gender)
+$function$;
+
 CREATE OR REPLACE FUNCTION public.save_pro_profile(p_business text, p_professional text, p_category text, p_pitch text, p_website text, p_socials jsonb, p_city text)
  RETURNS jsonb
  LANGUAGE sql
@@ -1557,6 +2280,12 @@ CREATE OR REPLACE FUNCTION public.save_profile(p_name text, p_birth_date date, p
  LANGUAGE sql
  SET search_path TO ''
 AS $function$ select private.save_profile(p_name,p_birth_date,p_locale,p_accept_rules,p_bio,p_avatar_path) $function$;
+
+CREATE OR REPLACE FUNCTION public.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text)
+ RETURNS void
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.save_push_subscription(p_endpoint,p_p256dh,p_auth) $function$;
 
 CREATE OR REPLACE FUNCTION public.send_enquiry(p_pro uuid, p_message text, p_contact text DEFAULT NULL::text)
  RETURNS jsonb
@@ -1582,6 +2311,48 @@ CREATE OR REPLACE FUNCTION public.set_account_type(p_type text)
  SET search_path TO ''
 AS $function$ select private.set_account_type(p_type) $function$;
 
+CREATE OR REPLACE FUNCTION public.set_avatar_blur(p_path text)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.set_avatar_blur(p_path) $function$;
+
+CREATE OR REPLACE FUNCTION public.set_avatar_blur_data(p_data text)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.set_avatar_blur_data(p_data) $function$;
+
+CREATE OR REPLACE FUNCTION public.set_department(p_department text)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.set_department(p_department) $function$;
+
+CREATE OR REPLACE FUNCTION public.set_height(p_cm integer)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.set_height(p_cm) $function$;
+
+CREATE OR REPLACE FUNCTION public.set_interest(p_interest text, p_consent boolean)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.set_interest(p_interest,p_consent) $function$;
+
+CREATE OR REPLACE FUNCTION public.set_notification_pref(p_group text, p_on boolean)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.set_notification_pref(p_group,p_on) $function$;
+
+CREATE OR REPLACE FUNCTION public.set_talent_alerts(p_on boolean, p_consent boolean)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.set_talent_alerts(p_on,p_consent) $function$;
+
 CREATE OR REPLACE FUNCTION public.submit_feedback(p_score integer, p_change text, p_bug boolean, p_bug_text text, p_context jsonb DEFAULT '{}'::jsonb)
  RETURNS jsonb
  LANGUAGE sql
@@ -1593,6 +2364,12 @@ CREATE OR REPLACE FUNCTION public.subscribe_talent_simulated()
  LANGUAGE sql
  SET search_path TO ''
 AS $function$ select private.subscribe_talent_simulated() $function$;
+
+CREATE OR REPLACE FUNCTION public.unregister_device(p_token text)
+ RETURNS void
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.unregister_device(p_token) $function$;
 
 CREATE OR REPLACE FUNCTION public.venue_announce(p_body text)
  RETURNS jsonb
@@ -1642,453 +2419,501 @@ CREATE OR REPLACE FUNCTION public.venue_update(p_hours text, p_contact text, p_d
  SET search_path TO ''
 AS $function$ select private.venue_update(p_hours,p_contact,p_duration) $function$;
 
--- Privileges (as exported). Private helpers not listed are reachable only from other SECURITY DEFINER functions.
+
+-- On a fresh project, functions are open to everyone by default: close them first, then grant.
 revoke all on all functions in schema private from public, anon, authenticated;
-revoke all on all functions in schema public from public, anon;
-CREATE OR REPLACE FUNCTION public.set_talent_alerts(p_on boolean, p_consent boolean)
- RETURNS jsonb
- LANGUAGE sql
- SET search_path TO ''
-AS $function$ select private.set_talent_alerts(p_on,p_consent) $function$;
-CREATE OR REPLACE FUNCTION public.my_places()
- RETURNS jsonb
- LANGUAGE sql
- STABLE
- SET search_path TO ''
-AS $function$ select private.my_places() $function$;
+revoke all on all functions in schema public from public, anon, authenticated;
 
-CREATE OR REPLACE FUNCTION public.hide_place(p_venue uuid)
- RETURNS jsonb
- LANGUAGE sql
- SET search_path TO ''
-AS $function$ select private.hide_place(p_venue) $function$;
+grant execute on function private.admin_audit(p_limit integer) to authenticated;
 
-CREATE OR REPLACE FUNCTION public.clear_places()
- RETURNS jsonb
- LANGUAGE sql
- SET search_path TO ''
-AS $function$ select private.clear_places() $function$;
+grant execute on function private.admin_create_invite(p_venue uuid, p_days integer, p_minutes integer) to authenticated;
 
+grant execute on function private.admin_decide_pro(p_user uuid, p_approve boolean, p_decision text) to authenticated;
 
-grant execute on function private.admin_audit(p_limit integer DEFAULT 100) to authenticated;
-grant execute on function private.admin_create_invite(p_venue uuid, p_days integer DEFAULT 30, p_minutes integer DEFAULT NULL::integer) to authenticated;
-grant execute on function private.admin_decide_pro(p_user uuid, p_approve boolean, p_decision text DEFAULT NULL::text) to authenticated;
-grant execute on function private.admin_decide_report(p_id uuid, p_status text, p_decision text, p_suspend boolean DEFAULT false) to authenticated;
-grant execute on function private.admin_decide_venue(p_id uuid, p_approve boolean, p_decision text DEFAULT NULL::text) to authenticated;
+grant execute on function private.admin_decide_report(p_id uuid, p_status text, p_decision text, p_suspend boolean) to authenticated;
+
+grant execute on function private.admin_decide_venue(p_id uuid, p_approve boolean, p_decision text) to authenticated;
+
 grant execute on function private.admin_feedback() to authenticated;
-grant execute on function private.admin_members(p_search text DEFAULT NULL::text) to authenticated;
+
+grant execute on function private.admin_members(p_search text) to authenticated;
+
 grant execute on function private.admin_overview() to authenticated;
+
 grant execute on function private.admin_passes() to authenticated;
-grant execute on function private.admin_pro_profiles(p_status text DEFAULT 'pending'::text) to authenticated;
+
+grant execute on function private.admin_pro_profiles(p_status text) to authenticated;
+
 grant execute on function private.admin_refund_pass(p_id uuid) to authenticated;
-grant execute on function private.admin_reports(p_status text DEFAULT 'open'::text) to authenticated;
-grant execute on function private.admin_restrict(p_user uuid, p_suspended boolean, p_reason text DEFAULT NULL::text) to authenticated;
+
+grant execute on function private.admin_reports(p_status text) to authenticated;
+
+grant execute on function private.admin_restrict(p_user uuid, p_suspended boolean, p_reason text) to authenticated;
+
 grant execute on function private.admin_revoke_invite(p_id uuid) to authenticated;
+
 grant execute on function private.admin_save_venue(p_id uuid, p_name text, p_category text, p_duration integer, p_address text, p_active boolean) to authenticated;
-grant execute on function private.admin_venue_applications(p_status text DEFAULT 'pending'::text) to authenticated;
+
+grant execute on function private.admin_send_feedback(p_hours integer) to authenticated;
+
+grant execute on function private.admin_update_invite(p_id uuid, p_minutes integer, p_apply boolean, p_days integer) to authenticated;
+
+grant execute on function private.admin_venue_applications(p_status text) to authenticated;
+
 grant execute on function private.admin_venues() to authenticated;
+
+grant execute on function private.admin_warn_member(p_report uuid, p_message text) to authenticated;
+
 grant execute on function private.app_settings_public() to authenticated;
+
 grant execute on function private.apply_venue(p_name text, p_category text, p_address text, p_hours text, p_contact text, p_duration integer) to authenticated;
+
 grant execute on function private.block_member(p_user uuid) to authenticated;
+
 grant execute on function private.blocked_between(a uuid, b uuid) to authenticated;
+
 grant execute on function private.buy_pass_simulated() to authenticated;
-grant execute on function private.close_conversation(p_id uuid) to authenticated;
-grant execute on function private.co_present(viewer uuid, owner uuid) to authenticated;
-grant execute on function private.conversation_messages(p_id uuid) to authenticated;
-grant execute on function private.delete_account() to authenticated;
-grant execute on function private.join_venue(p_token text) to authenticated;
-grant execute on function private.leave_venue() to authenticated;
-grant execute on function private.meeting_answer(p_conversation uuid, p_yes boolean) to authenticated;
-grant execute on function private.my_account_type() to authenticated;
-grant execute on function private.my_data_export() to authenticated;
-grant execute on function private.my_inbox() to authenticated;
-grant execute on function private.my_notifications(p_mark_read boolean DEFAULT false) to authenticated;
-grant execute on function private.my_passes() to authenticated;
-grant execute on function private.my_pro_profile() to authenticated;
-grant execute on function private.my_venue() to authenticated;
-grant execute on function private.preview_venue(p_token text) to authenticated;
-grant execute on function private.report_member(p_user uuid, p_category text, p_details text DEFAULT NULL::text, p_conversation uuid DEFAULT NULL::uuid) to authenticated;
-grant execute on function private.respond_introduction(p_id uuid, p_accept boolean, p_reply text DEFAULT NULL::text) to authenticated;
-grant execute on function private.save_pro_profile(p_business text, p_professional text, p_category text, p_pitch text, p_website text, p_socials jsonb, p_city text) to authenticated;
-grant execute on function private.save_profile(p_name text, p_birth_date date, p_locale text, p_accept_rules boolean, p_bio text DEFAULT NULL::text, p_avatar_path text DEFAULT NULL::text) to authenticated;
-grant execute on function private.send_enquiry(p_pro uuid, p_message text, p_contact text DEFAULT NULL::text) to authenticated;
-grant execute on function private.send_introduction(p_to uuid, p_message text) to authenticated;
-grant execute on function private.send_message(p_conversation uuid, p_body text) to authenticated;
-grant execute on function private.set_account_type(p_type text) to authenticated;
-grant execute on function private.submit_feedback(p_score integer, p_change text, p_bug boolean, p_bug_text text, p_context jsonb DEFAULT '{}'::jsonb) to authenticated;
-grant execute on function private.subscribe_talent_simulated() to authenticated;
-grant execute on function private.venue_announce(p_body text) to authenticated;
-grant execute on function private.venue_create_invite(p_days integer DEFAULT 7) to authenticated;
-grant execute on function private.venue_delete_announcement(p_id uuid) to authenticated;
-grant execute on function private.venue_members() to authenticated;
-grant execute on function private.venue_revoke_invite(p_id uuid) to authenticated;
-grant execute on function private.venue_room() to authenticated;
-grant execute on function private.venue_talents() to authenticated;
-grant execute on function private.venue_update(p_hours text, p_contact text, p_duration integer) to authenticated;
-grant execute on function public.admin_audit(p_limit integer DEFAULT 100) to authenticated, service_role;
-grant execute on function public.admin_create_invite(p_venue uuid, p_days integer DEFAULT 30, p_minutes integer DEFAULT NULL::integer) to authenticated, service_role;
-grant execute on function public.admin_decide_pro(p_user uuid, p_approve boolean, p_decision text DEFAULT NULL::text) to authenticated, service_role;
-grant execute on function public.admin_decide_report(p_id uuid, p_status text, p_decision text, p_suspend boolean DEFAULT false) to authenticated, service_role;
-grant execute on function public.admin_decide_venue(p_id uuid, p_approve boolean, p_decision text DEFAULT NULL::text) to authenticated, service_role;
-grant execute on function public.admin_feedback() to authenticated, service_role;
-grant execute on function public.admin_members(p_search text DEFAULT NULL::text) to authenticated, service_role;
-grant execute on function public.admin_overview() to authenticated, service_role;
-grant execute on function public.admin_passes() to authenticated, service_role;
-grant execute on function public.admin_pro_profiles(p_status text DEFAULT 'pending'::text) to authenticated, service_role;
-grant execute on function public.admin_refund_pass(p_id uuid) to authenticated, service_role;
-grant execute on function public.admin_reports(p_status text DEFAULT 'open'::text) to authenticated, service_role;
-grant execute on function public.admin_restrict(p_user uuid, p_suspended boolean, p_reason text DEFAULT NULL::text) to authenticated, service_role;
-grant execute on function public.admin_revoke_invite(p_id uuid) to authenticated, service_role;
-grant execute on function public.admin_save_venue(p_id uuid, p_name text, p_category text, p_duration integer, p_address text, p_active boolean) to authenticated, service_role;
-grant execute on function public.admin_venue_applications(p_status text DEFAULT 'pending'::text) to authenticated, service_role;
-grant execute on function public.admin_venues() to authenticated, service_role;
-grant execute on function public.app_settings_public() to authenticated, service_role;
-grant execute on function public.apply_venue(p_name text, p_category text, p_address text, p_hours text, p_contact text, p_duration integer) to authenticated, service_role;
-grant execute on function public.block_member(p_user uuid) to authenticated, service_role;
-grant execute on function public.buy_pass_simulated() to authenticated, service_role;
-grant execute on function public.close_conversation(p_id uuid) to authenticated, service_role;
-grant execute on function public.conversation_messages(p_id uuid) to authenticated, service_role;
-grant execute on function public.delete_account() to authenticated, service_role;
-grant execute on function public.is_admin() to authenticated, service_role;
-grant execute on function private.admin_send_feedback(p_hours integer DEFAULT NULL::integer) to authenticated;
-grant execute on function public.admin_send_feedback(p_hours integer DEFAULT NULL::integer) to authenticated, service_role;
-grant execute on function public.admin_two_step_required() to authenticated;
-grant execute on function public.join_venue(p_token text) to authenticated, service_role;
-grant execute on function public.leave_venue() to authenticated, service_role;
-grant execute on function public.meeting_answer(p_conversation uuid, p_yes boolean) to authenticated, service_role;
-grant execute on function public.my_account_type() to authenticated, service_role;
-grant execute on function public.my_data_export() to authenticated, service_role;
-grant execute on function public.my_inbox() to authenticated, service_role;
-grant execute on function public.my_notifications(p_mark_read boolean DEFAULT false) to authenticated, service_role;
-grant execute on function public.my_passes() to authenticated, service_role;
-grant execute on function public.my_pro_profile() to authenticated, service_role;
-grant execute on function public.my_venue() to authenticated, service_role;
-grant execute on function public.preview_venue(p_token text) to authenticated, service_role;
-grant execute on function public.report_member(p_user uuid, p_category text, p_details text DEFAULT NULL::text, p_conversation uuid DEFAULT NULL::uuid) to authenticated, service_role;
-grant execute on function public.respond_introduction(p_id uuid, p_accept boolean, p_reply text DEFAULT NULL::text) to authenticated, service_role;
-grant execute on function public.save_pro_profile(p_business text, p_professional text, p_category text, p_pitch text, p_website text, p_socials jsonb, p_city text) to authenticated, service_role;
-grant execute on function public.save_profile(p_name text, p_birth_date date, p_locale text, p_accept_rules boolean, p_bio text DEFAULT NULL::text, p_avatar_path text DEFAULT NULL::text) to authenticated, service_role;
-grant execute on function public.send_enquiry(p_pro uuid, p_message text, p_contact text DEFAULT NULL::text) to authenticated, service_role;
-grant execute on function public.send_introduction(p_to uuid, p_message text) to authenticated, service_role;
-grant execute on function public.send_message(p_conversation uuid, p_body text) to authenticated, service_role;
-grant execute on function public.set_account_type(p_type text) to authenticated, service_role;
-grant execute on function public.submit_feedback(p_score integer, p_change text, p_bug boolean, p_bug_text text, p_context jsonb DEFAULT '{}'::jsonb) to authenticated, service_role;
-grant execute on function public.subscribe_talent_simulated() to authenticated, service_role;
-grant execute on function public.venue_announce(p_body text) to authenticated, service_role;
-grant execute on function public.venue_create_invite(p_days integer DEFAULT 7) to authenticated, service_role;
-grant execute on function public.venue_delete_announcement(p_id uuid) to authenticated, service_role;
-grant execute on function public.venue_members() to authenticated, service_role;
-grant execute on function public.venue_revoke_invite(p_id uuid) to authenticated, service_role;
-grant execute on function public.venue_room() to authenticated, service_role;
-grant execute on function public.venue_talents() to authenticated, service_role;
-grant execute on function public.venue_update(p_hours text, p_contact text, p_duration integer) to authenticated, service_role;
 
--- Push notifications (migration db/2026-11-07-push-notifications.sql, applied on ProRod on the date logged in docs/verification-log.md).
-create or replace function private.unread_total(p_uid uuid) returns integer language sql stable security definer set search_path = '' as $$
-  select (
-    (select count(*) from public.introductions i where i.recipient_id=p_uid and i.status='pending' and not private.blocked_between(p_uid,i.sender_id))
-  + (select count(*) from public.messages m join public.conversations c on c.id=m.conversation_id
-       where (c.a_id=p_uid or c.b_id=p_uid) and m.sender_id<>p_uid
-         and not private.blocked_between(p_uid,case when c.a_id=p_uid then c.b_id else c.a_id end)
-         and m.created_at>coalesce((select r.read_at from public.conversation_reads r where r.conversation_id=c.id and r.user_id=p_uid),'epoch'::timestamptz))
-  + (select count(*) from public.notifications n where n.user_id=p_uid and n.read_at is null))::integer
-$$;
-
-create or replace function private.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text) returns void
-language plpgsql security definer set search_path = '' as $$
-declare uid uuid := private.require_member();
-begin
-  if p_endpoint is null or p_endpoint not like 'https://%' or char_length(p_endpoint) not between 20 and 1000
-     or char_length(coalesce(p_p256dh,'')) not between 20 and 200 or char_length(coalesce(p_auth,'')) not between 8 and 100 then
-    raise exception 'invalid_subscription';
-  end if;
-  -- One browser = one endpoint: signing in with another account on the same phone moves it to that account.
-  insert into public.push_subscriptions(user_id,endpoint,p256dh,auth) values(uid,p_endpoint,p_p256dh,p_auth)
-  on conflict (endpoint) do update set user_id=excluded.user_id, p256dh=excluded.p256dh, auth=excluded.auth, created_at=now();
-  -- At most 10 devices per member.
-  delete from public.push_subscriptions where user_id=uid and id not in (select id from public.push_subscriptions where user_id=uid order by created_at desc limit 10);
-end $$;
-
-create or replace function private.delete_push_subscription(p_endpoint text) returns void
-language plpgsql security definer set search_path = '' as $$
-declare uid uuid := private.require_member();
-begin
-  delete from public.push_subscriptions where endpoint=p_endpoint and user_id=uid;
-end $$;
-
-create or replace function private.push_status() returns jsonb language plpgsql stable security definer set search_path = '' as $$
-declare uid uuid := private.require_member();  -- checked first, whatever the table holds
-begin
-  return jsonb_build_object('devices',(select count(*) from public.push_subscriptions where user_id=uid));
-end $$;
-
-create or replace function public.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text) returns void language sql set search_path = '' as $$ select private.save_push_subscription(p_endpoint,p_p256dh,p_auth) $$;
-
-create or replace function public.delete_push_subscription(p_endpoint text) returns void language sql set search_path = '' as $$ select private.delete_push_subscription(p_endpoint) $$;
-
-create or replace function public.push_status() returns jsonb language sql set search_path = '' as $$ select private.push_status() $$;
-
-create or replace function private.push_on_notification() returns trigger language plpgsql security definer set search_path = '' as $$
-declare secret text; url text; subs jsonb; lang text;
-begin
-  begin
-    select jsonb_agg(jsonb_build_object('endpoint',s.endpoint,'p256dh',s.p256dh,'auth',s.auth)) into subs from public.push_subscriptions s where s.user_id=new.user_id;
-    if subs is null then return new; end if;
-    select decrypted_secret into secret from vault.decrypted_secrets where name='push_hook_secret' limit 1;
-    url := private.setting('push_function_url') #>> '{}';
-    if secret is null or url is null then return new; end if;
-    select coalesce(p.locale,'fr') into lang from public.profiles p where p.user_id=new.user_id;
-    perform net.http_post(url:=url,
-      headers:=jsonb_build_object('content-type','application/json','x-push-secret',secret),
-      body:=jsonb_build_object('kind',new.kind,'lang',coalesce(lang,'fr'),'badge',private.unread_total(new.user_id),'subscriptions',subs));
-    update public.push_subscriptions set last_sent_at=now() where user_id=new.user_id;
-  exception when others then
-    raise warning 'push_on_notification: %', sqlerrm;
-  end;
-  return new;
-end $$;
-revoke all on function private.unread_total(uuid), private.push_on_notification() from public, anon, authenticated;
-grant execute on function private.save_push_subscription(text,text,text), private.delete_push_subscription(text), private.push_status() to authenticated;
-grant execute on function public.save_push_subscription(text,text,text), public.delete_push_subscription(text), public.push_status() to authenticated, service_role;
-
--- Private profile gender, deployed 9 November 2026.
-create or replace function private.save_member_profile(p_name text,p_birth_date date,p_locale text,p_accept_rules boolean,p_bio text,p_avatar_path text,p_gender text)
-returns public.profiles language plpgsql security definer set search_path = '' as $$
-declare uid uuid := private.require_member(); result public.profiles;
-begin
-  if p_gender is not null and p_gender not in ('woman','man','non_binary','another_identity','prefer_not_to_say') then
-    raise exception 'invalid_gender';
-  end if;
-  result := private.save_profile(p_name,p_birth_date,p_locale,p_accept_rules,p_bio,p_avatar_path);
-  if result.account_type = 'venue' then raise exception 'person_required'; end if;
-  update public.profiles set gender=p_gender, updated_at=now() where user_id=uid returning * into result;
-  return result;
-end $$;
-create or replace function public.save_member_profile(p_name text,p_birth_date date,p_locale text,p_accept_rules boolean,p_bio text,p_avatar_path text,p_gender text)
-returns public.profiles language sql security invoker set search_path = '' as $$
-  select private.save_member_profile(p_name,p_birth_date,p_locale,p_accept_rules,p_bio,p_avatar_path,p_gender)
-$$;
-revoke all on function private.save_member_profile(text,date,text,boolean,text,text,text) from public,anon;
-revoke all on function public.save_member_profile(text,date,text,boolean,text,text,text) from public,anon;
-grant execute on function private.save_member_profile(text,date,text,boolean,text,text,text) to authenticated;
-grant execute on function public.save_member_profile(text,date,text,boolean,text,text,text) to authenticated;
-
--- Test bots for the pilot venue (db/2026-11-10-test-bots.sql).
-create or replace function private.bot_as(p_uid uuid) returns void language sql set search_path = '' as $$
-  select set_config('request.jwt.claims', case when p_uid is null then '' else jsonb_build_object('sub',p_uid::text,'role','authenticated')::text end, true)::void
-$$;
-
-create or replace function private.run_test_bots() returns integer language plpgsql security definer set search_path = '' as $$
-declare
-  v_venue constant uuid := 'a2c1a2c1-0000-4000-8000-000000000001';
-  v_invite constant uuid := 'a2c1a2c1-0000-4000-8000-000000000002';
-  decliner constant uuid := 'a2c1a2c1-0000-4000-8000-0000000000f4';  -- Karim (test): always declines
-  opener constant uuid := 'a2c1a2c1-0000-4000-8000-0000000000f2';    -- Sam (test): introduces himself first
-  b record; i record; c record; m record; n integer := 0; lang text; mine int; theirs int; bot_is_a boolean;
-  lines_fr text[] := array['Sympa ! Je suis venu·e avec des amis ce soir.','Tu viens souvent ici ?','Ça te dirait qu’on se dise bonjour au comptoir tout à l’heure ?','Avec plaisir, à tout à l’heure !','(Profil de test) Merci d’avoir testé la conversation.'];
-  lines_en text[] := array['Nice! I came with friends tonight.','Do you come here often?','Shall we say hi at the counter later?','Great, see you in a bit!','(Test profile) Thanks for testing the conversation.'];
-begin
-  if coalesce((private.setting('test_bots') #>> '{}')::boolean,false) is not true then return 0; end if;
-
-  -- 1. Bots stay present in the test venue (3 h visits, renewed) and hold a simulated pass.
-  for b in select u.id from auth.users u where u.email like '%.test@example.invalid' loop
-    begin
-      if not exists(select 1 from public.venue_sessions s where s.user_id=b.id and s.venue_id=v_venue and s.ended_at is null and s.expires_at>now()+interval '5 minutes') then
-        update public.venue_sessions set ended_at=now() where user_id=b.id and ended_at is null;
-        insert into public.venue_sessions(user_id,venue_id,invite_id,venue_name,expires_at)
-          values(b.id,v_venue,v_invite,(select v.name from private.venues v where v.id=v_venue),now()+interval '180 minutes');
-      end if;
-      perform private.bot_as(b.id); perform public.buy_pass_simulated();
-    exception when others then null; end;
-  end loop;
-
-  -- 2. Introductions received by a bot (at least 20 s old): Karim declines, the others accept with a reply.
-  for i in select x.id, x.recipient_id, x.sender_id from public.introductions x join auth.users u on u.id=x.recipient_id
-           where u.email like '%.test@example.invalid' and x.status='pending' and x.created_at<now()-interval '20 seconds'
-             and not exists(select 1 from auth.users s where s.id=x.sender_id and s.email like '%.test@example.invalid') loop
-    begin
-      select coalesce(p.locale,'fr') into lang from public.profiles p where p.user_id=i.sender_id;
-      perform private.bot_as(i.recipient_id);
-      if i.recipient_id=decliner then perform public.respond_introduction(i.id,false,null);
-      else perform public.respond_introduction(i.id,true,case when lang='en' then 'Hi! Happy to chat. Are you here for the whole evening?' else 'Salut ! Avec plaisir. Tu es là pour toute la soirée ?' end); end if;
-      n := n+1;
-    exception when others then null; end;
-  end loop;
-
-  -- 3. Conversations with a bot where the other person wrote last (at least 15 s ago): the bot answers,
-  --    proposes to meet once both wrote twice, and says yes when the other person proposed.
-  for c in select cv.* from public.conversations cv
-           where cv.closed_at is null and cv.venue_id=v_venue
-             and ((select u.email from auth.users u where u.id=cv.a_id) like '%.test@example.invalid')
-                 <> ((select u.email from auth.users u where u.id=cv.b_id) like '%.test@example.invalid') loop
-    begin
-      bot_is_a := (select u.email like '%.test@example.invalid' from auth.users u where u.id=c.a_id);
-      select * into m from public.messages where conversation_id=c.id order by created_at desc limit 1;
-      select coalesce(p.locale,'fr') into lang from public.profiles p where p.user_id=case when bot_is_a then c.b_id else c.a_id end;
-      perform private.bot_as(case when bot_is_a then c.a_id else c.b_id end);
-      if m.sender_id <> (case when bot_is_a then c.a_id else c.b_id end) and m.created_at<now()-interval '15 seconds' then
-        select count(*) filter (where sender_id=(case when bot_is_a then c.a_id else c.b_id end)), count(*) filter (where sender_id<>(case when bot_is_a then c.a_id else c.b_id end))
-          into mine, theirs from public.messages where conversation_id=c.id;
-        perform public.send_message(c.id, (case when lang='en' then lines_en else lines_fr end)[least(greatest(mine,1),5)]);
-        n := n+1;
-      end if;
-      select count(*) filter (where sender_id=(case when bot_is_a then c.a_id else c.b_id end)), count(*) filter (where sender_id<>(case when bot_is_a then c.a_id else c.b_id end))
-        into mine, theirs from public.messages where conversation_id=c.id;
-      if mine>=2 and theirs>=2 and (case when bot_is_a then c.meeting_a else c.meeting_b end) is null then
-        perform public.meeting_answer(c.id,true);
-      end if;
-    exception when others then null; end;
-  end loop;
-
-  -- 4. Sam (test) introduces himself to each real member present in the test venue for at least 1 minute, once.
-  for b in select s.user_id from public.venue_sessions s join public.profiles p on p.user_id=s.user_id join auth.users u on u.id=s.user_id
-           where s.venue_id=v_venue and s.ended_at is null and s.expires_at>now() and s.started_at<now()-interval '1 minute'
-             and u.email not like '%.test@example.invalid' and p.account_type<>'venue'
-             and not exists(select 1 from public.introductions x where (x.sender_id=opener and x.recipient_id=s.user_id) or (x.sender_id=s.user_id and x.recipient_id=opener)) loop
-    begin
-      select coalesce(p.locale,'fr') into lang from public.profiles p where p.user_id=b.user_id;
-      perform private.bot_as(opener);
-      perform public.send_introduction(b.user_id, case when lang='en' then 'Hi! I''m Sam (test profile). Fancy a chat?' else 'Salut ! Je suis Sam (profil de test). On discute ?' end);
-      n := n+1;
-    exception when others then null; end;
-  end loop;
-
-  perform private.bot_as(null);
-  return n;
-end $$;
-
--- « Who would you like to see? » (db/2026-11-10-interest-filter.sql).
-create or replace function private.set_interest(p_interest text, p_consent boolean) returns jsonb
-language plpgsql security definer set search_path = '' as $$
-declare uid uuid := private.require_member(); me public.profiles;
-begin
-  select * into me from public.profiles where user_id=uid for update;
-  if not found then raise exception 'profile_required'; end if;
-  if me.account_type='venue' then raise exception 'person_required'; end if;
-  if p_interest is null or p_interest='' then
-    update public.profiles set interested_in=null, interest_consent_at=null, updated_at=now() where user_id=uid;
-    return jsonb_build_object('interested_in',null);
-  end if;
-  if p_interest not in ('women','men','everyone') then raise exception 'invalid_interest'; end if;
-  if p_consent is distinct from true then raise exception 'interest_consent_required'; end if;
-  update public.profiles set interested_in=p_interest, interest_consent_at=coalesce(case when interested_in is not null then interest_consent_at end, now()), updated_at=now() where user_id=uid;
-  return jsonb_build_object('interested_in',p_interest);
-end $$;
-
-create or replace function public.set_interest(p_interest text, p_consent boolean) returns jsonb language sql set search_path = '' as $$ select private.set_interest(p_interest,p_consent) $$;
-grant execute on function private.set_interest(text,boolean) to authenticated;
-grant execute on function public.set_interest(text,boolean) to authenticated, service_role;
-
--- Height, conversation end reason, warnings (db/2026-11-10-height-safety.sql).
-create or replace function private.set_height(p_cm integer) returns jsonb language plpgsql security definer set search_path = '' as $$
-declare uid uuid := private.require_member();
-begin
-  if exists(select 1 from public.profiles where user_id=uid and account_type='venue') then raise exception 'person_required'; end if;
-  if p_cm is not null and p_cm not between 120 and 230 then raise exception 'invalid_height'; end if;
-  update public.profiles set height_cm=p_cm, updated_at=now() where user_id=uid;
-  if not found then raise exception 'profile_required'; end if;
-  return jsonb_build_object('height_cm',p_cm);
-end $$;
-
-create or replace function public.set_height(p_cm integer) returns jsonb language sql set search_path = '' as $$ select private.set_height(p_cm) $$;
-
-create or replace function private.end_conversation(p_id uuid, p_reason text) returns void language plpgsql security definer set search_path = '' as $$
-declare uid uuid := private.require_member(); conv public.conversations;
-begin
-  if p_reason is null or p_reason not in ('not_available','left_venue','not_interested','other') then raise exception 'invalid_reason'; end if;
-  update public.conversations set closed_at=now(), closed_by=uid, closed_reason=p_reason where id=p_id and (a_id=uid or b_id=uid) and closed_at is null returning * into conv;
-  if found then perform private.notify(case when conv.a_id=uid then conv.b_id else conv.a_id end,'conversation_closed',jsonb_build_object('conversation',conv.id,'reason',p_reason),conv.id::text); end if;
-end $$;
-
-create or replace function public.end_conversation(p_id uuid, p_reason text) returns void language sql set search_path = '' as $$ select private.end_conversation(p_id,p_reason) $$;
-
-create or replace function private.admin_warn_member(p_report uuid, p_message text) returns void language plpgsql security definer set search_path = '' as $$
-declare uid uuid := private.require_admin(); row public.reports;
-begin
-  select * into row from public.reports where id=p_report;
-  if not found then raise exception 'report_missing'; end if;
-  perform private.notify(row.reported_id,'account_warned',jsonb_build_object('message',coalesce(nullif(left(btrim(p_message),300),''),'')),null);
-  update public.reports set status=case when status='open' then 'actioned' else status end, decided_at=coalesce(decided_at,now()), decided_by=coalesce(decided_by,uid) where id=p_report;
-  perform private.log_admin(uid,'member_warned',row.reported_id::text,jsonb_build_object('report',p_report));
-end $$;
-
-create or replace function public.admin_warn_member(p_report uuid, p_message text) returns void language sql set search_path = '' as $$ select private.admin_warn_member(p_report,p_message) $$;
-revoke all on function private.set_height(integer), private.end_conversation(uuid,text), private.admin_warn_member(uuid,text) from public, anon;
-revoke all on function public.set_height(integer), public.end_conversation(uuid,text), public.admin_warn_member(uuid,text) from public, anon;
-grant execute on function private.set_height(integer), private.end_conversation(uuid,text), private.admin_warn_member(uuid,text) to authenticated;
-grant execute on function public.set_height(integer), public.end_conversation(uuid,text), public.admin_warn_member(uuid,text) to authenticated, service_role;
-
--- Veiled venue until the pass, 11 November 2026 (db/2026-11-11-veiled-venue.sql; the storage policy avatars_venue_select now calls private.photo_visible).
--- Age range from the private birth date: 18-20, then steps of five (21-25, 26-30…).
-create or replace function private.age_band(p_birth date) returns text language sql stable set search_path = '' as $$
-  select case when a is null then null when a <= 20 then '18-20' else (21 + 5*((a-21)/5))::text || '-' || (25 + 5*((a-21)/5))::text end
-  from (select date_part('year', age(p_birth))::int as a) x
-$$;
-revoke all on function private.age_band(date) from public, anon, authenticated;
--- True when this member may see the people of this venue: no pass needed, or an active venue pass there.
-create or replace function private.venue_unlocked(p_uid uuid, p_venue uuid) returns boolean
- language sql stable security definer set search_path = '' as $$
-  select p_uid is not null and p_venue is not null and (
-    (private.setting('pass_rule') #>> '{}') is distinct from 'everyone'
-    or exists(select 1 from public.passes p where p.user_id=p_uid and p.venue_id=p_venue and p.status='active' and p.kind='venue_pass' and p.expires_at>now()))
-$$;
-revoke all on function private.venue_unlocked(uuid,uuid) from public, anon, authenticated;
-create or replace function private.set_department(p_department text) returns jsonb
- language plpgsql security definer set search_path = '' as $$
-declare uid uuid := private.require_person(); d text := nullif(upper(btrim(coalesce(p_department,''))),'');
-begin
-  if d is not null and d !~ '^(0[1-9]|1[0-9]|2[1-9]|[3-8][0-9]|9[0-5]|2A|2B|97[1-6])$' then raise exception 'invalid_department'; end if;
-  update public.profiles set department=d, updated_at=now() where user_id=uid;
-  return jsonb_build_object('department',d);
-end $$;
-create or replace function public.set_department(p_department text) returns jsonb language sql set search_path = '' as $$ select private.set_department(p_department) $$;
-revoke all on function private.set_department(text), public.set_department(text) from public, anon;
-grant execute on function private.set_department(text) to authenticated;
-grant execute on function public.set_department(text) to authenticated, service_role;
-create or replace function private.photo_visible(viewer uuid, owner uuid) returns boolean
- language sql stable security definer set search_path to '' as $function$
-  select private.co_present(viewer, owner) and (
-    private.venue_unlocked(viewer, (private.live_session(viewer)).venue_id)
-    or exists(select 1 from public.introductions i where (i.sender_id=owner and i.recipient_id=viewer) or (i.sender_id=viewer and i.recipient_id=owner))
-    or exists(select 1 from public.conversations c where (c.a_id=viewer and c.b_id=owner) or (c.a_id=owner and c.b_id=viewer)))
-$function$;
-revoke all on function private.photo_visible(uuid,uuid) from public, anon, authenticated;
-grant execute on function private.photo_visible(uuid,uuid) to authenticated;
-
--- Blurred preview before the pass: 13 November 2026, stored inline since 17 November 2026 (db/2026-11-17-blur-without-id.sql;
--- storage policy avatars_blur_select removed).
-create or replace function private.set_avatar_blur_data(p_data text) returns jsonb
- language plpgsql security definer set search_path = '' as $$
-declare uid uuid := private.require_person();
-begin
-  if p_data is not null and (char_length(p_data) > 6000 or p_data !~ '^data:image/jpeg;base64,[A-Za-z0-9+/]+={0,2}$') then
-    raise exception 'photo_invalid';
-  end if;
-  update public.profiles set avatar_blur=p_data, avatar_blur_path=null, updated_at=now() where user_id=uid;
-  return jsonb_build_object('avatar_blur', p_data is not null);
-end $$;
-create or replace function public.set_avatar_blur_data(p_data text) returns jsonb language sql set search_path = '' as $$ select private.set_avatar_blur_data(p_data) $$;
-revoke all on function private.set_avatar_blur_data(text), public.set_avatar_blur_data(text) from public, anon;
-grant execute on function private.set_avatar_blur_data(text) to authenticated;
-grant execute on function public.set_avatar_blur_data(text) to authenticated, service_role;
-
--- The old file-based call stays callable by phones that still run the previous version, but stores nothing.
-create or replace function private.set_avatar_blur(p_path text) returns jsonb
- language plpgsql security definer set search_path = '' as $$
-declare uid uuid := private.require_person();
-begin
-  update public.profiles set avatar_blur_path=null where user_id=uid and avatar_blur_path is not null;
-  return jsonb_build_object('avatar_blur_path', null);
-end $$;
-create or replace function public.set_avatar_blur(p_path text) returns jsonb language sql set search_path = '' as $$ select private.set_avatar_blur(p_path) $$;
-revoke all on function private.set_avatar_blur(text), public.set_avatar_blur(text) from public, anon;
-grant execute on function private.set_avatar_blur(text) to authenticated;
-grant execute on function public.set_avatar_blur(text) to authenticated, service_role;
-grant execute on function private.set_talent_alerts(p_on boolean, p_consent boolean) to authenticated;
-grant execute on function public.set_talent_alerts(p_on boolean, p_consent boolean) to authenticated, service_role;
-grant execute on function private.my_places() to authenticated;
-grant execute on function private.hide_place(p_venue uuid) to authenticated;
 grant execute on function private.clear_places() to authenticated;
-grant execute on function public.my_places() to authenticated, service_role;
-grant execute on function public.hide_place(p_venue uuid) to authenticated, service_role;
-grant execute on function public.clear_places() to authenticated, service_role;
+
+grant execute on function private.close_conversation(p_id uuid) to authenticated;
+
+grant execute on function private.close_enquiry(p_id uuid) to authenticated;
+
+grant execute on function private.co_present(viewer uuid, owner uuid) to authenticated;
+
+grant execute on function private.conversation_messages(p_id uuid) to authenticated;
+
+grant execute on function private.delete_account() to authenticated;
+
+grant execute on function private.delete_push_subscription(p_endpoint text) to authenticated;
+
+grant execute on function private.end_conversation(p_id uuid, p_reason text) to authenticated;
+
+grant execute on function private.enquiry_block(p_id uuid) to authenticated;
+
+grant execute on function private.enquiry_report(p_id uuid, p_category text, p_details text) to authenticated;
+
+grant execute on function private.enquiry_thread(p_id uuid) to authenticated;
+
+grant execute on function private.hide_place(p_venue uuid) to authenticated;
+
+grant execute on function private.join_venue(p_token text) to authenticated;
+
+grant execute on function private.leave_venue() to authenticated;
+
+grant execute on function private.meeting_answer(p_conversation uuid, p_yes boolean) to authenticated;
+
+grant execute on function private.my_account_type() to authenticated;
+
+grant execute on function private.my_data_export() to authenticated;
+
+grant execute on function private.my_enquiries() to authenticated;
+
+grant execute on function private.my_inbox() to authenticated;
+
+grant execute on function private.my_notifications(p_mark_read boolean) to authenticated;
+
+grant execute on function private.my_passes() to authenticated;
+
+grant execute on function private.my_places() to authenticated;
+
+grant execute on function private.my_pro_profile() to authenticated;
+
+grant execute on function private.my_venue() to authenticated;
+
+grant execute on function private.notification_prefs() to authenticated;
+
+grant execute on function private.photo_visible(viewer uuid, owner uuid) to authenticated;
+
+grant execute on function private.preview_venue(p_token text) to authenticated;
+
+grant execute on function private.push_status() to authenticated;
+
+grant execute on function private.register_device(p_token text, p_platform text) to authenticated;
+
+grant execute on function private.reply_enquiry(p_id uuid, p_body text) to authenticated;
+
+grant execute on function private.report_member(p_user uuid, p_category text, p_details text, p_conversation uuid) to authenticated;
+
+grant execute on function private.respond_introduction(p_id uuid, p_accept boolean, p_reply text) to authenticated;
+
+grant execute on function private.save_member_profile(p_name text, p_birth_date date, p_locale text, p_accept_rules boolean, p_bio text, p_avatar_path text, p_gender text) to authenticated;
+
+grant execute on function private.save_pro_profile(p_business text, p_professional text, p_category text, p_pitch text, p_website text, p_socials jsonb, p_city text) to authenticated;
+
+grant execute on function private.save_profile(p_name text, p_birth_date date, p_locale text, p_accept_rules boolean, p_bio text, p_avatar_path text) to authenticated;
+
+grant execute on function private.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text) to authenticated;
+
+grant execute on function private.send_enquiry(p_pro uuid, p_message text, p_contact text) to authenticated;
+
+grant execute on function private.send_introduction(p_to uuid, p_message text) to authenticated;
+
+grant execute on function private.send_message(p_conversation uuid, p_body text) to authenticated;
+
+grant execute on function private.set_account_type(p_type text) to authenticated;
+
+grant execute on function private.set_avatar_blur(p_path text) to authenticated;
+
+grant execute on function private.set_avatar_blur_data(p_data text) to authenticated;
+
+grant execute on function private.set_department(p_department text) to authenticated;
+
+grant execute on function private.set_height(p_cm integer) to authenticated;
+
+grant execute on function private.set_interest(p_interest text, p_consent boolean) to authenticated;
+
+grant execute on function private.set_notification_pref(p_group text, p_on boolean) to authenticated;
+
+grant execute on function private.set_talent_alerts(p_on boolean, p_consent boolean) to authenticated;
+
+grant execute on function private.submit_feedback(p_score integer, p_change text, p_bug boolean, p_bug_text text, p_context jsonb) to authenticated;
+
+grant execute on function private.subscribe_talent_simulated() to authenticated;
+
+grant execute on function private.unregister_device(p_token text) to authenticated;
+
+grant execute on function private.venue_announce(p_body text) to authenticated;
+
+grant execute on function private.venue_create_invite(p_days integer) to authenticated;
+
+grant execute on function private.venue_delete_announcement(p_id uuid) to authenticated;
+
+grant execute on function private.venue_members() to authenticated;
+
+grant execute on function private.venue_revoke_invite(p_id uuid) to authenticated;
+
+grant execute on function private.venue_room() to authenticated;
+
+grant execute on function private.venue_talents() to authenticated;
+
+grant execute on function private.venue_update(p_hours text, p_contact text, p_duration integer) to authenticated;
+
+grant execute on function public.admin_audit(p_limit integer) to authenticated;
+
+grant execute on function public.admin_audit(p_limit integer) to service_role;
+
+grant execute on function public.admin_create_invite(p_venue uuid, p_days integer, p_minutes integer) to authenticated;
+
+grant execute on function public.admin_create_invite(p_venue uuid, p_days integer, p_minutes integer) to service_role;
+
+grant execute on function public.admin_decide_pro(p_user uuid, p_approve boolean, p_decision text) to authenticated;
+
+grant execute on function public.admin_decide_pro(p_user uuid, p_approve boolean, p_decision text) to service_role;
+
+grant execute on function public.admin_decide_report(p_id uuid, p_status text, p_decision text, p_suspend boolean) to authenticated;
+
+grant execute on function public.admin_decide_report(p_id uuid, p_status text, p_decision text, p_suspend boolean) to service_role;
+
+grant execute on function public.admin_decide_venue(p_id uuid, p_approve boolean, p_decision text) to authenticated;
+
+grant execute on function public.admin_decide_venue(p_id uuid, p_approve boolean, p_decision text) to service_role;
+
+grant execute on function public.admin_feedback() to authenticated;
+
+grant execute on function public.admin_feedback() to service_role;
+
+grant execute on function public.admin_members(p_search text) to authenticated;
+
+grant execute on function public.admin_members(p_search text) to service_role;
+
+grant execute on function public.admin_overview() to authenticated;
+
+grant execute on function public.admin_overview() to service_role;
+
+grant execute on function public.admin_passes() to authenticated;
+
+grant execute on function public.admin_passes() to service_role;
+
+grant execute on function public.admin_pro_profiles(p_status text) to authenticated;
+
+grant execute on function public.admin_pro_profiles(p_status text) to service_role;
+
+grant execute on function public.admin_refund_pass(p_id uuid) to authenticated;
+
+grant execute on function public.admin_refund_pass(p_id uuid) to service_role;
+
+grant execute on function public.admin_reports(p_status text) to authenticated;
+
+grant execute on function public.admin_reports(p_status text) to service_role;
+
+grant execute on function public.admin_restrict(p_user uuid, p_suspended boolean, p_reason text) to authenticated;
+
+grant execute on function public.admin_restrict(p_user uuid, p_suspended boolean, p_reason text) to service_role;
+
+grant execute on function public.admin_revoke_invite(p_id uuid) to authenticated;
+
+grant execute on function public.admin_revoke_invite(p_id uuid) to service_role;
+
+grant execute on function public.admin_save_venue(p_id uuid, p_name text, p_category text, p_duration integer, p_address text, p_active boolean) to authenticated;
+
+grant execute on function public.admin_save_venue(p_id uuid, p_name text, p_category text, p_duration integer, p_address text, p_active boolean) to service_role;
+
+grant execute on function public.admin_send_feedback(p_hours integer) to authenticated;
+
+grant execute on function public.admin_send_feedback(p_hours integer) to service_role;
+
+grant execute on function public.admin_two_step_required() to authenticated;
+
+grant execute on function public.admin_two_step_required() to service_role;
+
+grant execute on function public.admin_update_invite(p_id uuid, p_minutes integer, p_apply boolean, p_days integer) to authenticated;
+
+grant execute on function public.admin_update_invite(p_id uuid, p_minutes integer, p_apply boolean, p_days integer) to service_role;
+
+grant execute on function public.admin_venue_applications(p_status text) to authenticated;
+
+grant execute on function public.admin_venue_applications(p_status text) to service_role;
+
+grant execute on function public.admin_venues() to authenticated;
+
+grant execute on function public.admin_venues() to service_role;
+
+grant execute on function public.admin_warn_member(p_report uuid, p_message text) to authenticated;
+
+grant execute on function public.admin_warn_member(p_report uuid, p_message text) to service_role;
+
+grant execute on function public.app_settings_public() to authenticated;
+
+grant execute on function public.app_settings_public() to service_role;
+
+grant execute on function public.apply_venue(p_name text, p_category text, p_address text, p_hours text, p_contact text, p_duration integer) to authenticated;
+
+grant execute on function public.apply_venue(p_name text, p_category text, p_address text, p_hours text, p_contact text, p_duration integer) to service_role;
+
+grant execute on function public.block_member(p_user uuid) to authenticated;
+
+grant execute on function public.block_member(p_user uuid) to service_role;
+
+grant execute on function public.buy_pass_simulated() to authenticated;
+
+grant execute on function public.buy_pass_simulated() to service_role;
+
+grant execute on function public.clear_places() to authenticated;
+
+grant execute on function public.clear_places() to service_role;
+
+grant execute on function public.close_conversation(p_id uuid) to authenticated;
+
+grant execute on function public.close_conversation(p_id uuid) to service_role;
+
+grant execute on function public.close_enquiry(p_id uuid) to authenticated;
+
+grant execute on function public.close_enquiry(p_id uuid) to service_role;
+
+grant execute on function public.conversation_messages(p_id uuid) to authenticated;
+
+grant execute on function public.conversation_messages(p_id uuid) to service_role;
+
+grant execute on function public.delete_account() to authenticated;
+
+grant execute on function public.delete_account() to service_role;
+
+grant execute on function public.delete_push_subscription(p_endpoint text) to authenticated;
+
+grant execute on function public.delete_push_subscription(p_endpoint text) to service_role;
+
+grant execute on function public.end_conversation(p_id uuid, p_reason text) to authenticated;
+
+grant execute on function public.end_conversation(p_id uuid, p_reason text) to service_role;
+
+grant execute on function public.enquiry_block(p_id uuid) to authenticated;
+
+grant execute on function public.enquiry_block(p_id uuid) to service_role;
+
+grant execute on function public.enquiry_report(p_id uuid, p_category text, p_details text) to authenticated;
+
+grant execute on function public.enquiry_report(p_id uuid, p_category text, p_details text) to service_role;
+
+grant execute on function public.enquiry_thread(p_id uuid) to authenticated;
+
+grant execute on function public.enquiry_thread(p_id uuid) to service_role;
+
+grant execute on function public.hide_place(p_venue uuid) to authenticated;
+
+grant execute on function public.hide_place(p_venue uuid) to service_role;
+
+grant execute on function public.is_admin() to authenticated;
+
+grant execute on function public.is_admin() to service_role;
+
+grant execute on function public.join_venue(p_token text) to authenticated;
+
+grant execute on function public.join_venue(p_token text) to service_role;
+
+grant execute on function public.leave_venue() to authenticated;
+
+grant execute on function public.leave_venue() to service_role;
+
+grant execute on function public.meeting_answer(p_conversation uuid, p_yes boolean) to authenticated;
+
+grant execute on function public.meeting_answer(p_conversation uuid, p_yes boolean) to service_role;
+
+grant execute on function public.my_account_type() to authenticated;
+
+grant execute on function public.my_account_type() to service_role;
+
+grant execute on function public.my_data_export() to authenticated;
+
+grant execute on function public.my_data_export() to service_role;
+
+grant execute on function public.my_enquiries() to authenticated;
+
+grant execute on function public.my_enquiries() to service_role;
+
+grant execute on function public.my_inbox() to authenticated;
+
+grant execute on function public.my_inbox() to service_role;
+
+grant execute on function public.my_notifications(p_mark_read boolean) to authenticated;
+
+grant execute on function public.my_notifications(p_mark_read boolean) to service_role;
+
+grant execute on function public.my_passes() to authenticated;
+
+grant execute on function public.my_passes() to service_role;
+
+grant execute on function public.my_places() to authenticated;
+
+grant execute on function public.my_places() to service_role;
+
+grant execute on function public.my_pro_profile() to authenticated;
+
+grant execute on function public.my_pro_profile() to service_role;
+
+grant execute on function public.my_venue() to authenticated;
+
+grant execute on function public.my_venue() to service_role;
+
+grant execute on function public.notification_prefs() to authenticated;
+
+grant execute on function public.notification_prefs() to service_role;
+
+grant execute on function public.preview_venue(p_token text) to authenticated;
+
+grant execute on function public.preview_venue(p_token text) to service_role;
+
+grant execute on function public.push_status() to authenticated;
+
+grant execute on function public.push_status() to service_role;
+
+grant execute on function public.register_device(p_token text, p_platform text) to authenticated;
+
+grant execute on function public.register_device(p_token text, p_platform text) to service_role;
+
+grant execute on function public.reply_enquiry(p_id uuid, p_body text) to authenticated;
+
+grant execute on function public.reply_enquiry(p_id uuid, p_body text) to service_role;
+
+grant execute on function public.report_member(p_user uuid, p_category text, p_details text, p_conversation uuid) to authenticated;
+
+grant execute on function public.report_member(p_user uuid, p_category text, p_details text, p_conversation uuid) to service_role;
+
+grant execute on function public.respond_introduction(p_id uuid, p_accept boolean, p_reply text) to authenticated;
+
+grant execute on function public.respond_introduction(p_id uuid, p_accept boolean, p_reply text) to service_role;
+
+grant execute on function public.save_member_profile(p_name text, p_birth_date date, p_locale text, p_accept_rules boolean, p_bio text, p_avatar_path text, p_gender text) to authenticated;
+
+grant execute on function public.save_member_profile(p_name text, p_birth_date date, p_locale text, p_accept_rules boolean, p_bio text, p_avatar_path text, p_gender text) to service_role;
+
+grant execute on function public.save_pro_profile(p_business text, p_professional text, p_category text, p_pitch text, p_website text, p_socials jsonb, p_city text) to authenticated;
+
+grant execute on function public.save_pro_profile(p_business text, p_professional text, p_category text, p_pitch text, p_website text, p_socials jsonb, p_city text) to service_role;
+
+grant execute on function public.save_profile(p_name text, p_birth_date date, p_locale text, p_accept_rules boolean, p_bio text, p_avatar_path text) to authenticated;
+
+grant execute on function public.save_profile(p_name text, p_birth_date date, p_locale text, p_accept_rules boolean, p_bio text, p_avatar_path text) to service_role;
+
+grant execute on function public.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text) to authenticated;
+
+grant execute on function public.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text) to service_role;
+
+grant execute on function public.send_enquiry(p_pro uuid, p_message text, p_contact text) to authenticated;
+
+grant execute on function public.send_enquiry(p_pro uuid, p_message text, p_contact text) to service_role;
+
+grant execute on function public.send_introduction(p_to uuid, p_message text) to authenticated;
+
+grant execute on function public.send_introduction(p_to uuid, p_message text) to service_role;
+
+grant execute on function public.send_message(p_conversation uuid, p_body text) to authenticated;
+
+grant execute on function public.send_message(p_conversation uuid, p_body text) to service_role;
+
+grant execute on function public.set_account_type(p_type text) to authenticated;
+
+grant execute on function public.set_account_type(p_type text) to service_role;
+
+grant execute on function public.set_avatar_blur(p_path text) to authenticated;
+
+grant execute on function public.set_avatar_blur(p_path text) to service_role;
+
+grant execute on function public.set_avatar_blur_data(p_data text) to authenticated;
+
+grant execute on function public.set_avatar_blur_data(p_data text) to service_role;
+
+grant execute on function public.set_department(p_department text) to authenticated;
+
+grant execute on function public.set_department(p_department text) to service_role;
+
+grant execute on function public.set_height(p_cm integer) to authenticated;
+
+grant execute on function public.set_height(p_cm integer) to service_role;
+
+grant execute on function public.set_interest(p_interest text, p_consent boolean) to authenticated;
+
+grant execute on function public.set_interest(p_interest text, p_consent boolean) to service_role;
+
+grant execute on function public.set_notification_pref(p_group text, p_on boolean) to authenticated;
+
+grant execute on function public.set_notification_pref(p_group text, p_on boolean) to service_role;
+
+grant execute on function public.set_talent_alerts(p_on boolean, p_consent boolean) to authenticated;
+
+grant execute on function public.set_talent_alerts(p_on boolean, p_consent boolean) to service_role;
+
+grant execute on function public.submit_feedback(p_score integer, p_change text, p_bug boolean, p_bug_text text, p_context jsonb) to authenticated;
+
+grant execute on function public.submit_feedback(p_score integer, p_change text, p_bug boolean, p_bug_text text, p_context jsonb) to service_role;
+
+grant execute on function public.subscribe_talent_simulated() to authenticated;
+
+grant execute on function public.subscribe_talent_simulated() to service_role;
+
+grant execute on function public.unregister_device(p_token text) to authenticated;
+
+grant execute on function public.unregister_device(p_token text) to service_role;
+
+grant execute on function public.venue_announce(p_body text) to authenticated;
+
+grant execute on function public.venue_announce(p_body text) to service_role;
+
+grant execute on function public.venue_create_invite(p_days integer) to authenticated;
+
+grant execute on function public.venue_create_invite(p_days integer) to service_role;
+
+grant execute on function public.venue_delete_announcement(p_id uuid) to authenticated;
+
+grant execute on function public.venue_delete_announcement(p_id uuid) to service_role;
+
+grant execute on function public.venue_members() to authenticated;
+
+grant execute on function public.venue_members() to service_role;
+
+grant execute on function public.venue_revoke_invite(p_id uuid) to authenticated;
+
+grant execute on function public.venue_revoke_invite(p_id uuid) to service_role;
+
+grant execute on function public.venue_room() to authenticated;
+
+grant execute on function public.venue_room() to service_role;
+
+grant execute on function public.venue_talents() to authenticated;
+
+grant execute on function public.venue_talents() to service_role;
+
+grant execute on function public.venue_update(p_hours text, p_contact text, p_duration integer) to authenticated;
+
+grant execute on function public.venue_update(p_hours text, p_contact text, p_duration integer) to service_role;
