@@ -275,3 +275,5 @@ body[data-screen=people] .people-compact .person small{font-size:12px}
 .account-card a[target=_blank]{display:inline-flex;align-items:center;min-height:44px}
 .account-card details>summary{min-height:44px;box-sizing:border-box;padding-block:10px}
 .account-card .pass-card summary{padding-block:0}
+/* Exchange with a professional (26 Nov 2026): a request in a list, without a photo. */
+.account-card .person.enq,.account-card .person.enq span,.account-card .person.enq small{align-items:flex-start;text-align:left}.person.enq span{flex:1}.person.enq b{font-size:15px}
