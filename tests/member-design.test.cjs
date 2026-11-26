@@ -63,3 +63,13 @@ test('nothing is written under 12 px, and the small controls found by the audit 
   assert.match(adm,/body\.admin header nav button\{min-width:44px;min-height:44px\}/);
   assert.match(legal,/nav\[aria-label=Langue\] a,nav\[aria-label=Language\] a\{[^}]*min-height:44px\}/);
 });
+
+// Readability pass on the conversation and the message list (26 Nov 2026).
+require('node:test')('the translate option keeps its note under the sentence, and message rows read from the left',()=>{
+  const assert=require('node:assert');const fs=require('node:fs');
+  const app=fs.readFileSync('src/account.js','utf8'),css=fs.readFileSync('public/member-design.css','utf8');
+  assert.match(app,/data-toggle="autotranslate" \$\{autoTranslate\?'checked':''\}><span>/,'checkbox and text are two items, not three');
+  assert.ok(css.includes('.account-card label.agreement>span{flex:1;min-width:0}'));
+  assert.ok(css.includes('body[data-screen=messages] .account-card button.person,body[data-screen=messages] .account-card button.person span{text-align:left}'));
+  assert.ok(css.includes('body[data-screen=messages] .account-card button.person small{-webkit-line-clamp:3}'),'the hidden-reply line is not cut mid-sentence');
+});
