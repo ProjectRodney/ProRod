@@ -3,3 +3,5 @@ body.welcome{display:grid;place-items:center;min-height:100dvh;background:linear
 .install-banner[hidden]{display:none}
 .install-banner{display:flex;gap:10px;align-items:center;background:#fff3bc;border-bottom:1px solid #e2c766;padding:10px 14px;font-size:14px}.install-banner span{flex:1}.install-banner .button.small{padding:8px 14px;white-space:nowrap}.install-banner .link{padding:4px 8px}
 .install-dialog{border:0;border-radius:22px;padding:24px;max-width:420px;width:calc(100% - 32px);box-shadow:0 30px 80px #0003}.install-dialog::backdrop{background:#0006}.install-dialog ol{padding-left:20px}.install-dialog li{margin:8px 0}.install-dialog .button{width:100%;margin-top:12px}
+/* The close cross is as easy to tap as any other button. */
+.install-banner .link{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;font-size:18px}

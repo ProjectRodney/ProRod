@@ -49,3 +49,17 @@ test('top right corner: the member\'s photo opens their profile; the language is
   assert.match(s,/return `<button type="button" data-language="fr" aria-pressed="\$\{lang==='fr'\}">FR<\/button><button type="button" data-language="en"/,'a visitor without an account keeps FR / EN');
   assert.match(s,/<h3 class="pref-title">\$\{T\('Language','Langue'\)\}<\/h3>\$\{langChips\(\)\}/,'the language is in « Réglages »');
 });
+
+// Legibility pass (25 Nov 2026): measured in a browser on every reachable screen, kept here as rules.
+test('nothing is written under 12 px, and the small controls found by the audit are 44 px to tap',()=>{
+  const fs=require('node:fs'),assert=require('node:assert/strict');
+  const css=fs.readFileSync('public/member-design.css','utf8'),app=fs.readFileSync('public/app.css','utf8'),inst=fs.readFileSync('public/install.css','utf8'),adm=fs.readFileSync('public/admin.css','utf8'),legal=fs.readFileSync('public/legal.css','utf8');
+  assert.match(css,/\.account-card \.eyebrow,\.pilot-note,\.journey-hint,\.dept-abbr,\.bubble\.announce small,\.badge,\.member-nav button span,\.member-nav button\{font-size:12px\}/);
+  assert.match(css,/\.account-card small,small\{font-size:max\(12px,\.86em\)\}/);
+  assert.match(app,/\n\.eyebrow\{font-size:12px\}/);
+  assert.match(css,/\.photo-preview\.empty\{color:#5c5440\}/,'« no photo yet » passes the contrast threshold');
+  assert.match(css,/\.account-card details>summary\{min-height:44px;/);
+  assert.match(inst,/\.install-banner \.link\{min-width:44px;min-height:44px;/);
+  assert.match(adm,/body\.admin header nav button\{min-width:44px;min-height:44px\}/);
+  assert.match(legal,/nav\[aria-label=Langue\] a,nav\[aria-label=Language\] a\{[^}]*min-height:44px\}/);
+});
