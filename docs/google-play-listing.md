@@ -1,4 +1,4 @@
-# Google Play: store page and forms (prepared 20 November 2026)
+# Google Play: store page and forms (prepared 20 November 2026, texts updated 26 November 2026)
 
 Package `fr.upzoneapp.app`, created in Google Play Console on 20 November 2026 (free app, default language French).
 Everything below is a draft to copy into Play Console → « Terminer la configuration de votre appli ». The account
@@ -31,7 +31,7 @@ English:
 UPZONE te permet de faire connaissance avec les personnes présentes dans le même lieu que toi : un bar, un club, un restaurant, un événement.
 
 COMMENT ÇA MARCHE
-1. Scanne le QR code affiché dans le lieu.
+1. Scanne le QR code affiché dans le lieu : tu arrives sur la liste des personnes présentes.
 2. Dis bonjour à une personne présente.
 3. Si elle accepte, la conversation s’ouvre. Vous discutez tant que vous êtes tous les deux sur place.
 
@@ -43,12 +43,13 @@ LE RESPECT D’ABORD
 • Aucun selfie obligatoire. Ta date de naissance reste privée.
 
 POUR LES PROFESSIONNELS ET LES ÉVÉNEMENTS
-• Professionnels (DJ, photographe, coach, coiffeur…) : une fiche visible par les personnes présentes dans le même lieu que vous.
+• Professionnels (DJ, photographe, coach, coiffeur…) : une fiche que vous rendez visible, le temps d’une visite, aux personnes présentes dans le même lieu que vous. Elles vous envoient une demande et vous leur répondez dans l’appli, à part des rencontres.
+• Les personnes présentes ne sont prévenues de votre arrivée que si elles ont choisi de recevoir ces alertes.
 • Événements et lieux : un QR code à l’entrée, des annonces pour les personnes présentes. Vous ne voyez que des chiffres, jamais les profils.
 
 À SAVOIR
 • Réservé aux adultes (18 ans et plus).
-• Pendant la phase de test, les pass sont simulés : rien n’est débité.
+• Pendant la phase de test, les pass et la visibilité des professionnels sont simulés : rien n’est débité.
 • UPZONE ne remplace ni le personnel du lieu ni les secours. En cas d’urgence en France, appelle le 112.
 ```
 
@@ -58,7 +59,7 @@ English:
 UPZONE lets you meet the people who are in the same venue as you: a bar, a club, a restaurant, an event.
 
 HOW IT WORKS
-1. Scan the QR code displayed in the venue.
+1. Scan the QR code displayed in the venue: you land on the list of people present.
 2. Say hello to someone who is there.
 3. If they accept, the conversation opens. You chat for as long as you are both there.
 
@@ -70,16 +71,18 @@ RESPECT FIRST
 • No selfie required. Your date of birth stays private.
 
 FOR PROFESSIONALS AND EVENTS
-• Professionals (DJ, photographer, coach, hairdresser…): a sheet seen by the people in the same venue as you.
+• Professionals (DJ, photographer, coach, hairdresser…): a sheet you make visible, for the length of a visit, to the people in the same venue as you. They send you a request and you answer inside the app, apart from the dating side.
+• People present are told you have arrived only if they chose to receive these alerts.
 • Events and venues: a QR code at the entrance, announcements for the people present. You only see numbers, never profiles.
 
 GOOD TO KNOW
 • Adults only (18 and over).
-• During the test phase, passes are simulated: nothing is charged.
+• During the test phase, passes and the visibility of professionals are simulated: nothing is charged.
 • UPZONE does not replace venue staff or the emergency services. In an emergency in France, call 112.
 ```
 
-Before the public release: remove the « phase de test / passes are simulated » line if payments have become real.
+Before the public release: remove the « phase de test / … are simulated » line if payments have become real, and do not
+write any price in the listing until the operator has fixed it.
 
 **Graphics**
 - Icon 512 × 512: `public/assets/upzone-icon-512.png`.
@@ -132,7 +135,7 @@ offered). Answer truthfully:
 | Personal info · Other info | date of birth (age), département, height | date of birth required, height optional | birth date private; age shown |
 | Personal info · Sexual orientation | « Qui souhaites-tu voir ? » with gender | optional, explicit consent | private, only filters the member's own list |
 | Photos and videos · Photos | profile photo | required for person accounts | visible in the venue after the pass; blurred before |
-| Messages · Other in-app messages | hellos and conversations | when used | readable by the two members; moderation sees a conversation only with a report |
+| Messages · Other in-app messages | hellos, conversations, and exchanges between a member and a professional | when used | readable by the two people; moderation sees a conversation or an exchange only with a report |
 | App activity · Other user-generated content | bio, reports, feedback, pro sheet, announcements | when used | |
 | App activity · App interactions | venue visits (place, start, end) | required to use a venue | « Mes lieux », safety |
 | Device or other IDs | notification subscription of the phone | optional | only if notifications are turned on; removed at sign-out |
@@ -187,6 +190,35 @@ Filled in by DZOFT with the operator's account; the operator answers for these d
 - Closed test « Alpha »: version 1.0.0 (4), tester list by e-mail, managed publishing on. Countries were set to all
   regions; narrow to France before production.
 
+## Changes since the declarations of 20 November 2026 (written 26 November 2026)
+Nothing below has been declared to Google by DZOFT: these are the points for the operator to re-read in Play Console,
+because the declarations are made in the operator's name.
+- **Phone notifications.** Build 1.0.0 (9), sent to the closed test, contains the push service. The « Device or other
+  IDs » declaration described above is therefore due; check in Play Console → Data safety that it has been made.
+- **Exchange between a member and a professional** (26 Nov): messages are already declared (« in-app messages »); the
+  row of the table above now names these exchanges. No new data type.
+- **Professionals visible per evening** (26 Nov): still simulated, nothing charged, so « digital purchases: no » stays
+  true for now.
+- **Listing texts**: the French and English descriptions above were updated on 26 Nov (scan lands on the list,
+  professionals' visibility per visit, exchange inside the app, opt-in alerts). To copy into Play Console if the
+  operator agrees with them.
+- **Screenshots**: the four screenshots still match the screens. Retake « Le lieu » if a screenshot of the list right
+  after the scan is preferred.
+
+## The day payments become real
+To change in Play Console on that day, not before:
+- Content rating → digital purchases: **yes**.
+- Data safety → financial info: Google's own billing handles the card; declare what the app itself receives
+  (a purchase reference). To check against the form's wording on the day.
+- Ads: a professional paying to be shown to people present is paid promotion inside the app. Re-read the « Ads »
+  declaration and the listing with that in mind, and label the sheet and the alert (« Sponsorisé ») if the operator
+  decides so.
+- Payments policy: in the Android app, access to in-app features must be paid through Google Play's billing system
+  (Play Console Help, « Payments », read on 26 November 2026); the operator must first accept the paid-apps terms and
+  fill in bank and tax details in the developer account.
+- Listing: remove the « simulated » line; the price shown by Google comes from the product created in Play Console.
+- No rule or price may depend on gender (see `CLAUDE.md`).
+
 ## iPhone (App Store)
 - Screenshots 1290 × 2796 in `design/app-store/` (same four screens, invented data only). They show the button
   « Obtenir mon pass (simulation) »: fine for TestFlight, to retake before an App Store submission, where Apple does not
@@ -194,3 +226,6 @@ Filled in by DZOFT with the operator's account; the operator answers for these d
 - App Store Connect asks whether the operator is a « trader » under the EU Digital Services Act: the operator's own
   declaration (address, phone and e-mail then shown publicly). Same answer as on Google Play.
 - Builds are sent to TestFlight from the workflow « iPhone build (Expo) » (options « submit » or « submit_latest »).
+- Paid visibility of professionals: App Review Guideline 3.1.3(g) (read on 26 November 2026) says that buying advertising
+  displayed in the same app must use in-app purchase. The same descriptions as above can be used for the App Store
+  listing once the « simulated » line is removed.
