@@ -1,0 +1,43 @@
+name: Live site check
+# Opens the site that is really online (https://upzoneapp.fr/) after every publication and once a day, and fails if a page,
+# a link or the sign-in screen is broken. With test accounts (repository secrets, all optional) it also signs in and opens
+# their screens. It only looks: see scripts/live-check.mjs and docs/live-check.md.
+on:
+  workflow_run:
+    workflows: ["Deploy to GitHub Pages"]
+    types: [completed]
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: live-check
+  cancel-in-progress: true
+jobs:
+  check:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install the browser used for the check
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.63.0
+          npx playwright install --with-deps chromium
+      # GitHub Pages can take a minute to serve a new publication everywhere.
+      - name: Give a new publication a moment
+        if: ${{ github.event_name == 'workflow_run' }}
+        run: sleep 90
+      - name: Check the live site
+        env:
+          LIVE_CHECK_MEMBER_EMAIL: ${{ secrets.LIVE_CHECK_MEMBER_EMAIL }}
+          LIVE_CHECK_MEMBER_PASSWORD: ${{ secrets.LIVE_CHECK_MEMBER_PASSWORD }}
+          LIVE_CHECK_PRO_EMAIL: ${{ secrets.LIVE_CHECK_PRO_EMAIL }}
+          LIVE_CHECK_PRO_PASSWORD: ${{ secrets.LIVE_CHECK_PRO_PASSWORD }}
+          LIVE_CHECK_EVENT_EMAIL: ${{ secrets.LIVE_CHECK_EVENT_EMAIL }}
+          LIVE_CHECK_EVENT_PASSWORD: ${{ secrets.LIVE_CHECK_EVENT_PASSWORD }}
+        run: node scripts/live-check.mjs
