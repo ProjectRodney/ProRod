@@ -1082,7 +1082,7 @@ CREATE OR REPLACE FUNCTION private.push_on_notification()
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-declare secret text; url text; subs jsonb; devs jsonb; lang text; v_group text := private.push_group(new.kind);
+declare secret text; url text; subs jsonb; devs jsonb; lang text; v_group text := private.push_group(new.kind); req bigint;
 begin
   begin
     if v_group <> 'account' and exists(select 1 from private.notification_mutes m where m.user_id=new.user_id and m.grp=v_group) then return new; end if;
@@ -1091,14 +1091,25 @@ begin
     if subs is null and devs is null then return new; end if;
     select decrypted_secret into secret from vault.decrypted_secrets where name='push_hook_secret' limit 1;
     url := private.setting('push_function_url') #>> '{}';
-    if secret is null or url is null then return new; end if;
+    if secret is null or url is null then
+      insert into private.push_log(kind,browsers,phones,checked_at,problem)
+        values(left(new.kind,60),coalesce(jsonb_array_length(subs),0),coalesce(jsonb_array_length(devs),0),now(),'not_configured');
+      return new;
+    end if;
     select coalesce(p.locale,'fr') into lang from public.profiles p where p.user_id=new.user_id;
-    perform net.http_post(url:=url,
+    req := net.http_post(url:=url,
       headers:=jsonb_build_object('content-type','application/json','x-push-secret',secret),
       body:=jsonb_build_object('kind',new.kind,'group',v_group,'lang',coalesce(lang,'fr'),'badge',private.unread_total(new.user_id),
                                'subscriptions',coalesce(subs,'[]'::jsonb),'devices',coalesce(devs,'[]'::jsonb)));
     update public.push_subscriptions set last_sent_at=now() where user_id=new.user_id;
     update public.app_devices set last_sent_at=now() where user_id=new.user_id;
+    begin
+      perform private.push_collect();
+      insert into private.push_log(kind,browsers,phones,request_id)
+        values(left(new.kind,60),coalesce(jsonb_array_length(subs),0),coalesce(jsonb_array_length(devs),0),req);
+    exception when others then
+      raise warning 'push_log: %', sqlerrm;
+    end;
   exception when others then
     raise warning 'push_on_notification: %', sqlerrm;
   end;
@@ -2548,6 +2559,94 @@ CREATE OR REPLACE FUNCTION public.admin_purchases(p_limit integer DEFAULT 100)
 AS $function$ select private.admin_purchases(p_limit) $function$;
 
 
+CREATE OR REPLACE FUNCTION private.push_collect()
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  begin
+    update private.push_log l set checked_at=now(), http_status=r.status_code,
+      sent=case when j.b ? 'sent' then (j.b->>'sent')::int end,
+      removed=case when j.b ? 'removed' then (j.b->>'removed')::int end,
+      phones_sent=case when j.b ? 'phones' then (j.b->>'phones')::int end,
+      phones_removed=case when j.b ? 'phonesRemoved' then (j.b->>'phonesRemoved')::int end,
+      problem=case when r.timed_out then 'timeout'
+                   when r.status_code is null then left(coalesce(r.error_msg,'no_answer'),120)
+                   when r.status_code<>200 then left(coalesce(j.b->>'error','http_'||r.status_code),120) end
+    from net._http_response r
+    cross join lateral (select case when r.status_code is not null and left(ltrim(coalesce(r.content,'')),1)='{' and length(r.content)<2000
+                                    then private.push_json(r.content) else '{}'::jsonb end as b) j
+    where l.checked_at is null and l.request_id=r.id;
+    -- pg_net forgets its answers after a few hours: a line still without answer after a day will never get one.
+    update private.push_log set checked_at=now(), problem='answer_not_found' where checked_at is null and created_at<now()-interval '1 day';
+    delete from private.push_log where created_at<now()-interval '30 days';
+  exception when others then
+    raise warning 'push_collect: %', sqlerrm;
+  end;
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.push_json(p text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+begin
+  return p::jsonb;
+exception when others then
+  return '{}'::jsonb;
+end $function$;
+
+CREATE OR REPLACE FUNCTION private.push_totals(p_since timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select jsonb_build_object(
+    'sends', count(*),
+    'waiting', count(*) filter (where checked_at is null),
+    'problems', count(*) filter (where problem is not null),
+    'addressed', coalesce(sum(browsers+phones),0),
+    'delivered', coalesce(sum(coalesce(sent,0)+coalesce(phones_sent,0)),0),
+    'removed', coalesce(sum(coalesce(removed,0)+coalesce(phones_removed,0)),0),
+    'refused', coalesce(sum(greatest(browsers+phones-coalesce(sent,0)-coalesce(phones_sent,0)-coalesce(removed,0)-coalesce(phones_removed,0),0)) filter (where checked_at is not null and problem is null),0),
+    'last_ok', max(created_at) filter (where coalesce(sent,0)+coalesce(phones_sent,0)>0),
+    'last_problem', max(created_at) filter (where problem is not null))
+  from private.push_log where created_at>=p_since
+$function$;
+
+CREATE OR REPLACE FUNCTION private.admin_push_log(p_limit integer DEFAULT 30)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare uid uuid := private.require_admin(); res jsonb;
+begin
+  perform private.push_collect();
+  select jsonb_build_object(
+    'day', (select private.push_totals(now()-interval '1 day')),
+    'week', (select private.push_totals(now()-interval '7 days')),
+    'browsers', (select count(*) from public.push_subscriptions),
+    'phones', (select count(*) from public.app_devices),
+    'configured', exists(select 1 from vault.decrypted_secrets where name='push_hook_secret') and private.setting('push_function_url') is not null,
+    'rows', coalesce((select jsonb_agg(x.row order by x.created_at desc) from (
+      select l.created_at, jsonb_build_object('at',l.created_at,'kind',l.kind,'browsers',l.browsers,'phones',l.phones,'checked',l.checked_at is not null,
+        'sent',l.sent,'removed',l.removed,'phones_sent',l.phones_sent,'phones_removed',l.phones_removed,'problem',l.problem) as row
+      from private.push_log l order by l.created_at desc limit least(greatest(coalesce(p_limit,30),1),200)) x),'[]'::jsonb)) into res;
+  return res;
+end $function$;
+
+CREATE OR REPLACE FUNCTION public.admin_push_log(p_limit integer DEFAULT 30)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.admin_push_log(p_limit) $function$;
+
+
 -- On a fresh project, functions are open to everyone by default: close them first, then grant.
 revoke all on all functions in schema private from public, anon, authenticated;
 revoke all on all functions in schema public from public, anon, authenticated;
@@ -3052,3 +3151,6 @@ grant execute on function public.admin_purchases(p_limit integer) to authenticat
 grant execute on function public.admin_purchases(p_limit integer) to service_role;
 grant execute on function public.record_purchase(p_user uuid, p_store text, p_product text, p_transaction text, p_amount_cents integer, p_currency text) to service_role;
 grant execute on function public.refund_purchase(p_store text, p_transaction text) to service_role;
+grant execute on function private.admin_push_log(p_limit integer) to authenticated;
+grant execute on function public.admin_push_log(p_limit integer) to authenticated;
+grant execute on function public.admin_push_log(p_limit integer) to service_role;
